@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface Event {
@@ -153,134 +153,135 @@ export default function ExploreScreen() {
     setCurrentMonth(newMonth);
   };
 
+  // Use useMemo to ensure events list updates when selectedDate changes
+  const allEvents = useMemo(() => {
+    // Only show selected day events, not upcoming events
+    return selectedDayEvents.map((event, index) => ({
+      ...event,
+      id: event.id + 1000, // Ensure unique IDs
+      subtitle: `Event for ${selectedDate.toLocaleDateString('en-US', { 
+        month: 'long', 
+        day: 'numeric' 
+      })}`,
+    }));
+  }, [selectedDate, selectedDayEvents]);
+
   return (
     <SafeAreaView style={styles.container}>
-      {/* Status Bar */}
-      <View style={styles.statusBar}>
-        <Text style={styles.statusTime}>8:00</Text>
-        <View style={styles.statusIcons}>
-          <Ionicons name="cellular" size={12} color="#000" />
-          <Ionicons name="wifi" size={12} color="#000" />
-          <Ionicons name="battery-full" size={12} color="#000" />
-        </View>
-      </View>
-
-      {/* Month Header */}
-      <View style={styles.monthHeader}>
-        <TouchableOpacity 
-          style={styles.navButton} 
-          onPress={() => navigateMonth('prev')}
-        >
-          <Ionicons name="chevron-back" size={20} color="#000" />
-        </TouchableOpacity>
-        <Text style={styles.monthText}>{getMonthName(currentMonth)}</Text>
-        <TouchableOpacity 
-          style={styles.navButton} 
-          onPress={() => navigateMonth('next')}
-        >
-          <Ionicons name="chevron-forward" size={20} color="#000" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Calendar Grid */}
-      <View style={styles.calendarContainer}>
-        {/* Day Headers */}
-        <View style={styles.dayHeaders}>
-          {['MON', 'TUE', 'WED', 'THUR', 'FRI', 'SAT', 'SUN'].map((day, index) => (
-            <Text key={index} style={styles.dayHeader}>{day}</Text>
-          ))}
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {/* Status Bar */}
+        <View style={styles.statusBar}>
+          <Text style={styles.statusTime}>8:00</Text>
+          <View style={styles.statusIcons}>
+            <Ionicons name="cellular" size={12} color="#000" />
+            <Ionicons name="wifi" size={12} color="#000" />
+            <Ionicons name="battery-full" size={12} color="#000" />
+          </View>
         </View>
 
-        {/* Calendar Days */}
-        <View style={styles.calendarGrid}>
-          {daysInMonth.map((date, index) => {
-            const dateKey = formatDate(date);
-            const dayEvents = calendarEvents[dateKey] || [];
-            const isSelected = isSameDay(date, selectedDate);
-            const isCurrentMonthDay = isCurrentMonth(date);
-            
-            return (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.dayCell,
-                  isSelected && styles.selectedDayCell,
-                  !isCurrentMonthDay && styles.otherMonthDay
-                ]}
-                onPress={() => setSelectedDate(date)}
-              >
-                <Text style={[
-                  styles.dayNumber,
-                  isSelected && styles.selectedDayNumber,
-                  !isCurrentMonthDay && styles.otherMonthDayNumber
-                ]}>
-                  {date.getDate()}
-                </Text>
-                {dayEvents.map((event, eventIndex) => (
-                  <View 
-                    key={eventIndex} 
-                    style={[
-                      styles.eventIndicator, 
-                      { backgroundColor: event.color }
-                    ]}
-                  >
-                    <Text style={styles.eventText}>{event.title}</Text>
+        {/* Month Header */}
+        <View style={styles.monthHeader}>
+          <TouchableOpacity 
+            style={styles.navButton} 
+            onPress={() => navigateMonth('prev')}
+          >
+            <Ionicons name="chevron-back" size={20} color="#000" />
+          </TouchableOpacity>
+          <Text style={styles.monthText}>{getMonthName(currentMonth)}</Text>
+          <TouchableOpacity 
+            style={styles.navButton} 
+            onPress={() => navigateMonth('next')}
+          >
+            <Ionicons name="chevron-forward" size={20} color="#000" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Calendar Grid */}
+        <View style={styles.calendarContainer}>
+          {/* Day Headers */}
+          <View style={styles.dayHeaders}>
+            {['MON', 'TUE', 'WED', 'THUR', 'FRI', 'SAT', 'SUN'].map((day, index) => (
+              <Text key={index} style={styles.dayHeader}>{day}</Text>
+            ))}
+          </View>
+
+          {/* Calendar Days */}
+          <View style={styles.calendarGrid}>
+            {daysInMonth.map((date, index) => {
+              const dateKey = formatDate(date);
+              const dayEvents = calendarEvents[dateKey] || [];
+              const isSelected = isSameDay(date, selectedDate);
+              const isCurrentMonthDay = isCurrentMonth(date);
+              
+              return (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.dayCell,
+                    isSelected && styles.selectedDayCell,
+                    !isCurrentMonthDay && styles.otherMonthDay
+                  ]}
+                  onPress={() => setSelectedDate(date)}
+                >
+                  <Text style={[
+                    styles.dayNumber,
+                    isSelected && styles.selectedDayNumber,
+                    !isCurrentMonthDay && styles.otherMonthDayNumber
+                  ]}>
+                    {date.getDate()}
+                  </Text>
+                  {dayEvents.map((event, eventIndex) => (
+                    <View 
+                      key={eventIndex} 
+                      style={[
+                        styles.eventIndicator, 
+                        { backgroundColor: event.color }
+                      ]}
+                    >
+                      <Text style={styles.eventText}>{event.title}</Text>
+                    </View>
+                  ))}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* Events List */}
+        <View style={styles.upcomingSection}>
+          <Text style={styles.upcomingTitle}>
+            Events for {selectedDate.toLocaleDateString('en-US', { 
+              month: 'long', 
+              day: 'numeric' 
+            })}
+          </Text>
+          <View style={styles.upcomingEventsList}>
+            {allEvents.length > 0 ? (
+              allEvents.map((event) => (
+                <View key={event.id} style={styles.eventCard}>
+                  <View style={[styles.eventColorDot, { backgroundColor: event.color }]} />
+                  <View style={styles.eventContent}>
+                    <Text style={styles.eventTime}>{event.time}</Text>
+                    <Text style={styles.eventTitle}>{event.title}</Text>
+                    <Text style={styles.eventSubtitle} numberOfLines={2}>
+                      {event.subtitle}
+                    </Text>
                   </View>
-                ))}
-              </TouchableOpacity>
-            );
-          })}
+                  <TouchableOpacity style={styles.eventAction}>
+                    <Ionicons name="ellipsis-vertical" size={16} color="#666" />
+                  </TouchableOpacity>
+                </View>
+              ))
+            ) : (
+              <View style={styles.noEventsContainer}>
+                <Ionicons name="calendar-outline" size={64} color="#CCC" />
+                <Text style={styles.noEventsTitle}>No events for this day</Text>
+                <Text style={styles.noEventsMessage}>Select a different day to see events</Text>
+              </View>
+            )}
+          </View>
         </View>
-      </View>
-
-      {/* Selected Day Events */}
-      <View style={styles.selectedDaySection}>
-        <Text style={styles.selectedDayTitle}>
-          Events for {selectedDate.toLocaleDateString('en-US', { 
-            weekday: 'long', 
-            month: 'long', 
-            day: 'numeric' 
-          })}
-        </Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.selectedDayEvents}>
-          {selectedDayEvents.length > 0 ? (
-            selectedDayEvents.map((event) => (
-              <View key={event.id} style={styles.selectedDayEventCard}>
-                <View style={[styles.eventColorDot, { backgroundColor: event.color }]} />
-                <Text style={styles.selectedDayEventTitle}>{event.title}</Text>
-                <Text style={styles.selectedDayEventTime}>{event.time}</Text>
-              </View>
-            ))
-          ) : (
-            <Text style={styles.noEventsText}>No events for this day</Text>
-          )}
-        </ScrollView>
-      </View>
-
-      {/* Upcoming Events List */}
-      <View style={styles.upcomingSection}>
-        <Text style={styles.upcomingTitle}>Upcoming Events</Text>
-        <ScrollView style={styles.upcomingEventsList} showsVerticalScrollIndicator={false}>
-          {upcomingEvents.map((event) => (
-            <View key={event.id} style={styles.eventCard}>
-              <View style={[styles.eventColorDot, { backgroundColor: event.color }]} />
-              <View style={styles.eventContent}>
-                <Text style={styles.eventTime}>{event.time}</Text>
-                <Text style={styles.eventTitle}>{event.title}</Text>
-                <Text style={styles.eventSubtitle} numberOfLines={2}>
-                  {event.subtitle}
-                  {event.subtitle.includes('view more') && (
-                    <Text style={styles.viewMoreText}> view more</Text>
-                  )}
-                </Text>
-              </View>
-              <TouchableOpacity style={styles.eventAction}>
-                <Ionicons name="ellipsis-vertical" size={16} color="#666" />
-              </TouchableOpacity>
-            </View>
-          ))}
-        </ScrollView>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -289,6 +290,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'white',
+  },
+  scrollView: {
+    flex: 1,
   },
   statusBar: {
     flexDirection: 'row',
@@ -387,50 +391,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '500',
   },
-  selectedDaySection: {
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
-  },
-  selectedDayTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#000',
-    marginBottom: 10,
-  },
-  selectedDayEvents: {
-    flexDirection: 'row',
-  },
-  selectedDayEventCard: {
-    backgroundColor: '#FFE4E6',
-    padding: 12,
-    borderRadius: 8,
-    marginRight: 10,
-    minWidth: 120,
-    alignItems: 'center',
-  },
-  selectedDayEventTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#000',
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  selectedDayEventTime: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 2,
-  },
-  noEventsText: {
-    fontSize: 14,
-    color: '#999',
-    fontStyle: 'italic',
-  },
   upcomingSection: {
-    flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 15,
+    paddingTop: 60,
+    paddingBottom: 40,
   },
   upcomingTitle: {
     fontSize: 18,
@@ -439,7 +403,7 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   upcomingEventsList: {
-    flex: 1,
+    gap: 15,
   },
   eventCard: {
     flexDirection: 'row',
@@ -447,7 +411,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFE4E6',
     padding: 15,
     borderRadius: 12,
-    marginBottom: 15,
   },
   eventColorDot: {
     width: 12,
@@ -480,5 +443,26 @@ const styles = StyleSheet.create({
   },
   eventAction: {
     padding: 4,
+  },
+  noEventsContainer: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  noEventsText: {
+    fontSize: 16,
+    color: '#666',
+    fontStyle: 'italic',
+  },
+  noEventsTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#000',
+    marginTop: 10,
+  },
+  noEventsMessage: {
+    fontSize: 16,
+    color: '#666',
+    marginTop: 5,
+    textAlign: 'center',
   },
 }); 
