@@ -195,6 +195,71 @@ class ApiService {
       throw error;
     }
   }
-}
+
+  // ================= Events =================
+  async listEvents(params?: {
+    vendorId?: string;
+    status?: string;
+    visibility?: string;
+    tags?: string;
+    search?: string;
+    startDate?: string;
+    endDate?: string;
+    limit?: number;
+    page?: number;
+  }): Promise<any> {
+    const query = new URLSearchParams();
+    Object.entries(params || {}).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        query.append(key, String(value));
+      }
+    });
+    const qs = query.toString();
+    const endpoint = `/api/events${qs ? `?${qs}` : ''}`;
+    return this.request<any>(endpoint, { method: 'GET' });
+  }
+
+  async getEventById(id: string): Promise<any> {
+    return this.request<any>(`/api/events/${id}`, { method: 'GET' });
+  }
+
+  // ================= Personal Events =================
+  async listPersonalEvents(token: string, params?: {
+    startDate?: string;
+    endDate?: string;
+    limit?: number;
+    page?: number;
+  }): Promise<any> {
+    const query = new URLSearchParams();
+    Object.entries(params || {}).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        query.append(key, String(value));
+      }
+    });
+    const qs = query.toString();
+    const endpoint = `/api/personal-events${qs ? `?${qs}` : ''}`;
+    return this.request<any>(endpoint, {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+  }
+
+  async createPersonalEvent(token: string, body: {
+    userId: string;
+    title: string;
+    startsAt: string; // ISO
+    endsAt: string;   // ISO
+    notes?: string;
+  }): Promise<any> {
+    return this.request<any>('/api/personal-events', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+  }
+}  
 
 export const apiService = new ApiService();
