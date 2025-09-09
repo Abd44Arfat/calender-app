@@ -123,10 +123,10 @@ const HomeScreen = () => {
     fetchEvents();
   }, [selectedDate, token]);
 
-  // Match event to a timeline slot
-  const getEventForTime = (time: string) => {
+  // Return all events matching the time slot
+  const getEventsForTime = (time: string) => {
     const parsed = parseTime(time);
-    if (!parsed) return null;
+    if (!parsed) return [] as Array<{ id: number; title: string; time: string; color: string; startHour: number; type: string }>;
     const currentDayEvents = events.filter(e =>
       sameDay(new Date(e.startsAt), selectedDate)
     );
@@ -136,10 +136,10 @@ const HomeScreen = () => {
         title: e.title,
         time: `${toHHmm(e.startsAt)} - ${toHHmm(e.endsAt)}`,
         color: '#2196F3',
-        startTime: new Date(e.startsAt).getHours(),
+        startHour: new Date(e.startsAt).getHours(),
         type: e.type || 'event',
       }))
-      .find(ev => ev.startTime === parsed.h);
+      .filter(ev => ev.startHour === parsed.h);
   };
 
   // Default modal times
@@ -260,7 +260,7 @@ const HomeScreen = () => {
         {/* Schedule Timeline */}
         <View style={styles.scheduleContainer}>
           {timeSlots.map((time, index) => {
-            const event = getEventForTime(time);
+            const eventsAt = getEventsForTime(time);
             return (
               <View key={index} style={styles.timelineRow}>
                 <View style={styles.timeColumn}>
@@ -268,7 +268,9 @@ const HomeScreen = () => {
                   <View style={styles.timelineLine} />
                 </View>
                 <View style={styles.eventColumn}>
-                  {event ? <EventCard event={event} /> : <View style={styles.emptySlot} />}
+                  {eventsAt.length
+                    ? eventsAt.map(ev => <EventCard key={`${index}-${ev.id}`} event={ev} />)
+                    : <View style={styles.emptySlot} />}
                 </View>
               </View>
             );
@@ -387,7 +389,7 @@ const styles = StyleSheet.create({
   timeColumn: { width: 80, alignItems: 'flex-end', paddingRight: 15 },
   timeText: { fontSize: 14, color: '#999', marginBottom: 8 },
   timelineLine: { width: 1, height: 60, backgroundColor: '#E0E0E0', alignSelf: 'center' },
-  eventColumn: { flex: 1, paddingLeft: 15 },
+  eventColumn: { flex: 1, paddingLeft: 15, gap: 8 },
   emptySlot: { height: 60 },
   fab: {
     position: 'absolute',
