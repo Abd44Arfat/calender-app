@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import EventCard from '../../components/EventCard';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface Event {
   id: number;
@@ -18,7 +19,17 @@ interface EventsData {
 }
 
 const HomeScreen = () => {
+  const { user } = useAuth();
   const [selectedDay, setSelectedDay] = useState(13);
+
+  // Helper function to get full image URL
+  const getImageUrl = (imagePath: string | undefined) => {
+    if (!imagePath) return null;
+    // If it's already a full URL, return as is
+    if (imagePath.startsWith('http')) return imagePath;
+    // Otherwise, construct the full URL
+    return `http://localhost:3000${imagePath}`;
+  };
 
   // Dummy data for different days
   const dayEvents: EventsData = {
@@ -213,10 +224,19 @@ const HomeScreen = () => {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.profileSection}>
-            <View style={styles.profilePic}>
-              <Ionicons name="person" size={24} color="#2196F3" />
-            </View>
-            <Text style={styles.greetingText}>Hi, James!</Text>
+            {getImageUrl(user?.profile?.profilePicture) ? (
+              <Image 
+                source={{ uri: getImageUrl(user.profile.profilePicture)! }} 
+                style={styles.profilePic}
+              />
+            ) : (
+              <View style={styles.profilePic}>
+                <Ionicons name="person" size={24} color="#2196F3" />
+              </View>
+            )}
+            <Text style={styles.greetingText}>
+              Hi, {user?.profile?.fullName?.split(' ')[0] || 'User'}!
+            </Text>
           </View>
           <TouchableOpacity style={styles.notificationIcon}>
             <Ionicons name="notifications-outline" size={24} color="#000" />
