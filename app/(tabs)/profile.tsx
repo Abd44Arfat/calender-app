@@ -222,20 +222,17 @@ export default function ProfileScreen() {
       case 'changePassword':
         setIsPasswordModalVisible(true);
         break;
-      case 'logout':
-        handleLogout();
-        break;
-      case 'settings':
-        // Navigate to settings
-        break;
       case 'privacy':
-        // Navigate to privacy
+        router.push('/privacy');
         break;
       case 'help':
-        // Navigate to help
+        router.push('/help');
         break;
       case 'about':
-        // Navigate to about
+        router.push('/about');
+        break;
+      case 'logout':
+        handleLogout();
         break;
       default:
         break;
@@ -245,7 +242,6 @@ export default function ProfileScreen() {
   const menuItems = [
     { title: 'Edit Profile', icon: 'person-outline', action: 'edit' },
     { title: 'Change Password', icon: 'lock-closed-outline', action: 'changePassword' },
-    { title: 'Settings', icon: 'settings-outline', action: 'settings' },
     { title: 'Privacy', icon: 'shield-outline', action: 'privacy' },
     { title: 'Help & Support', icon: 'help-circle-outline', action: 'help' },
     { title: 'About', icon: 'information-circle-outline', action: 'about' },

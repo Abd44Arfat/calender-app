@@ -88,6 +88,34 @@ const HomeScreen = () => {
     return [];
   };
 
+  // Helper function to generate random colors for events
+  const getRandomColor = (seed: string) => {
+    const colors = [
+      '#EF4444', // Red
+      '#F97316', // Orange
+      '#EAB308', // Yellow
+      '#22C55E', // Green
+      '#06B6D4', // Cyan
+      '#3B82F6', // Blue
+      '#8B5CF6', // Purple
+      '#EC4899', // Pink
+      '#84CC16', // Lime
+      '#F59E0B', // Amber
+      '#10B981', // Emerald
+      '#6366F1', // Indigo
+    ];
+    
+    // Use the seed to consistently generate the same color for the same event
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) {
+      const char = seed.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    
+    return colors[Math.abs(hash) % colors.length];
+  };
+
   const fetchEvents = async () => {
     try {
       setIsLoading(true);
@@ -172,7 +200,7 @@ const HomeScreen = () => {
         id: `${e.id}-event-${idx}`, // Ensure unique ID for events
         title: e.title,
         time: `${toHHmm(e.startsAt)} - ${toHHmm(e.endsAt)}`,
-        color: '#2196F3',
+        color: getRandomColor(e.title + e.startsAt), // Use random color based on event title and time
         startHour: new Date(e.startsAt).getHours(),
         type: e.type || 'event',
       })),
@@ -180,7 +208,7 @@ const HomeScreen = () => {
         id: `${b._id}-booking-${idx}`, // Ensure unique ID for bookings
         title: `📅 ${b.eventId.title}`,
         time: `${toHHmm(b.eventId.startsAt)} - ${toHHmm(b.eventId.endsAt)}`,
-        color: '#4CAF50',
+        color: getRandomColor(b.eventId.title + b.eventId.startsAt + 'booking'), // Use random color for bookings too
         startHour: new Date(b.eventId.startsAt).getHours(),
         type: 'booking',
       }))

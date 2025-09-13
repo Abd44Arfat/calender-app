@@ -71,7 +71,7 @@ export default function ExploreScreen() {
         id: event._id || `event-${index}`, // Use actual _id or fallback to unique string
         title: event.title || 'Untitled Event',
         time: `${new Date(event.startsAt).toTimeString().slice(0, 5)}-${new Date(event.endsAt).toTimeString().slice(0, 5)}`,
-        color: '#4CAF50',
+        color: getRandomColor(event.title + event.startsAt), // Use random color based on event title and time
         type: 'event',
         startsAt: event.startsAt,
         endsAt: event.endsAt,
@@ -96,6 +96,34 @@ export default function ExploreScreen() {
   // Helper functions
   const formatDate = (date: Date) => {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  };
+
+  // Helper function to generate random colors for events
+  const getRandomColor = (seed: string) => {
+    const colors = [
+      '#EF4444', // Red
+      '#F97316', // Orange
+      '#EAB308', // Yellow
+      '#22C55E', // Green
+      '#06B6D4', // Cyan
+      '#3B82F6', // Blue
+      '#8B5CF6', // Purple
+      '#EC4899', // Pink
+      '#84CC16', // Lime
+      '#F59E0B', // Amber
+      '#10B981', // Emerald
+      '#6366F1', // Indigo
+    ];
+    
+    // Use the seed to consistently generate the same color for the same event
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) {
+      const char = seed.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    
+    return colors[Math.abs(hash) % colors.length];
   };
 
   const getDaysInMonth = (date: Date) => {
