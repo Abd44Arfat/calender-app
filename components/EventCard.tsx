@@ -4,7 +4,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface EventCardProps {
   event: {
-    id: number;
+    id: string | number;
     title: string;
     time: string;
     color: string;

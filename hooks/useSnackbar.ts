@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 
 interface SnackbarState {
   visible: boolean;
@@ -21,6 +21,17 @@ export const useSnackbar = () => {
     });
   }, []);
 
+  // Auto-dismiss snackbar after 2 seconds
+  useEffect(() => {
+    if (snackbar.visible) {
+      const timer = setTimeout(() => {
+        setSnackbar(prev => ({ ...prev, visible: false }));
+      }, 2000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [snackbar.visible]);
+
   const hideSnackbar = useCallback(() => {
     setSnackbar(prev => ({ ...prev, visible: false }));
   }, []);
@@ -41,3 +52,5 @@ export const useSnackbar = () => {
     showError,
   };
 };
+
+

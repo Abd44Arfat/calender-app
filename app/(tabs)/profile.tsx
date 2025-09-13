@@ -1,16 +1,49 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, Alert, Image, ActivityIndicator } from 'react-native';
+import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, Alert, Image, ActivityIndicator, Modal, TextInput } from 'react-native';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSnackbar } from '../../hooks/useSnackbar';
 import { Snackbar } from '../../components/Snackbar';
+import { apiService } from '../../services/api';
 
 export default function ProfileScreen() {
-  const { user, logout, refreshProfile, uploadProfileImage } = useAuth();
+  let user, token, logout, refreshProfile, uploadProfileImage;
+  try {
+    const auth = useAuth();
+    user = auth.user;
+    token = auth.token;
+    logout = auth.logout;
+    refreshProfile = auth.refreshProfile;
+    uploadProfileImage = auth.uploadProfileImage;
+  } catch (error) {
+    console.log('Auth context not available in ProfileScreen');
+    user = null;
+    token = null;
+    logout = () => {};
+    refreshProfile = async () => {};
+    uploadProfileImage = async () => {};
+  }
+  
   const { snackbar, showSuccess, showError, hideSnackbar } = useSnackbar();
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [isPasswordModalVisible, setIsPasswordModalVisible] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Profile edit form state
+  const [editBio, setEditBio] = useState('');
+  const [editLocation, setEditLocation] = useState('');
+  const [editRating, setEditRating] = useState('');
+  const [editFullName, setEditFullName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editAcademyName, setEditAcademyName] = useState('');
+  
+  // Password change form state
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   // Helper function to get full image URL
   const getImageUrl = (imagePath: string | undefined) => {
@@ -23,11 +56,7 @@ export default function ProfileScreen() {
     return fullUrl;
   };
 
-  const profileStats = [
-    { label: 'Events', value: '24', icon: 'calendar' },
-    { label: 'Completed', value: '18', icon: 'checkmark-circle' },
-    { label: 'Pending', value: '6', icon: 'time' },
-  ];
+
 
   useEffect(() => {
     // Refresh profile data when component mounts
@@ -116,13 +145,85 @@ export default function ProfileScreen() {
     );
   };
 
+  const openEditModal = () => {
+    // Populate form with current user data
+    setEditBio(''); // Bio field doesn't exist in current user profile
+    setEditLocation(user?.profile?.location || '');
+    setEditRating(user?.profile?.rating?.toString() || '');
+    setEditFullName(user?.profile?.fullName || '');
+    setEditPhone(user?.profile?.phone || '');
+    setEditAcademyName(user?.profile?.academyName || '');
+    setIsEditModalVisible(true);
+  };
+
+  const updateProfile = async () => {
+    if (!user) return;
+    
+    try {
+      setIsLoading(true);
+      const updateData = {
+        profile: {
+          bio: editBio.trim() || undefined,
+          location: editLocation.trim() || undefined,
+          rating: editRating ? parseFloat(editRating) : undefined,
+          fullName: editFullName.trim() || undefined,
+          phone: editPhone.trim() || undefined,
+          academyName: editAcademyName.trim() || undefined,
+        }
+      };
+
+      await apiService.updateProfile(token || '', updateData);
+      showSuccess('Profile updated successfully!');
+      setIsEditModalVisible(false);
+      await refreshProfile();
+    } catch (err: any) {
+      showError(err.message || 'Failed to update profile');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const changePassword = async () => {
+    if (!user) return;
+    
+    if (newPassword !== confirmPassword) {
+      showError('New passwords do not match');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      showError('New password must be at least 6 characters');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      await apiService.changePassword(token || '', {
+        currentPassword,
+        newPassword,
+      });
+      showSuccess('Password changed successfully!');
+      setIsPasswordModalVisible(false);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err: any) {
+      showError(err.message || 'Failed to change password');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleMenuAction = (action: string) => {
     switch (action) {
+      case 'edit':
+        openEditModal();
+        break;
+      case 'changePassword':
+        setIsPasswordModalVisible(true);
+        break;
       case 'logout':
         handleLogout();
-        break;
-      case 'edit':
-        // Navigate to edit profile
         break;
       case 'settings':
         // Navigate to settings
@@ -143,6 +244,7 @@ export default function ProfileScreen() {
 
   const menuItems = [
     { title: 'Edit Profile', icon: 'person-outline', action: 'edit' },
+    { title: 'Change Password', icon: 'lock-closed-outline', action: 'changePassword' },
     { title: 'Settings', icon: 'settings-outline', action: 'settings' },
     { title: 'Privacy', icon: 'shield-outline', action: 'privacy' },
     { title: 'Help & Support', icon: 'help-circle-outline', action: 'help' },
@@ -155,9 +257,6 @@ export default function ProfileScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Profile</Text>
-        <TouchableOpacity style={styles.editButton}>
-          <Ionicons name="create-outline" size={24} color="#EF4444" />
-        </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -203,18 +302,7 @@ export default function ProfileScreen() {
           )}
         </View>
 
-        {/* Stats Section */}
-        <View style={styles.statsSection}>
-          {profileStats.map((stat, index) => (
-            <View key={index} style={styles.statItem}>
-              <View style={styles.statIcon}>
-                <Ionicons name={stat.icon as any} size={24} color="#EF4444" />
-              </View>
-              <Text style={styles.statValue}>{stat.value}</Text>
-              <Text style={styles.statLabel}>{stat.label}</Text>
-            </View>
-          ))}
-        </View>
+       
 
         {/* Menu Section */}
         <View style={styles.menuSection}>
@@ -244,6 +332,115 @@ export default function ProfileScreen() {
           <Text style={styles.versionText}>Calendar App v1.0.0</Text>
         </View>
       </ScrollView>
+
+      {/* Edit Profile Modal */}
+      <Modal visible={isEditModalVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Edit Profile</Text>
+            <TextInput
+              placeholder="Full Name"
+              value={editFullName}
+              onChangeText={setEditFullName}
+              style={styles.input}
+            />
+            <TextInput
+              placeholder="Phone"
+              value={editPhone}
+              onChangeText={setEditPhone}
+              style={styles.input}
+            />
+            <TextInput
+              placeholder="Location"
+              value={editLocation}
+              onChangeText={setEditLocation}
+              style={styles.input}
+            />
+            {user?.userType === 'vendor' && (
+              <TextInput
+                placeholder="Academy Name"
+                value={editAcademyName}
+                onChangeText={setEditAcademyName}
+                style={styles.input}
+              />
+            )}
+            <TextInput
+              placeholder="Bio"
+              value={editBio}
+              onChangeText={setEditBio}
+              style={styles.input}
+              multiline
+            />
+            <TextInput
+              placeholder="Rating (0-5)"
+              value={editRating}
+              onChangeText={setEditRating}
+              style={styles.input}
+              keyboardType="numeric"
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                onPress={() => setIsEditModalVisible(false)} 
+                style={[styles.modalButton, styles.cancelButton]}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                onPress={updateProfile} 
+                style={[styles.modalButton, styles.saveButton]}
+                disabled={isLoading}
+              >
+                {isLoading ? <ActivityIndicator color="white" /> : <Text style={styles.saveButtonText}>Save</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Change Password Modal */}
+      <Modal visible={isPasswordModalVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Change Password</Text>
+            <TextInput
+              placeholder="Current Password"
+              value={currentPassword}
+              onChangeText={setCurrentPassword}
+              style={styles.input}
+              secureTextEntry
+            />
+            <TextInput
+              placeholder="New Password"
+              value={newPassword}
+              onChangeText={setNewPassword}
+              style={styles.input}
+              secureTextEntry
+            />
+            <TextInput
+              placeholder="Confirm New Password"
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              style={styles.input}
+              secureTextEntry
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                onPress={() => setIsPasswordModalVisible(false)} 
+                style={[styles.modalButton, styles.cancelButton]}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                onPress={changePassword} 
+                style={[styles.modalButton, styles.saveButton]}
+                disabled={isLoading}
+              >
+                {isLoading ? <ActivityIndicator color="white" /> : <Text style={styles.saveButtonText}>Change</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <Snackbar
         visible={snackbar.visible}
@@ -409,5 +606,65 @@ const styles = StyleSheet.create({
   versionText: {
     fontSize: 14,
     color: '#999',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    width: '100%',
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 20,
+    maxHeight: '80%',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 16,
+    color: '#111827',
+    textAlign: 'center',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+    color: '#111827',
+    fontSize: 16,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 16,
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+  },
+  saveButton: {
+    backgroundColor: '#EF4444',
+  },
+  cancelButtonText: {
+    color: '#374151',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  saveButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 16,
   },
 }); 

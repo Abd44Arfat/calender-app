@@ -1,13 +1,22 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useMemo, useState } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, Alert, Modal, TextInput } from 'react-native';
+import { useAuth } from '../../contexts/AuthContext';
+import { apiService } from '../../services/api';
+import { useSnackbar } from '../../hooks/useSnackbar';
 
 interface Event {
-  id: number;
+  id: string | number;
   title: string;
   time: string;
   color: string;
   type: string;
+  startsAt?: string;
+  endsAt?: string;
+  location?: string;
+  priceCents?: number;
+  capacity?: number;
+  description?: string;
 }
 
 interface EventsData {
@@ -15,91 +24,79 @@ interface EventsData {
 }
 
 export default function ExploreScreen() {
-  const [currentMonth, setCurrentMonth] = useState(new Date(2023, 8, 1)); // September 2023
-  const [selectedDate, setSelectedDate] = useState(new Date(2023, 8, 27)); // September 27
+  let user, token;
+  try {
+    const auth = useAuth();
+    user = auth.user;
+    token = auth.token;
+  } catch (error) {
+    console.log('Auth context not available in ExploreScreen');
+    user = null;
+    token = null;
+  }
+  
+  const { snackbar, showError, showSuccess } = useSnackbar();
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [isLoading, setIsLoading] = useState(false);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
+  const [newEventTitle, setNewEventTitle] = useState('');
+  const [newEventDescription, setNewEventDescription] = useState('');
+  const [newEventLocation, setNewEventLocation] = useState('');
+  const [newEventStartTime, setNewEventStartTime] = useState('');
+  const [newEventEndTime, setNewEventEndTime] = useState('');
+  const [newEventCapacity, setNewEventCapacity] = useState('');
+  const [newEventPrice, setNewEventPrice] = useState('');
+  const [newEventTags, setNewEventTags] = useState('');
 
-  // Sample events data for calendar
-  const calendarEvents: EventsData = {
-    '2023-08-29': [
-      { id: 1, title: 'Football training', time: '10:00-12:00', color: '#4CAF50', type: 'sport' }
-    ],
-    '2023-09-01': [
-      { id: 2, title: 'Basketball', time: '10:00-12:00', color: '#4CAF50', type: 'sport' }
-    ],
-    '2023-09-03': [
-      { id: 3, title: 'Quotes', time: '09:00-10:00', color: '#81C784', type: 'work' },
-      { id: 4, title: 'Swimming', time: '14:00-15:00', color: '#FF9800', type: 'sport' }
-    ],
-    '2023-09-05': [
-      { id: 5, title: 'Quotes', time: '09:00-10:00', color: '#81C784', type: 'work' },
-      { id: 6, title: 'Riding school', time: '16:00-17:00', color: '#FF9800', type: 'sport' }
-    ],
-    '2023-09-07': [
-      { id: 7, title: 'Quotes', time: '09:00-10:00', color: '#81C784', type: 'work' }
-    ],
-    '2023-09-09': [
-      { id: 8, title: 'Quotes', time: '09:00-10:00', color: '#81C784', type: 'work' },
-      { id: 9, title: 'Martial Arts', time: '18:00-19:00', color: '#FF9800', type: 'sport' }
-    ],
-    '2023-09-11': [
-      { id: 10, title: 'Quotes', time: '09:00-10:00', color: '#81C784', type: 'work' }
-    ],
-    '2023-09-13': [
-      { id: 11, title: 'Gymnastics', time: '15:00-16:00', color: '#4CAF50', type: 'sport' }
-    ],
-    '2023-09-17': [
-      { id: 12, title: 'Quotes', time: '09:00-10:00', color: '#81C784', type: 'work' }
-    ],
-    '2023-09-19': [
-      { id: 13, title: 'Quotes', time: '09:00-10:00', color: '#81C784', type: 'work' },
-      { id: 14, title: 'Gymnastics', time: '15:00-16:00', color: '#FF9800', type: 'sport' },
-      { id: 15, title: 'Reel', time: '20:00-21:00', color: '#F44336', type: 'social' }
-    ],
-    '2023-09-23': [
-      { id: 16, title: 'Cycling', time: '08:00-09:00', color: '#4CAF50', type: 'sport' }
-    ],
-    '2023-09-25': [
-      { id: 17, title: 'Quotes', time: '09:00-10:00', color: '#81C784', type: 'work' },
-      { id: 18, title: 'Giveaway', time: '12:00-13:00', color: '#FF9800', type: 'social' },
-      { id: 19, title: 'Gymnastics', time: '15:00-16:00', color: '#F44336', type: 'sport' }
-    ],
-    '2023-09-27': [
-      { id: 20, title: 'Quotes', time: '09:00-10:00', color: '#81C784', type: 'work' },
-      { id: 21, title: 'Giveaway', time: '12:00-13:00', color: '#FF9800', type: 'social' },
-      { id: 22, title: 'Cycling', time: '17:00-18:00', color: '#F44336', type: 'sport' }
-    ],
-    '2023-10-01': [
-      { id: 23, title: 'Cycling', time: '08:00-09:00', color: '#4CAF50', type: 'sport' }
-    ]
+  // Fetch events from API
+  const fetchEvents = async () => {
+    try {
+      setIsLoading(true);
+      const startOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+      const endOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+      
+      const eventsResponse = await apiService.listEvents({
+        startDate: startOfMonth.toISOString(),
+        endDate: endOfMonth.toISOString(),
+        limit: 100,
+      });
+
+      const normalizedEvents = Array.isArray(eventsResponse?.events) ? eventsResponse.events : 
+                              Array.isArray(eventsResponse?.data) ? eventsResponse.data :
+                              Array.isArray(eventsResponse) ? eventsResponse : [];
+
+      const formattedEvents = normalizedEvents.map((event: any, index: number) => ({
+        id: event._id || `event-${index}`, // Use actual _id or fallback to unique string
+        title: event.title || 'Untitled Event',
+        time: `${new Date(event.startsAt).toTimeString().slice(0, 5)}-${new Date(event.endsAt).toTimeString().slice(0, 5)}`,
+        color: '#4CAF50',
+        type: 'event',
+        startsAt: event.startsAt,
+        endsAt: event.endsAt,
+        location: event.location,
+        priceCents: event.priceCents,
+        capacity: event.capacity,
+        description: event.description,
+      }));
+
+      setEvents(formattedEvents);
+    } catch (err: any) {
+      showError(err.message || 'Failed to fetch events');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Upcoming events for the list below calendar
-  const upcomingEvents = [
-    {
-      id: 1,
-      title: 'Football Training',
-      time: '10:00-13:00',
-      subtitle: 'Start from screen 16',
-      color: '#4CAF50',
-      type: 'sport',
-    },
-    {
-      id: 2,
-      title: 'Gymnastics',
-      time: '14:00-15:00',
-      subtitle: 'Define the problem or question that...view more',
-      color: '#F44336',
-      type: 'sport',
-    },
-    {
-      id: 3,
-      title: 'Horse riding',
-      time: '19:00-20:00',
-      subtitle: 'we will do the legs and back workout',
-      color: '#2196F3',
-      type: 'sport',
-    },
-  ];
+  useEffect(() => {
+    fetchEvents();
+  }, [currentMonth]);
+
+  // Helper functions
+  const formatDate = (date: Date) => {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  };
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
@@ -120,9 +117,20 @@ export default function ExploreScreen() {
     return days;
   };
 
-  const formatDate = (date: Date) => {
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-  };
+  // Convert events to calendar format
+  const calendarEvents: EventsData = useMemo(() => {
+    const eventsByDate: EventsData = {};
+    events.forEach(event => {
+      if (event.startsAt) {
+        const dateKey = formatDate(new Date(event.startsAt));
+        if (!eventsByDate[dateKey]) {
+          eventsByDate[dateKey] = [];
+        }
+        eventsByDate[dateKey].push(event);
+      }
+    });
+    return eventsByDate;
+  }, [events]);
 
   const isSameDay = (date1: Date, date2: Date) => {
     return date1.getDate() === date2.getDate() && 
@@ -153,12 +161,139 @@ export default function ExploreScreen() {
     setCurrentMonth(newMonth);
   };
 
+  const bookEvent = async (event: Event) => {
+    if (!token) {
+      showError('Please login to book events');
+      return;
+    }
+
+    Alert.alert(
+      'Book Event',
+      `Do you want to book "${event.title}" for $${event.priceCents ? (event.priceCents / 100).toFixed(2) : '0.00'}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Book',
+          onPress: async () => {
+            try {
+              setIsLoading(true);
+              // Extract the original event ID (remove the index suffix if present)
+              const eventIdStr = event.id.toString();
+              const eventId = eventIdStr.includes('-') ? eventIdStr.split('-')[0] : eventIdStr;
+              await apiService.createBooking(token, { eventId });
+              showSuccess('Event booked successfully!');
+            } catch (err: any) {
+              showError(err.message || 'Failed to book event');
+            } finally {
+              setIsLoading(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const cancelBooking = async (bookingId: string) => {
+    if (!token || !user?._id) {
+      showError('Please login to cancel bookings');
+      return;
+    }
+
+    Alert.alert(
+      'Cancel Booking',
+      'Are you sure you want to cancel this booking?',
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Yes, Cancel',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setIsLoading(true);
+              await apiService.cancelBooking(token, bookingId, {
+                byUserId: user._id as string,
+              });
+              showSuccess('Booking cancelled successfully!');
+              await fetchEvents(); // Refresh the events
+            } catch (err: any) {
+              showError(err.message || 'Failed to cancel booking');
+            } finally {
+              setIsLoading(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const createEvent = async () => {
+    if (!token || user?.userType !== 'vendor') {
+      showError('Only vendors can create events');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+
+      // Parse time strings
+      const parseTime = (timeStr: string) => {
+        const time = timeStr.trim();
+        const [hours, minutes] = time.split(':').map(Number);
+        return { hours, minutes };
+      };
+
+      const startTime = parseTime(newEventStartTime);
+      const endTime = parseTime(newEventEndTime);
+
+      // Create start and end dates
+      const startDate = new Date(selectedDate);
+      startDate.setHours(startTime.hours, startTime.minutes, 0, 0);
+      
+      const endDate = new Date(selectedDate);
+      endDate.setHours(endTime.hours, endTime.minutes, 0, 0);
+
+      const eventData = {
+        title: newEventTitle.trim(),
+        description: newEventDescription.trim(),
+        location: newEventLocation.trim(),
+        startsAt: startDate.toISOString(),
+        endsAt: endDate.toISOString(),
+        capacity: parseInt(newEventCapacity) || 10,
+        priceCents: Math.round((parseFloat(newEventPrice) || 0) * 100),
+        visibility: 'public' as const,
+        status: 'published' as const,
+        tags: newEventTags.split(',').map(tag => tag.trim()).filter(tag => tag),
+      };
+
+      await apiService.createEvent(token, eventData);
+      showSuccess('Event created successfully!');
+      setIsCreateModalVisible(false);
+      
+      // Reset form
+      setNewEventTitle('');
+      setNewEventDescription('');
+      setNewEventLocation('');
+      setNewEventStartTime('');
+      setNewEventEndTime('');
+      setNewEventCapacity('');
+      setNewEventPrice('');
+      setNewEventTags('');
+      
+      // Refresh events
+      await fetchEvents();
+    } catch (err: any) {
+      showError(err.message || 'Failed to create event');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Use useMemo to ensure events list updates when selectedDate changes
   const allEvents = useMemo(() => {
     // Only show selected day events, not upcoming events
     return selectedDayEvents.map((event, index) => ({
       ...event,
-      id: event.id + 1000, // Ensure unique IDs
+      id: `${event.id}-${index}`, // Ensure unique IDs by combining with index
       subtitle: `Event for ${selectedDate.toLocaleDateString('en-US', { 
         month: 'long', 
         day: 'numeric' 
@@ -169,15 +304,7 @@ export default function ExploreScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Status Bar */}
-        <View style={styles.statusBar}>
-          <Text style={styles.statusTime}>8:00</Text>
-          <View style={styles.statusIcons}>
-            <Ionicons name="cellular" size={12} color="#000" />
-            <Ionicons name="wifi" size={12} color="#000" />
-            <Ionicons name="battery-full" size={12} color="#000" />
-          </View>
-        </View>
+  
 
         {/* Month Header */}
         <View style={styles.monthHeader}>
@@ -263,13 +390,40 @@ export default function ExploreScreen() {
                   <View style={styles.eventContent}>
                     <Text style={styles.eventTime}>{event.time}</Text>
                     <Text style={styles.eventTitle}>{event.title}</Text>
-                    <Text style={styles.eventSubtitle} numberOfLines={2}>
-                      {event.subtitle}
-                    </Text>
+                    {event.location && (
+                      <Text style={styles.eventLocation} numberOfLines={1}>
+                        📍 {event.location}
+                      </Text>
+                    )}
+                    {event.description && (
+                      <Text style={styles.eventSubtitle} numberOfLines={2}>
+                        {event.description}
+                      </Text>
+                    )}
+                    {event.priceCents && (
+                      <Text style={styles.eventPrice}>
+                        ${(event.priceCents / 100).toFixed(2)}
+                      </Text>
+                    )}
                   </View>
-                  <TouchableOpacity style={styles.eventAction}>
-                    <Ionicons name="ellipsis-vertical" size={16} color="#666" />
-                  </TouchableOpacity>
+                  <View style={styles.eventActions}>
+                    {user?.userType === 'customer' && (
+                      <TouchableOpacity 
+                        style={styles.bookButton}
+                        onPress={() => bookEvent(event)}
+                        disabled={isLoading}
+                      >
+                        {isLoading ? (
+                          <ActivityIndicator size="small" color="white" />
+                        ) : (
+                          <Text style={styles.bookButtonText}>Book</Text>
+                        )}
+                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity style={styles.eventAction}>
+                      <Ionicons name="ellipsis-vertical" size={16} color="#666" />
+                    </TouchableOpacity>
+                  </View>
                 </View>
               ))
             ) : (
@@ -282,6 +436,112 @@ export default function ExploreScreen() {
           </View>
         </View>
       </ScrollView>
+
+      {/* Floating Action Button for Vendors */}
+      {user?.userType === 'vendor' && (
+        <TouchableOpacity 
+          style={styles.fab} 
+          onPress={() => setIsCreateModalVisible(true)}
+        >
+          <Ionicons name="add" size={24} color="white" />
+        </TouchableOpacity>
+      )}
+
+      {/* Create Event Modal */}
+      <Modal visible={isCreateModalVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Create Event</Text>
+            <TextInput
+              placeholder="Event Title"
+              value={newEventTitle}
+              onChangeText={setNewEventTitle}
+              style={styles.input}
+            />
+            <TextInput
+              placeholder="Description"
+              value={newEventDescription}
+              onChangeText={setNewEventDescription}
+              style={styles.input}
+              multiline
+            />
+            <TextInput
+              placeholder="Location"
+              value={newEventLocation}
+              onChangeText={setNewEventLocation}
+              style={styles.input}
+            />
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TextInput
+                placeholder="Start Time (HH:mm)"
+                value={newEventStartTime}
+                onChangeText={setNewEventStartTime}
+                style={[styles.input, { flex: 1 }]}
+              />
+              <TextInput
+                placeholder="End Time (HH:mm)"
+                value={newEventEndTime}
+                onChangeText={setNewEventEndTime}
+                style={[styles.input, { flex: 1 }]}
+              />
+            </View>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TextInput
+                placeholder="Capacity"
+                value={newEventCapacity}
+                onChangeText={setNewEventCapacity}
+                style={[styles.input, { flex: 1 }]}
+                keyboardType="numeric"
+              />
+              <TextInput
+                placeholder="Price ($)"
+                value={newEventPrice}
+                onChangeText={setNewEventPrice}
+                style={[styles.input, { flex: 1 }]}
+                keyboardType="numeric"
+              />
+            </View>
+            <TextInput
+              placeholder="Tags (comma separated)"
+              value={newEventTags}
+              onChangeText={setNewEventTags}
+              style={styles.input}
+            />
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 12 }}>
+              <TouchableOpacity 
+                onPress={() => setIsCreateModalVisible(false)} 
+                style={[styles.modalBtn, { backgroundColor: '#9ca3af' }]}
+              >
+                <Text style={styles.modalBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                onPress={createEvent} 
+                style={styles.modalBtn} 
+                disabled={isLoading}
+              >
+                {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalBtnText}>Create</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Snackbar */}
+      {snackbar.visible && (
+        <View
+          style={{
+            position: 'absolute',
+            bottom: 20,
+            left: 16,
+            right: 16,
+            backgroundColor: snackbar.type === 'error' ? '#EF4444' : '#10B981',
+            padding: 12,
+            borderRadius: 8,
+          }}
+        >
+          <Text style={{ color: 'white', textAlign: 'center' }}>{snackbar.message}</Text>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -437,6 +697,33 @@ const styles = StyleSheet.create({
     color: '#666',
     lineHeight: 20,
   },
+  eventLocation: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 2,
+  },
+  eventPrice: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#059669',
+    marginTop: 4,
+  },
+  eventActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  bookButton: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  bookButtonText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
+  },
   viewMoreText: {
     color: '#F44336',
     fontWeight: '500',
@@ -464,5 +751,59 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 5,
     textAlign: 'center',
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 100,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#4CAF50',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalCard: { 
+    width: '100%', 
+    backgroundColor: 'white', 
+    borderRadius: 12, 
+    padding: 16,
+    maxHeight: '80%',
+  },
+  modalTitle: { 
+    fontSize: 18, 
+    fontWeight: '700', 
+    marginBottom: 12, 
+    color: '#111827' 
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 8,
+    color: '#111827',
+  },
+  modalBtn: { 
+    backgroundColor: '#4CAF50', 
+    paddingHorizontal: 16, 
+    paddingVertical: 10, 
+    borderRadius: 8 
+  },
+  modalBtnText: { 
+    color: 'white', 
+    fontWeight: '600' 
   },
 }); 

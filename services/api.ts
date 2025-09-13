@@ -71,6 +71,76 @@ export interface ProfileResponse {
   };
 }
 
+export interface Booking {
+  _id: string;
+  eventId: {
+    _id: string;
+    title: string;
+    location: string;
+    startsAt: string;
+    endsAt: string;
+    priceCents: number;
+  };
+  userId: {
+    _id: string;
+    profile: {
+      fullName: string;
+    };
+  };
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BookingsResponse {
+  bookings: Booking[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  };
+}
+
+export interface CreateEventRequest {
+  title: string;
+  description: string;
+  location: string;
+  startsAt: string; // ISO
+  endsAt: string;   // ISO
+  capacity: number;
+  priceCents: number;
+  visibility: 'public' | 'private';
+  status: 'draft' | 'published';
+  tags: string[];
+  coverUrl?: string;
+}
+
+export interface CreateBookingRequest {
+  eventId: string;
+}
+
+export interface UpdateProfileRequest {
+  profile: {
+    bio?: string;
+    location?: string;
+    rating?: number;
+    fullName?: string;
+    phone?: string;
+    academyName?: string;
+    specializations?: string[];
+  };
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export interface CancelBookingRequest {
+  byUserId: string;
+}
+
 class ApiService {
   private baseUrl: string;
 
@@ -253,6 +323,84 @@ class ApiService {
   }): Promise<any> {
     return this.request<any>('/api/personal-events', {
       method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+  }
+
+  // ================= Bookings =================
+  async listBookings(token: string, params?: {
+    status?: string;
+    limit?: number;
+    page?: number;
+  }): Promise<BookingsResponse> {
+    const query = new URLSearchParams();
+    Object.entries(params || {}).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        query.append(key, String(value));
+      }
+    });
+    const qs = query.toString();
+    const endpoint = `/api/bookings${qs ? `?${qs}` : ''}`;
+    return this.request<BookingsResponse>(endpoint, {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+  }
+
+  async createBooking(token: string, body: CreateBookingRequest): Promise<any> {
+    return this.request<any>('/api/bookings', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+  }
+
+  // ================= Event Creation (Vendor) =================
+  async createEvent(token: string, body: CreateEventRequest): Promise<any> {
+    return this.request<any>('/api/events', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+  }
+
+  // ================= Profile Management =================
+  async updateProfile(token: string, body: UpdateProfileRequest): Promise<any> {
+    return this.request<any>('/api/auth/profile', {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+  }
+
+  async changePassword(token: string, body: ChangePasswordRequest): Promise<any> {
+    return this.request<any>('/api/auth/change-password', {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+  }
+
+  // ================= Booking Management =================
+  async cancelBooking(token: string, bookingId: string, body: CancelBookingRequest): Promise<any> {
+    return this.request<any>(`/api/bookings/${bookingId}`, {
+      method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',

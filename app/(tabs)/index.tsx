@@ -1,14 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View, Image, Modal, TextInput, ActivityIndicator } from 'react-native';
+import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View, Image, Modal, TextInput, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import EventCard from '../../components/EventCard';
 import { useAuth } from '../../contexts/AuthContext';
-import { apiService } from '../../services/api';
+import { apiService, Booking } from '../../services/api';
 import { useSnackbar } from '../../hooks/useSnackbar';
 
 interface Event {
-  id: number;
+  id: string | number;
   title: string;
   startsAt: string;
   endsAt: string;
@@ -16,11 +17,22 @@ interface Event {
 }
 
 const HomeScreen = () => {
-  const { user, token } = useAuth();
+  let user, token;
+  try {
+    const auth = useAuth();
+    user = auth.user;
+    token = auth.token;
+  } catch (error) {
+    console.log('Auth context not available in HomeScreen');
+    user = null;
+    token = null;
+  }
+  
   const { snackbar, showError, showSuccess } = useSnackbar();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [events, setEvents] = useState<Event[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
   const [isModalVisible, setIsModalVisible] = useState<boolean>(false);
   const [newTitle, setNewTitle] = useState<string>('');
   const [newStartTime, setNewStartTime] = useState<string>('09:00');
@@ -103,7 +115,7 @@ const HomeScreen = () => {
 
       const combined = [...normalize(publicEvents), ...normalize(personalEvents)].map(
         (e: any, idx: number) => ({
-          id: typeof e.id === 'number' ? e.id : idx,
+          id: e._id || e.id || `event-${Date.now()}-${idx}`, // Use actual ID or unique fallback
           title: e.title || 'Untitled',
           startsAt: e.startsAt,
           endsAt: e.endsAt,
@@ -112,6 +124,15 @@ const HomeScreen = () => {
       );
 
       setEvents(combined);
+
+      // Fetch user bookings
+      if (token) {
+        const bookingsResponse = await apiService.listBookings(token, {
+          status: 'confirmed',
+          limit: 50,
+        });
+        setBookings(bookingsResponse.bookings);
+      }
     } catch (err: any) {
       showError(err.message || 'Failed to fetch events');
     } finally {
@@ -123,23 +144,49 @@ const HomeScreen = () => {
     fetchEvents();
   }, [selectedDate, token]);
 
+  // Refresh data when screen comes into focus (e.g., after booking an event)
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchEvents();
+    }, [selectedDate, token])
+  );
+
   // Return all events matching the time slot
   const getEventsForTime = (time: string) => {
     const parsed = parseTime(time);
-    if (!parsed) return [] as Array<{ id: number; title: string; time: string; color: string; startHour: number; type: string }>;
+    if (!parsed) return [] as Array<{ id: string | number; title: string; time: string; color: string; startHour: number; type: string }>;
+    
+    // Get events for the selected day
     const currentDayEvents = events.filter(e =>
       sameDay(new Date(e.startsAt), selectedDate)
     );
-    return currentDayEvents
-      .map(e => ({
-        id: typeof e.id === 'number' ? e.id : 0,
+    
+    // Get bookings for the selected day
+    const currentDayBookings = bookings.filter(b =>
+      sameDay(new Date(b.eventId.startsAt), selectedDate)
+    );
+    
+    // Combine events and bookings
+    const allItems = [
+      ...currentDayEvents.map((e, idx) => ({
+        id: `${e.id}-event-${idx}`, // Ensure unique ID for events
         title: e.title,
         time: `${toHHmm(e.startsAt)} - ${toHHmm(e.endsAt)}`,
         color: '#2196F3',
         startHour: new Date(e.startsAt).getHours(),
         type: e.type || 'event',
+      })),
+      ...currentDayBookings.map((b, idx) => ({
+        id: `${b._id}-booking-${idx}`, // Ensure unique ID for bookings
+        title: `📅 ${b.eventId.title}`,
+        time: `${toHHmm(b.eventId.startsAt)} - ${toHHmm(b.eventId.endsAt)}`,
+        color: '#4CAF50',
+        startHour: new Date(b.eventId.startsAt).getHours(),
+        type: 'booking',
       }))
-      .filter(ev => ev.startHour === parsed.h);
+    ];
+    
+    return allItems.filter(item => item.startHour === parsed.h);
   };
 
   // Default modal times
@@ -196,6 +243,39 @@ const HomeScreen = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const cancelBooking = async (booking: Booking) => {
+    if (!token || !user?._id) {
+      showError('You must be logged in to cancel bookings');
+      return;
+    }
+
+    Alert.alert(
+      'Cancel Booking',
+      `Are you sure you want to cancel your booking for "${booking.eventId.title}"?`,
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Yes, Cancel',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setIsLoading(true);
+              await apiService.cancelBooking(token, booking._id, {
+                byUserId: user._id as string,
+              });
+              showSuccess('Booking cancelled successfully!');
+              await fetchEvents(); // Refresh the data
+            } catch (err: any) {
+              showError(err.message || 'Failed to cancel booking');
+            } finally {
+              setIsLoading(false);
+            }
+          }
+        }
+      ]
+    );
   };
 
   const timeSlots = [
@@ -256,6 +336,38 @@ const HomeScreen = () => {
             ))}
           </ScrollView>
         </View>
+
+        {/* My Bookings Section - Only for customers */}
+        {user?.userType === 'customer' && bookings.length > 0 && (
+          <View style={styles.bookingsSection}>
+            <Text style={styles.sectionTitle}>My Bookings</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bookingsContainer}>
+              {bookings.slice(0, 5).map((booking) => (
+                <View key={booking._id} style={styles.bookingCard}>
+                  <Text style={styles.bookingTitle} numberOfLines={1}>
+                    {booking.eventId.title}
+                  </Text>
+                  <Text style={styles.bookingTime}>
+                    {toHHmm(booking.eventId.startsAt)} - {toHHmm(booking.eventId.endsAt)}
+                  </Text>
+                  <Text style={styles.bookingLocation} numberOfLines={1}>
+                    📍 {booking.eventId.location}
+                  </Text>
+                  <Text style={styles.bookingPrice}>
+                    ${(booking.eventId.priceCents / 100).toFixed(2)}
+                  </Text>
+                  <TouchableOpacity 
+                    style={styles.cancelButton}
+                    onPress={() => cancelBooking(booking)}
+                    disabled={isLoading}
+                  >
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        )}
 
         {/* Schedule Timeline */}
         <View style={styles.scheduleContainer}>
@@ -384,6 +496,22 @@ const styles = StyleSheet.create({
   dayNumber: { fontSize: 16, fontWeight: '600', color: '#000' },
   dayLabel: { fontSize: 12, color: '#666', marginTop: 2 },
   selectedDayText: { color: 'white' },
+  bookingsSection: { paddingHorizontal: 20, paddingBottom: 20 },
+  sectionTitle: { fontSize: 18, fontWeight: '700', marginBottom: 12, color: '#111827' },
+  bookingsContainer: { flexDirection: 'row' },
+  bookingCard: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    padding: 12,
+    marginRight: 12,
+    width: 200,
+    borderLeftWidth: 4,
+    borderLeftColor: '#4CAF50',
+  },
+  bookingTitle: { fontSize: 14, fontWeight: '600', color: '#111827', marginBottom: 4 },
+  bookingTime: { fontSize: 12, color: '#6B7280', marginBottom: 2 },
+  bookingLocation: { fontSize: 12, color: '#6B7280', marginBottom: 2 },
+  bookingPrice: { fontSize: 12, fontWeight: '600', color: '#059669' },
   scheduleContainer: { paddingHorizontal: 20, paddingBottom: 100 },
   timelineRow: { flexDirection: 'row', marginBottom: 20 },
   timeColumn: { width: 80, alignItems: 'flex-end', paddingRight: 15 },
@@ -426,6 +554,19 @@ const styles = StyleSheet.create({
   },
   modalBtn: { backgroundColor: '#EF4444', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8 },
   modalBtnText: { color: 'white', fontWeight: '600' },
+  cancelButton: {
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
+  },
 });
 
 export default HomeScreen;
