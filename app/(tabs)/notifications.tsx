@@ -182,6 +182,45 @@ export default function NotificationsScreen() {
         </TouchableOpacity>
       </View>
 
+
+<TouchableOpacity
+  style={{
+    backgroundColor: '#2196F3',
+    padding: 12,
+    borderRadius: 8,
+    margin: 20,
+    alignItems: 'center',
+  }}
+  onPress={async () => {
+    const schedulingId = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: 'Test Notification 🎉',
+        body: 'This is a test notification fired immediately.',
+        data: { test: true },
+      },
+      trigger: null, // 👈 null = show immediately
+    });
+
+    // خزّنه لو حابب يظهر في لستتك
+    const stored = {
+      id: String(Date.now()),
+      title: 'Test Notification 🎉',
+      body: 'This is a test notification fired immediately.',
+      date: new Date().toISOString(),
+      read: false,
+      type: 'test',
+      systemNotificationId: schedulingId,
+    };
+    await saveNotification(stored);
+    await updateBadgeCount();
+    notifyChange();
+  }}
+>
+  <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>
+    Test Notification
+  </Text>
+</TouchableOpacity>
+
       {/* Notifications List */}
       <ScrollView style={styles.notificationsList} showsVerticalScrollIndicator={false}>
         {notifications.map((notification) => (
