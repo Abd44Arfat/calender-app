@@ -1,34 +1,161 @@
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import * as Notifications from 'expo-notifications';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+type StoredNotification = {
+  id: string;
+  title: string;
+  body: string;
+  date: string; // ISO
+  read: boolean;
+  type?: string;
+  systemNotificationId?: string; // id returned by scheduleNotificationAsync or delivered notification
+};
+
+const STORAGE_KEY = 'APP_NOTIFICATIONS';
+let changeListeners: (() => void)[] = [];
+
+const notifyChange = () => {
+  changeListeners.forEach((l) => l());
+};
+
+export async function initNotifications() {
+  const { status } = await Notifications.requestPermissionsAsync();
+  // You can check `status` and inform user if denied
+  // Save delivered notifications when received
+  Notifications.addNotificationReceivedListener(async (notif) => {
+    const content = notif.request.content;
+    const stored: StoredNotification = {
+      id: String(Date.now()),
+      title: content.title ?? 'Notification',
+      body: content.body ?? '',
+      date: new Date().toISOString(),
+      read: false,
+      systemNotificationId: notif.request.identifier,
+    };
+    await saveNotification(stored);
+    await updateBadgeCount();
+    notifyChange();
+  });
+
+  // When user taps notification (optional)
+  Notifications.addNotificationResponseReceivedListener(async () => {
+    // update badge / state if needed
+    await updateBadgeCount();
+    notifyChange();
+  });
+}
+
+async function readAll(): Promise<StoredNotification[]> {
+  const raw = await AsyncStorage.getItem(STORAGE_KEY);
+  return raw ? JSON.parse(raw) : [];
+}
+
+async function writeAll(items: StoredNotification[]) {
+  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+}
+
+export async function getNotifications(): Promise<StoredNotification[]> {
+  return readAll();
+}
+
+export async function saveNotification(n: StoredNotification) {
+  const list = await readAll();
+  list.unshift(n); // newest first
+  await writeAll(list);
+}
+
+export async function scheduleEventNotification(params: {
+  id: string;
+  title: string;
+  body: string;
+  eventDateISO: string;
+  type?: string;
+}) {
+const eventDate = new Date(params.eventDateISO);
+const triggerDate = new Date(eventDate.getTime() - 5 * 60 * 1000); // 5 دقائق قبل الحدث
+const now = new Date();
+
+if (triggerDate <= now) return null; // ما تشغلش إشعار فات معاده
+
+const schedulingId = await Notifications.scheduleNotificationAsync({
+  content: {
+    title: params.title,
+    body: params.body,
+    data: { eventId: params.id, type: params.type ?? 'event' },
+  },
+  trigger: {
+    type: 'date',
+    date: triggerDate,
+  } as any, // 👈 نخلي TS يسكت
+});
+
+  const stored = {
+    id: params.id,
+    title: params.title,
+    body: params.body,
+    date: triggerDate.toISOString(),
+    read: false,
+    type: params.type,
+    systemNotificationId: schedulingId,
+  };
+  await saveNotification(stored);
+  await updateBadgeCount();
+  notifyChange();
+  return schedulingId;
+}
+
+export async function markAsRead(notificationId: string) {
+  const list = await readAll();
+  const updated = list.map((n) => (n.id === notificationId ? { ...n, read: true } : n));
+  await writeAll(updated);
+  await updateBadgeCount();
+  notifyChange();
+}
+
+export async function clearAllNotifications() {
+  await writeAll([]);
+  await updateBadgeCount();
+  notifyChange();
+}
+
+export async function updateBadgeCount() {
+  const list = await readAll();
+  const unread = list.filter((n) => !n.read).length;
+  try {
+    await Notifications.setBadgeCountAsync(unread);
+  } catch {
+    // setBadge may be platform limited
+  }
+}
+
+export function addChangeListener(fn: () => void) {
+  changeListeners.push(fn);
+  return () => {
+    changeListeners = changeListeners.filter((l) => l !== fn);
+  };
+}
 
 export default function NotificationsScreen() {
-  const notifications = [
-    {
-      id: 1,
-      title: 'Football Training Reminder',
-      message: 'Your football training starts in 30 minutes',
-      time: '2 hours ago',
-      type: 'reminder',
-      read: false,
-    },
-    {
-      id: 2,
-      title: 'New Event Added',
-      message: 'Gymnastics class has been added to your schedule',
-      time: '1 day ago',
-      type: 'event',
-      read: true,
-    },
-    {
-      id: 3,
-      title: 'Schedule Update',
-      message: 'Your design meeting has been rescheduled to 2:00 PM',
-      time: '2 days ago',
-      type: 'update',
-      read: true,
-    },
-  ];
+  const [notifications, setNotifications] = useState<StoredNotification[]>([]);
+
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      const storedNotifications = await getNotifications();
+      setNotifications(storedNotifications);
+    };
+
+    fetchNotifications();
+    const unsubscribe = addChangeListener(() => {
+      fetchNotifications();
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
@@ -43,12 +170,14 @@ export default function NotificationsScreen() {
     }
   };
 
+  const unread = notifications.filter((n) => !n.read).length;
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Notifications</Text>
-        <TouchableOpacity style={styles.clearButton}>
+        <TouchableOpacity style={styles.clearButton} onPress={clearAllNotifications}>
           <Text style={styles.clearButtonText}>Clear All</Text>
         </TouchableOpacity>
       </View>
@@ -62,14 +191,15 @@ export default function NotificationsScreen() {
               styles.notificationItem,
               !notification.read && styles.unreadNotification
             ]}
+            onPress={() => markAsRead(notification.id)}
           >
             <View style={styles.notificationIcon}>
-              {getNotificationIcon(notification.type)}
+              {getNotificationIcon(notification.type ?? '')}
             </View>
             <View style={styles.notificationContent}>
               <Text style={styles.notificationTitle}>{notification.title}</Text>
-              <Text style={styles.notificationMessage}>{notification.message}</Text>
-              <Text style={styles.notificationTime}>{notification.time}</Text>
+              <Text style={styles.notificationMessage}>{notification.body}</Text>
+              <Text style={styles.notificationTime}>{new Date(notification.date).toLocaleString()}</Text>
             </View>
             {!notification.read && <View style={styles.unreadDot} />}
           </TouchableOpacity>
@@ -183,4 +313,4 @@ const styles = StyleSheet.create({
     color: '#999',
     textAlign: 'center',
   },
-}); 
+});

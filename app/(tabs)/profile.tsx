@@ -33,7 +33,6 @@ export default function ProfileScreen() {
   const [isLoading, setIsLoading] = useState(false);
   
   // Profile edit form state
-  const [editBio, setEditBio] = useState('');
   const [editLocation, setEditLocation] = useState('');
   const [editRating, setEditRating] = useState('');
   const [editFullName, setEditFullName] = useState('');
@@ -147,7 +146,6 @@ export default function ProfileScreen() {
 
   const openEditModal = () => {
     // Populate form with current user data
-    setEditBio(''); // Bio field doesn't exist in current user profile
     setEditLocation(user?.profile?.location || '');
     setEditRating(user?.profile?.rating?.toString() || '');
     setEditFullName(user?.profile?.fullName || '');
@@ -163,7 +161,6 @@ export default function ProfileScreen() {
       setIsLoading(true);
       const updateData = {
         profile: {
-          bio: editBio.trim() || undefined,
           location: editLocation.trim() || undefined,
           rating: editRating ? parseFloat(editRating) : undefined,
           fullName: editFullName.trim() || undefined,
@@ -360,13 +357,7 @@ export default function ProfileScreen() {
                 style={styles.input}
               />
             )}
-            <TextInput
-              placeholder="Bio"
-              value={editBio}
-              onChangeText={setEditBio}
-              style={styles.input}
-              multiline
-            />
+          
             <TextInput
               placeholder="Rating (0-5)"
               value={editRating}
