@@ -1,6 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View, Image, Modal, TextInput, ActivityIndicator, Alert } from 'react-native';
+import {
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  Modal,
+  TextInput,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import EventCard from '../../components/EventCard';
@@ -27,7 +38,7 @@ const HomeScreen = () => {
     user = null;
     token = null;
   }
-  
+
   const { snackbar, showError, showSuccess } = useSnackbar();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -39,7 +50,6 @@ const HomeScreen = () => {
   const [newEndTime, setNewEndTime] = useState<string>('10:00');
   const [newNotes, setNewNotes] = useState<string>('');
 
-  // Build the next 7 days list starting from today
   const days = useMemo(() => {
     const formatter = new Intl.DateTimeFormat('en', { weekday: 'short' });
     const list: { date: Date; label: string }[] = [];
@@ -51,22 +61,19 @@ const HomeScreen = () => {
     return list;
   }, []);
 
-  // Safer same-day check (UTC aligned)
   const sameDay = (a: Date, b: Date) =>
     a.getUTCFullYear() === b.getUTCFullYear() &&
     a.getUTCMonth() === b.getUTCMonth() &&
     a.getUTCDate() === b.getUTCDate();
 
-  const toHHmm = (iso: string) => new Date(iso).toTimeString().slice(0, 5);
+  const toHHmm = (iso?: string) =>
+    iso ? new Date(iso).toTimeString().slice(0, 5) : '--:--';
 
-  // Parse time strings into hours/minutes
   const parseTime = (value: string): { h: number; m: number } | null => {
     if (!value) return null;
     const v = value.trim().toLowerCase();
     let match = v.match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
-    if (match) {
-      return { h: parseInt(match[1], 10), m: parseInt(match[2], 10) };
-    }
+    if (match) return { h: parseInt(match[1], 10), m: parseInt(match[2], 10) };
     match = v.match(/^(\d{1,2}):(\d{2})\s*(am|pm)$/);
     if (match) {
       let h = parseInt(match[1], 10);
@@ -79,7 +86,6 @@ const HomeScreen = () => {
     return null;
   };
 
-  // Normalize API responses
   const normalize = (res: any) => {
     if (Array.isArray(res?.events)) return res.events;
     if (Array.isArray(res?.data)) return res.data;
@@ -88,31 +94,27 @@ const HomeScreen = () => {
     return [];
   };
 
-  // Helper function to generate random colors for events
   const getRandomColor = (seed: string) => {
     const colors = [
-      '#EF4444', // Red
-      '#F97316', // Orange
-      '#EAB308', // Yellow
-      '#22C55E', // Green
-      '#06B6D4', // Cyan
-      '#3B82F6', // Blue
-      '#8B5CF6', // Purple
-      '#EC4899', // Pink
-      '#84CC16', // Lime
-      '#F59E0B', // Amber
-      '#10B981', // Emerald
-      '#6366F1', // Indigo
+      '#EF4444',
+      '#F97316',
+      '#EAB308',
+      '#22C55E',
+      '#06B6D4',
+      '#3B82F6',
+      '#8B5CF6',
+      '#EC4899',
+      '#84CC16',
+      '#F59E0B',
+      '#10B981',
+      '#6366F1',
     ];
-    
-    // Use the seed to consistently generate the same color for the same event
     let hash = 0;
     for (let i = 0; i < seed.length; i++) {
       const char = seed.charCodeAt(i);
       hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32-bit integer
+      hash = hash & hash;
     }
-    
     return colors[Math.abs(hash) % colors.length];
   };
 
@@ -124,14 +126,12 @@ const HomeScreen = () => {
       const endISO = new Date(selectedDate);
       endISO.setHours(23, 59, 59, 999);
 
-      // Public events
       const publicEvents = await apiService.listEvents({
         startDate: startISO.toISOString(),
         endDate: endISO.toISOString(),
         limit: 200,
       });
 
-      // Personal events
       let personalEvents: any = [];
       if (token) {
         personalEvents = await apiService.listPersonalEvents(token, {
@@ -143,7 +143,7 @@ const HomeScreen = () => {
 
       const combined = [...normalize(publicEvents), ...normalize(personalEvents)].map(
         (e: any, idx: number) => ({
-          id: e._id || e.id || `event-${Date.now()}-${idx}`, // Use actual ID or unique fallback
+          id: e._id || e.id || `event-${Date.now()}-${idx}`,
           title: e.title || 'Untitled',
           startsAt: e.startsAt,
           endsAt: e.endsAt,
@@ -153,13 +153,12 @@ const HomeScreen = () => {
 
       setEvents(combined);
 
-      // Fetch user bookings
       if (token) {
         const bookingsResponse = await apiService.listBookings(token, {
           status: 'confirmed',
           limit: 50,
         });
-        setBookings(bookingsResponse.bookings);
+        setBookings(bookingsResponse.bookings || []);
       }
     } catch (err: any) {
       showError(err.message || 'Failed to fetch events');
@@ -172,52 +171,46 @@ const HomeScreen = () => {
     fetchEvents();
   }, [selectedDate, token]);
 
-  // Refresh data when screen comes into focus (e.g., after booking an event)
   useFocusEffect(
     React.useCallback(() => {
       fetchEvents();
     }, [selectedDate, token])
   );
 
-  // Return all events matching the time slot
   const getEventsForTime = (time: string) => {
     const parsed = parseTime(time);
-    if (!parsed) return [] as Array<{ id: string | number; title: string; time: string; color: string; startHour: number; type: string }>;
-    
-    // Get events for the selected day
+    if (!parsed) return [];
+
     const currentDayEvents = events.filter(e =>
-      sameDay(new Date(e.startsAt), selectedDate)
+      e.startsAt && sameDay(new Date(e.startsAt), selectedDate)
     );
-    
-    // Get bookings for the selected day
-    const currentDayBookings = bookings.filter(b =>
-      sameDay(new Date(b.eventId.startsAt), selectedDate)
+
+    const currentDayBookings = bookings.filter(
+      b => b.eventId?.startsAt && sameDay(new Date(b.eventId.startsAt), selectedDate)
     );
-    
-    // Combine events and bookings
+
     const allItems = [
       ...currentDayEvents.map((e, idx) => ({
-        id: `${e.id}-event-${idx}`, // Ensure unique ID for events
+        id: `${e.id}-event-${idx}`,
         title: e.title,
         time: `${toHHmm(e.startsAt)} - ${toHHmm(e.endsAt)}`,
-        color: getRandomColor(e.title + e.startsAt), // Use random color based on event title and time
+        color: getRandomColor(e.title + e.startsAt),
         startHour: new Date(e.startsAt).getHours(),
         type: e.type || 'event',
       })),
       ...currentDayBookings.map((b, idx) => ({
-        id: `${b._id}-booking-${idx}`, // Ensure unique ID for bookings
-        title: `📅 ${b.eventId.title}`,
-        time: `${toHHmm(b.eventId.startsAt)} - ${toHHmm(b.eventId.endsAt)}`,
-        color: getRandomColor(b.eventId.title + b.eventId.startsAt + 'booking'), // Use random color for bookings too
-        startHour: new Date(b.eventId.startsAt).getHours(),
+        id: `${b._id}-booking-${idx}`,
+        title: `📅 ${b.eventId?.title || 'No Title'}`,
+        time: `${toHHmm(b.eventId?.startsAt)} - ${toHHmm(b.eventId?.endsAt)}`,
+        color: getRandomColor((b.eventId?.title || '') + (b.eventId?.startsAt || '') + 'booking'),
+        startHour: b.eventId?.startsAt ? new Date(b.eventId.startsAt).getHours() : -1,
         type: 'booking',
-      }))
+      })),
     ];
-    
+
     return allItems.filter(item => item.startHour === parsed.h);
   };
 
-  // Default modal times
   const openCreateModal = () => {
     const now = new Date();
     now.setMinutes(0, 0, 0);
@@ -261,7 +254,6 @@ const HomeScreen = () => {
         notes: newNotes?.trim() || undefined,
       };
 
-      console.log('📝 Creating personal event with payload:', payload);
       await apiService.createPersonalEvent(token, payload);
       showSuccess('Personal event created');
       setIsModalVisible(false);
@@ -278,10 +270,14 @@ const HomeScreen = () => {
       showError('You must be logged in to cancel bookings');
       return;
     }
+    if (!booking.eventId) {
+      showError('This booking has no linked event.');
+      return;
+    }
 
     Alert.alert(
       'Cancel Booking',
-      `Are you sure you want to cancel your booking for "${booking.eventId.title}"?`,
+      `Are you sure you want to cancel your booking for "${booking.eventId.title || 'Untitled'}"?`,
       [
         { text: 'No', style: 'cancel' },
         {
@@ -294,14 +290,14 @@ const HomeScreen = () => {
                 byUserId: user._id as string,
               });
               showSuccess('Booking cancelled successfully!');
-              await fetchEvents(); // Refresh the data
+              await fetchEvents();
             } catch (err: any) {
               showError(err.message || 'Failed to cancel booking');
             } finally {
               setIsLoading(false);
             }
-          }
-        }
+          },
+        },
       ]
     );
   };
@@ -365,7 +361,7 @@ const HomeScreen = () => {
           </ScrollView>
         </View>
 
-        {/* My Bookings Section - Only for customers */}
+        {/* My Bookings Section */}
         {user?.userType === 'customer' && bookings.length > 0 && (
           <View style={styles.bookingsSection}>
             <Text style={styles.sectionTitle}>My Bookings</Text>
@@ -373,18 +369,22 @@ const HomeScreen = () => {
               {bookings.slice(0, 5).map((booking) => (
                 <View key={booking._id} style={styles.bookingCard}>
                   <Text style={styles.bookingTitle} numberOfLines={1}>
-                    {booking.eventId.title}
+                    {booking.eventId?.title || 'Untitled'}
                   </Text>
                   <Text style={styles.bookingTime}>
-                    {toHHmm(booking.eventId.startsAt)} - {toHHmm(booking.eventId.endsAt)}
+                    {toHHmm(booking.eventId?.startsAt)} - {toHHmm(booking.eventId?.endsAt)}
                   </Text>
-                  <Text style={styles.bookingLocation} numberOfLines={1}>
-                    📍 {booking.eventId.location}
-                  </Text>
-                  <Text style={styles.bookingPrice}>
-                    ${(booking.eventId.priceCents / 100).toFixed(2)}
-                  </Text>
-                  <TouchableOpacity 
+                  {booking.eventId?.location && (
+                    <Text style={styles.bookingLocation} numberOfLines={1}>
+                      📍 {booking.eventId.location}
+                    </Text>
+                  )}
+                  {typeof booking.eventId?.priceCents === 'number' && (
+                    <Text style={styles.bookingPrice}>
+                      ${(booking.eventId.priceCents / 100).toFixed(2)}
+                    </Text>
+                  )}
+                  <TouchableOpacity
                     style={styles.cancelButton}
                     onPress={() => cancelBooking(booking)}
                     disabled={isLoading}
@@ -486,6 +486,7 @@ const HomeScreen = () => {
     </SafeAreaView>
   );
 };
+
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: 'white' },
