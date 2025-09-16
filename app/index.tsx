@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
@@ -15,6 +15,10 @@ export default function IndexScreen() {
       }
     }
   }, [isAuthenticated, isLoading]);
+
+  if (isLoading) {
+    return null; // or a loading spinner
+  }
 
   return (
     <View style={styles.container}>
