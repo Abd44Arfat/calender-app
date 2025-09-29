@@ -1,43 +1,17 @@
 {
   "expo": {
-    "name": "calenderApp",
-    "slug": "calenderApp",
-    "version": "1.0.0",
-    "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "calenderapp",
-    "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "name": "Quack Plan",
+    "slug": "quack-plan",
+    "icon": "./assets/images/quackplanicon.png",
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.calenderApp"
+      "bundleIdentifier": "com.anonymous.quackplan"
     },
     "android": {
+      "package": "com.anonymous.quackplan",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/images/quackplanicon.png",
         "backgroundColor": "#ffffff"
-      },
-      "edgeToEdgeEnabled": true
-    },
-    "web": {
-      "bundler": "metro",
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
-    },
-    "plugins": [
-      "expo-router",
-      [
-        "expo-splash-screen",
-        {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
-        }
-      ]
-    ],
-    "experiments": {
-      "typedRoutes": true
+      }
     }
   }
 }
