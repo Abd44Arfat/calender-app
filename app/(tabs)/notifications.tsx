@@ -4,6 +4,20 @@ import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } fr
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+interface Event {
+  id: string | number;
+  title: string;
+  time?: string;
+  color?: string;
+  type: string;
+  startsAt?: string;
+  endsAt?: string;
+  location?: string;
+  priceCents?: number;
+  capacity?: number;
+  description?: string;
+}
+
 type StoredNotification = {
   id: string;
   title: string;
@@ -57,6 +71,10 @@ async function writeAll(items: StoredNotification[]) {
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(items));
 }
 
+export async function cancelAllScheduledNotifications() {
+  await Notifications.cancelAllScheduledNotificationsAsync();
+}
+
 export async function getNotifications(): Promise<StoredNotification[]> {
   return readAll();
 }
@@ -67,38 +85,44 @@ export async function saveNotification(n: StoredNotification) {
   await writeAll(list);
 }
 
-export async function scheduleEventNotification(params: {
-  id: string;
-  title: string;
-  body: string;
-  eventDateISO: string;
-  type?: string;
-}) {
-const eventDate = new Date(params.eventDateISO);
-const triggerDate = new Date(eventDate.getTime() - 5 * 60 * 1000); // 5 دقائق قبل الحدث
-const now = new Date();
+export async function scheduleEventNotification(events: Event[]) {
+  await cancelAllScheduledNotifications(); // Cancel all previous notifications
 
-if (triggerDate <= now) return null; // ما تشغلش إشعار فات معاده
+  const now = new Date();
+  const upcomingEvents = events.filter(event => new Date(event.startsAt!) > now);
 
-const schedulingId = await Notifications.scheduleNotificationAsync({
-  content: {
-    title: params.title,
-    body: params.body,
-    data: { eventId: params.id, type: params.type ?? 'event' },
-  },
-  trigger: {
-    type: 'date',
-    date: triggerDate,
-  } as any, // 👈 نخلي TS يسكت
-});
+  if (upcomingEvents.length === 0) {
+    return null; // No upcoming events to schedule
+  }
+
+  // Sort events to find the closest one
+  upcomingEvents.sort((a, b) => new Date(a.startsAt!).getTime() - new Date(b.startsAt!).getTime());
+  const closestEvent = upcomingEvents[0];
+
+  const eventDate = new Date(closestEvent.startsAt!);
+  const triggerDate = new Date(eventDate.getTime() - 5 * 60 * 1000); // 5 minutes before the event
+
+  if (triggerDate <= now) return null; // Don't schedule if trigger date is in the past
+
+  const schedulingId = await Notifications.scheduleNotificationAsync({
+    content: {
+      title: closestEvent.title,
+      body: closestEvent.description || `Event starts at ${new Date(closestEvent.startsAt!).toLocaleTimeString()}`,
+      data: { eventId: closestEvent.id, type: closestEvent.type ?? 'event' },
+    },
+    trigger: {
+      type: 'date',
+      date: triggerDate,
+    } as any,
+  });
 
   const stored = {
-    id: params.id,
-    title: params.title,
-    body: params.body,
+    id: closestEvent.id as string,
+    title: closestEvent.title,
+    body: closestEvent.description || `Event starts at ${new Date(closestEvent.startsAt!).toLocaleTimeString()}`,
     date: triggerDate.toISOString(),
     read: false,
-    type: params.type,
+    type: closestEvent.type,
     systemNotificationId: schedulingId,
   };
   await saveNotification(stored);

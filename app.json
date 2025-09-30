@@ -2,6 +2,7 @@
   "expo": {
     "name": "Quack Plan",
     "slug": "quack-plan",
+    "entryPoint": "./app/index.js",
     "icon": "./assets/images/quackplanicon.png",
     "ios": {
       "bundleIdentifier": "com.anonymous.quackplan"

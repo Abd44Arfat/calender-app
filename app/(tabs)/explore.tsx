@@ -4,6 +4,7 @@ import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, Act
 import { useAuth } from '../../contexts/AuthContext';
 import { apiService } from '../../services/api';
 import { useSnackbar } from '../../hooks/useSnackbar';
+import { scheduleEventNotification } from '../../app/(tabs)/notifications';
 
 interface Event {
   id: string | number;
@@ -41,6 +42,7 @@ export default function ExploreScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [events, setEvents] = useState<Event[]>([]);
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
+  const [isEventsModalVisible, setIsEventsModalVisible] = useState(false);
   const [newEventTitle, setNewEventTitle] = useState('');
   const [newEventDescription, setNewEventDescription] = useState('');
   const [newEventLocation, setNewEventLocation] = useState('');
@@ -82,6 +84,7 @@ export default function ExploreScreen() {
       }));
 
       setEvents(formattedEvents);
+      await scheduleEventNotification(formattedEvents);
     } catch (err: any) {
       showError(err.message || 'Failed to fetch events');
     } finally {
@@ -331,8 +334,6 @@ export default function ExploreScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-  
 
         {/* Month Header */}
         <View style={styles.monthHeader}>
@@ -376,7 +377,10 @@ export default function ExploreScreen() {
                     isSelected && styles.selectedDayCell,
                     !isCurrentMonthDay && styles.otherMonthDay
                   ]}
-                  onPress={() => setSelectedDate(date)}
+                  onPress={() => {
+                    setSelectedDate(date);
+                    setIsEventsModalVisible(true);
+                  }}
                 >
                   <Text style={[
                     styles.dayNumber,
@@ -393,7 +397,7 @@ export default function ExploreScreen() {
                         { backgroundColor: event.color }
                       ]}
                     >
-                      <Text style={styles.eventText}>{event.title}</Text>
+                      <Text style={styles.eventText} numberOfLines={1}>{event.title}</Text>
                     </View>
                   ))}
                 </TouchableOpacity>
@@ -402,78 +406,98 @@ export default function ExploreScreen() {
           </View>
         </View>
 
-        {/* Events List */}
-        <View style={styles.upcomingSection}>
-          <Text style={styles.upcomingTitle}>
-            Events for {selectedDate.toLocaleDateString('en-US', { 
-              month: 'long', 
-              day: 'numeric' 
-            })}
-          </Text>
-          <View style={styles.upcomingEventsList}>
-            {allEvents.length > 0 ? (
-              allEvents.map((event) => (
-                <View key={event.id} style={styles.eventCard}>
-                  <View style={[styles.eventColorDot, { backgroundColor: event.color }]} />
-                  <View style={styles.eventContent}>
-                    <Text style={styles.eventTime}>{event.time}</Text>
-                    <Text style={styles.eventTitle}>{event.title}</Text>
-                    {event.location && (
-                      <Text style={styles.eventLocation} numberOfLines={1}>
-                        📍 {event.location}
-                      </Text>
-                    )}
-                    {event.description && (
-                      <Text style={styles.eventSubtitle} numberOfLines={2}>
-                        {event.description}
-                      </Text>
-                    )}
-                    {event.priceCents && (
-                      <Text style={styles.eventPrice}>
-                        ${(event.priceCents / 100).toFixed(2)}
-                      </Text>
-                    )}
-                  </View>
-                  <View style={styles.eventActions}>
-                    {user?.userType === 'customer' && (
-                      <TouchableOpacity 
-                        style={styles.bookButton}
-                        onPress={() => bookEvent(event)}
-                        disabled={isLoading}
-                      >
-                        {isLoading ? (
-                          <ActivityIndicator size="small" color="white" />
-                        ) : (
-                          <Text style={styles.bookButtonText}>Book</Text>
+        {/* Floating Action Button for Vendors */}
+        {user?.userType === 'vendor' && (
+          <TouchableOpacity 
+            style={styles.fab} 
+            onPress={() => setIsCreateModalVisible(true)}
+          >
+            <Ionicons name="add" size={24} color="white" />
+          </TouchableOpacity>
+        )}
+
+      {/* Events Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={isEventsModalVisible}
+        onRequestClose={() => setIsEventsModalVisible(false)}
+      >
+        <View style={styles.eventsModalOverlay}>
+          <View style={styles.eventsModalContent}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.upcomingTitle}>
+              Events for {selectedDate.toLocaleDateString('en-US', {
+                month: 'long',
+                day: 'numeric',
+                year: 'numeric',
+              })}
+            </Text>
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setIsEventsModalVisible(false)}
+            >
+              <Ionicons name="close" size={24} color="#000" />
+            </TouchableOpacity>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={styles.upcomingEventsList}>
+                {isLoading ? (
+                  <ActivityIndicator size="large" color="#ef4444" />
+                ) : selectedDayEvents.length > 0 ? (
+                  selectedDayEvents.map((event) => (
+                    <View key={event.id} style={styles.eventCard}>
+                      <View style={[styles.eventColorDot, { backgroundColor: event.color }]} />
+                      <View style={styles.eventContent}>
+                        <Text style={styles.eventTime}>{event.time}</Text>
+                        <Text style={styles.eventTitle}>{event.title}</Text>
+                        {event.location && (
+                          <Text style={styles.eventLocation} numberOfLines={1}>
+                            📍 {event.location}
+                          </Text>
                         )}
-                      </TouchableOpacity>
-                    )}
-                    <TouchableOpacity style={styles.eventAction}>
-                      <Ionicons name="ellipsis-vertical" size={16} color="#666" />
-                    </TouchableOpacity>
+                        {event.description && (
+                          <Text style={styles.eventSubtitle} numberOfLines={2}>
+                            {event.description}
+                          </Text>
+                        )}
+                        {event.priceCents && (
+                          <Text style={styles.eventPrice}>
+                            ${(event.priceCents / 100).toFixed(2)}
+                          </Text>
+                        )}
+                      </View>
+                      <View style={styles.eventActions}>
+                        {user?.userType === 'customer' && (
+                          <TouchableOpacity
+                            style={styles.bookButton}
+                            onPress={() => bookEvent(event)}
+                            disabled={isLoading}
+                          >
+                            {isLoading ? (
+                              <ActivityIndicator size="small" color="white" />
+                            ) : (
+                              <Text style={styles.bookButtonText}>Book</Text>
+                            )}
+                          </TouchableOpacity>
+                        )}
+                        <TouchableOpacity style={styles.eventAction}>
+                          <Ionicons name="ellipsis-vertical" size={16} color="#666" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ))
+                ) : (
+                  <View style={styles.noEventsContainer}>
+                    <Ionicons name="calendar-outline" size={64} color="#CCC" />
+                    <Text style={styles.noEventsTitle}>No events for this day</Text>
+                    <Text style={styles.noEventsMessage}>Select a different day to see events</Text>
                   </View>
-                </View>
-              ))
-            ) : (
-              <View style={styles.noEventsContainer}>
-                <Ionicons name="calendar-outline" size={64} color="#CCC" />
-                <Text style={styles.noEventsTitle}>No events for this day</Text>
-                <Text style={styles.noEventsMessage}>Select a different day to see events</Text>
+                )}
               </View>
-            )}
+            </ScrollView>
           </View>
         </View>
-      </ScrollView>
-
-      {/* Floating Action Button for Vendors */}
-      {user?.userType === 'vendor' && (
-        <TouchableOpacity 
-          style={styles.fab} 
-          onPress={() => setIsCreateModalVisible(true)}
-        >
-          <Ionicons name="add" size={24} color="white" />
-        </TouchableOpacity>
-      )}
+      </Modal>
 
       {/* Create Event Modal */}
       <Modal visible={isCreateModalVisible} transparent animationType="slide">
@@ -579,8 +603,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'white',
   },
-  scrollView: {
-    flex: 1,
+  scrollViewContent: {
+    flexGrow: 1, // Allows content to grow within ScrollView
   },
   statusBar: {
     flexDirection: 'row',
@@ -619,11 +643,13 @@ const styles = StyleSheet.create({
     color: '#000',
   },
   calendarContainer: {
-    paddingHorizontal: 20,
+    flex: 1, // Take full height
+    paddingHorizontal: 0, // No horizontal padding for calendar container
+    paddingVertical: 0, // No vertical padding for calendar container
   },
   dayHeaders: {
     flexDirection: 'row',
-    marginBottom: 10,
+    marginBottom: 0, // No margin bottom for day headers
   },
   dayHeader: {
     flex: 1,
@@ -631,64 +657,94 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#666',
-    paddingVertical: 8,
+    paddingVertical: 8, // Keep some vertical padding for headers
   },
   calendarGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    flex: 1,
+    alignContent: 'stretch', // Stretch items to fill container height
+    justifyContent: 'flex-start', // Align to start to remove unnecessary spacing
+    borderTopWidth: 1, // Add top border for grid
+    borderLeftWidth: 1, // Add left border for grid
+    borderColor: '#E0E0E0', // Border color for grid
   },
   dayCell: {
-    width: '14.28%',
-    aspectRatio: 1,
-    padding: 4,
-    borderWidth: 1,
-    borderColor: '#F0F0F0',
-    justifyContent: 'flex-start',
-    alignItems: 'center',
+    width: '14.28%', // Perfect width for 7 columns
+    borderRightWidth: 1, // Add right border for cells
+    borderBottomWidth: 1, // Add bottom border for cells
+    borderColor: '#E0E0E0',
+    justifyContent: 'flex-start', // Align content to top-start
+    alignItems: 'flex-start',
+    padding: 4, // Internal padding
+    overflow: 'hidden',
   },
   selectedDayCell: {
-    backgroundColor: '#FFE4E6',
+    backgroundColor: '#FCE7E9', // Lighter red background for selected day
     borderColor: '#EF4444',
   },
   otherMonthDay: {
-    backgroundColor: '#FAFAFA',
+    backgroundColor: '#FDFDFD', // Very light grey for other month days
+    opacity: 1,
   },
   dayNumber: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#000',
-    marginBottom: 2,
+    fontSize: 14, // Font size for day number
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4, // Space between number and events
   },
   selectedDayNumber: {
     color: '#EF4444',
-    fontWeight: 'bold',
   },
   otherMonthDayNumber: {
-    color: '#CCC',
+    color: '#AAA',
   },
   eventIndicator: {
-    width: '100%',
-    paddingHorizontal: 2,
-    paddingVertical: 1,
-    borderRadius: 2,
-    marginBottom: 1,
+    width: '100%', // Full width for event display
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 3,
+    marginBottom: 2, // Space between events
+    alignSelf: 'flex-start', // Align to the start of the cell
   },
   eventText: {
-    fontSize: 8,
+    fontSize: 9, // Smaller font size for events
     color: 'white',
-    textAlign: 'center',
     fontWeight: '500',
   },
-  upcomingSection: {
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 40,
+  eventsModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end', // Align to bottom
+  },
+  eventsModalContent: {
+    backgroundColor: 'white',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    maxHeight: '70%', // Take up to 70% of screen height
+  },
+  modalHandle: {
+    width: 40,
+    height: 5,
+    backgroundColor: '#CCC',
+    borderRadius: 2.5,
+    alignSelf: 'center',
+    marginBottom: 10,
+  },
+  modalCloseButton: {
+    position: 'absolute',
+    top: 15,
+    right: 15,
+    padding: 5,
+    zIndex: 1,
   },
   upcomingTitle: {
-    fontSize: 18,
+    fontSize: 22, // Bigger title
     fontWeight: 'bold',
     color: '#000',
-    marginBottom: 15,
+    marginBottom: 20, // More space
+    textAlign: 'center',
   },
   upcomingEventsList: {
     gap: 15,
@@ -696,9 +752,14 @@ const styles = StyleSheet.create({
   eventCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFE4E6',
+    backgroundColor: '#F5F5F5', // Lighter background
     padding: 15,
     borderRadius: 12,
+    shadowColor: '#000', // Add shadow for depth
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+    elevation: 2,
   },
   eventColorDot: {
     width: 12,
