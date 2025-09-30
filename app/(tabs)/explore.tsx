@@ -4,7 +4,7 @@ import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, Act
 import { useAuth } from '../../contexts/AuthContext';
 import { apiService } from '../../services/api';
 import { useSnackbar } from '../../hooks/useSnackbar';
-import { scheduleEventNotification } from '../../app/(tabs)/notifications';
+import { scheduleEventNotification } from './notifications';
 
 interface Event {
   id: string | number;
@@ -84,7 +84,25 @@ export default function ExploreScreen() {
       }));
 
       setEvents(formattedEvents);
-      await scheduleEventNotification(formattedEvents);
+
+      // Filter for future events and find the closest one
+      const now = new Date();
+      const futureEvents = formattedEvents.filter(event => event.startsAt && new Date(event.startsAt) > now);
+      futureEvents.sort((a, b) => {
+        if (!a.startsAt || !b.startsAt) return 0;
+        return new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime();
+      });
+
+      if (futureEvents.length > 0) {
+        const closestEvent = futureEvents[0];
+        await scheduleEventNotification({
+          id: closestEvent.id.toString(),
+          title: closestEvent.title,
+          body: closestEvent.description || `Your event ${closestEvent.title} is starting soon!`, // Customize body as needed
+          eventDateISO: closestEvent.startsAt!,
+          type: closestEvent.type,
+        });
+      }
     } catch (err: any) {
       showError(err.message || 'Failed to fetch events');
     } finally {
@@ -334,6 +352,8 @@ export default function ExploreScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+
 
         {/* Month Header */}
         <View style={styles.monthHeader}>
@@ -415,6 +435,7 @@ export default function ExploreScreen() {
             <Ionicons name="add" size={24} color="white" />
           </TouchableOpacity>
         )}
+      </ScrollView>
 
       {/* Events Modal */}
       <Modal
@@ -603,8 +624,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'white',
   },
-  scrollViewContent: {
-    flexGrow: 1, // Allows content to grow within ScrollView
+  scrollView: {
+    flexGrow: 1, // Use flexGrow instead of flex: 1 to allow content to grow while enabling scrolling
   },
   statusBar: {
     flexDirection: 'row',
@@ -644,39 +665,40 @@ const styles = StyleSheet.create({
   },
   calendarContainer: {
     flex: 1, // Take full height
-    paddingHorizontal: 0, // No horizontal padding for calendar container
-    paddingVertical: 0, // No vertical padding for calendar container
+    paddingHorizontal: 5, // Reduced padding
+    paddingVertical: 5,
   },
   dayHeaders: {
     flexDirection: 'row',
-    marginBottom: 0, // No margin bottom for day headers
+    marginBottom: 5, // Reduced margin
   },
   dayHeader: {
     flex: 1,
     textAlign: 'center',
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 12, // Slightly smaller headers
+    fontWeight: 'bold', // Bolder
     color: '#666',
-    paddingVertical: 8, // Keep some vertical padding for headers
+    paddingVertical: 5, // Reduced padding
   },
   calendarGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     flex: 1,
     alignContent: 'stretch', // Stretch items to fill container height
-    justifyContent: 'flex-start', // Align to start to remove unnecessary spacing
-    borderTopWidth: 1, // Add top border for grid
-    borderLeftWidth: 1, // Add left border for grid
-    borderColor: '#E0E0E0', // Border color for grid
+    justifyContent: 'space-between', // Distribute items evenly with space between
   },
   dayCell: {
-    width: '14.28%', // Perfect width for 7 columns
-    borderRightWidth: 1, // Add right border for cells
-    borderBottomWidth: 1, // Add bottom border for cells
+    width: '13.5%', // Adjusted width for 7 columns with spacing
+    height: 'auto', // Allow height to adjust based on content
+    minHeight: 80, // Minimum height for cells
+    marginVertical: 2, // Vertical margin for spacing
+    marginHorizontal: 0.5, // Horizontal margin for spacing
+    borderRadius: 4, // Slightly less rounded corners
+    borderWidth: 1,
     borderColor: '#E0E0E0',
     justifyContent: 'flex-start', // Align content to top-start
     alignItems: 'flex-start',
-    padding: 4, // Internal padding
+    padding: 5, // Internal padding
     overflow: 'hidden',
   },
   selectedDayCell: {
@@ -685,13 +707,13 @@ const styles = StyleSheet.create({
   },
   otherMonthDay: {
     backgroundColor: '#FDFDFD', // Very light grey for other month days
-    opacity: 1,
+    opacity: 0.7,
   },
   dayNumber: {
-    fontSize: 14, // Font size for day number
+    fontSize: 16, // Font size for day number
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 4, // Space between number and events
+    marginBottom: 5, // Space between number and events
   },
   selectedDayNumber: {
     color: '#EF4444',
@@ -701,8 +723,8 @@ const styles = StyleSheet.create({
   },
   eventIndicator: {
     width: '100%', // Full width for event display
-    paddingHorizontal: 4,
-    paddingVertical: 2,
+    paddingHorizontal: 2,
+    paddingVertical: 1,
     borderRadius: 3,
     marginBottom: 2, // Space between events
     alignSelf: 'flex-start', // Align to the start of the cell

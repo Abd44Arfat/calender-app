@@ -1,9 +1,12 @@
 {
   "expo": {
-    "name": "Quack Plan",
+    "name": "Quack Plan v1",
     "slug": "quack-plan",
     "entryPoint": "./app/index.js",
     "icon": "./assets/images/quackplanicon.png",
+    "notification": {
+      "icon": "./assets/images/quackplanicon.png"
+    },
     "ios": {
       "bundleIdentifier": "com.anonymous.quackplan"
     },
@@ -12,7 +15,18 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/quackplanicon.png",
         "backgroundColor": "#ffffff"
+      },
+      "notification": {
+        "icon": "./assets/images/quackplanicon.png"
       }
-    }
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/quackplanicon.png"
+        }
+      ]
+    ]
   }
 }
