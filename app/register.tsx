@@ -6,12 +6,10 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 import { useSnackbar } from '../hooks/useSnackbar';
@@ -81,7 +79,6 @@ export default function RegisterScreen() {
 
   const handleSubmit = async () => {
     if (!validateForm()) {
-      // Don't show generic error message, let individual field errors show
       return;
     }
 
@@ -97,16 +94,36 @@ export default function RegisterScreen() {
       await register(submitData);
       console.log('✅ Registration successful, showing success message');
       showSuccess('Registration successful! Welcome to the app!');
-      // Navigate to home after successful registration
       router.replace('/(tabs)');
     } catch (error: any) {
       console.error('💥 Registration form error:', {
         message: error.message,
         stack: error.stack,
         formData: formData,
-        submitData: submitData
+        submitData: submitData,
+        response: error.response?.data,
       });
-      showError(error.message || 'Registration failed. Please try again.');
+
+      const apiData = error.response?.data;
+
+      if (apiData?.details?.length) {
+        // لو في تفاصيل أخطاء
+        const apiErrors: Record<string, string> = {};
+        apiData.details.forEach((err: any) => {
+          apiErrors[err.field] = err.message;
+        });
+        setErrors(apiErrors);
+        showError(apiData.details.map((d: any) => d.message).join('\n'));
+      } else if (apiData?.error) {
+        // لو في رسالة error مباشرة
+        showError(apiData.error);
+      } else if (apiData?.message) {
+        // لو في رسالة message
+        showError(apiData.message);
+      } else {
+        // fallback
+        showError(error.message || 'Registration failed. Please try again.');
+      }
     }
   };
 

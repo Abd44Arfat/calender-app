@@ -30,10 +30,10 @@ export default function TabLayout() {
           options={{
             title: 'Home',
             tabBarIcon: ({ color, focused }) => (
-              <Ionicons 
-                name="home" 
-                size={24} 
-                color={focused ? '#EF4444' : color} 
+              <Ionicons
+                name="home"
+                size={24}
+                color={focused ? '#EF4444' : color}
               />
             ),
           }}
@@ -43,10 +43,10 @@ export default function TabLayout() {
           options={{
             title: 'Events',
             tabBarIcon: ({ color, focused }) => (
-              <Ionicons 
-                name="list" 
-                size={24} 
-                color={focused ? '#EF4444' : color} 
+              <Ionicons
+                name="list"
+                size={24}
+                color={focused ? '#EF4444' : color}
               />
             ),
           }}
@@ -56,10 +56,10 @@ export default function TabLayout() {
           options={{
             title: 'Notification',
             tabBarIcon: ({ color, focused }) => (
-              <Ionicons 
-                name="notifications-outline" 
-                size={24} 
-                color={focused ? '#EF4444' : color} 
+              <Ionicons
+                name="notifications-outline"
+                size={24}
+                color={focused ? '#EF4444' : color}
               />
             ),
           }}
@@ -69,10 +69,10 @@ export default function TabLayout() {
           options={{
             title: 'Profile',
             tabBarIcon: ({ color, focused }) => (
-              <Ionicons 
-                name="person-outline" 
-                size={24} 
-                color={focused ? '#EF4444' : color} 
+              <Ionicons
+                name="person-outline"
+                size={24}
+                color={focused ? '#EF4444' : color}
               />
             ),
           }}

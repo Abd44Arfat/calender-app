@@ -1,8 +1,9 @@
 import 'expo-router/entry';
 import React, { useEffect } from 'react';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { ActivityIndicator, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 export default function IndexScreen() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -18,13 +19,15 @@ export default function IndexScreen() {
   }, [isAuthenticated, isLoading]);
 
   if (isLoading) {
-    return null; // or a loading spinner
+    return null; // ممكن تحط Splash Screen أو Indicator
   }
 
   return (
-    <View style={styles.container}>
-      <ActivityIndicator size="large" color="#ef4444" />
-    </View>
+    <SafeAreaProvider>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
+        <ActivityIndicator size="large" color="#ef4444" />
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 }
 

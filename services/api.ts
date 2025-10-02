@@ -1,4 +1,4 @@
-const BASE_URL = 'http://localhost:3000'; // Replace with your actual server URL
+const BASE_URL = 'https://quackplan2.ahmed-abd-elmohsen.tech'; // Replace with your actual server URL
 
 export interface RegisterRequest {
   email: string;
@@ -181,15 +181,23 @@ class ApiService {
           statusText: response.statusText,
           data: data
         });
-        throw new Error(data.error || data.message || `HTTP ${response.status}: ${response.statusText}`);
+
+        // بدل throw Error عام → نرمي object كامل عشان نقدر نقرأ details فوق
+        throw {
+          response: {
+            status: response.status,
+            statusText: response.statusText,
+            data: data,
+          },
+        };
       }
       
       console.log('✅ API Success:', data);
       return data;
-    } catch (error : any) {
+    } catch (error: any) {
       console.error('💥 API Request Failed:', {
         url,
-        error: error.message,
+        error: error.message || error,
         stack: error.stack
       });
       throw error;
@@ -250,7 +258,13 @@ class ApiService {
           statusText: response.statusText,
           errorText: errorText
         });
-        throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
+        throw {
+          response: {
+            status: response.status,
+            statusText: response.statusText,
+            data: { message: errorText },
+          },
+        };
       }
 
       const data = await response.json();

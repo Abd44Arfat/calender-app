@@ -50,7 +50,7 @@ export default function ProfileScreen() {
     // If it's already a full URL, return as is
     if (imagePath.startsWith('http')) return imagePath;
     // Otherwise, construct the full URL
-    const fullUrl = `http://localhost:3000${imagePath}`;
+    const fullUrl = `https://quackplan2.ahmed-abd-elmohsen.tech${imagePath}`;
     console.log('🖼️ Constructed image URL:', fullUrl);
     return fullUrl;
   };

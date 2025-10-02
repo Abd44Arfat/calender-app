@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -21,31 +21,50 @@ const notifyChange = () => {
   changeListeners.forEach((l) => l());
 };
 
+// ✅ تهيئة الإشعارات + صلاحيات + channel لأندرويد
 export async function initNotifications() {
-  const { status } = await Notifications.requestPermissionsAsync();
-  // You can check `status` and inform user if denied
-  // Save delivered notifications when received
-  Notifications.addNotificationReceivedListener(async (notif) => {
-    const content = notif.request.content;
-    const stored: StoredNotification = {
-      id: String(Date.now()),
-      title: content.title ?? 'Notification',
-      body: content.body ?? '',
-      date: new Date().toISOString(),
-      read: false,
-      systemNotificationId: notif.request.identifier,
-    };
-    await saveNotification(stored);
-    await updateBadgeCount();
-    notifyChange();
-  });
+  try {
+    const { status } = await Notifications.requestPermissionsAsync();
+    if (status !== 'granted') {
+      console.log('❌ Notification permission not granted!');
+      return;
+    }
 
-  // When user taps notification (optional)
-  Notifications.addNotificationResponseReceivedListener(async () => {
-    // update badge / state if needed
-    await updateBadgeCount();
-    notifyChange();
-  });
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'Default',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#FF231F7C',
+      });
+    }
+
+    // استماع عند استلام إشعار
+    Notifications.addNotificationReceivedListener(async (notif) => {
+      const content = notif.request.content;
+      const stored: StoredNotification = {
+        id: String(Date.now()),
+        title: content.title ?? 'Notification',
+        body: content.body ?? '',
+        date: new Date().toISOString(),
+        read: false,
+        systemNotificationId: notif.request.identifier,
+      };
+      await saveNotification(stored);
+      await updateBadgeCount();
+      notifyChange();
+    });
+
+    // عند ضغط المستخدم على الإشعار
+    Notifications.addNotificationResponseReceivedListener(async () => {
+      await updateBadgeCount();
+      notifyChange();
+    });
+
+    console.log('✅ Notifications initialized successfully');
+  } catch (err) {
+    console.error('💥 Notification init error:', err);
+  }
 }
 
 async function readAll(): Promise<StoredNotification[]> {
@@ -95,8 +114,7 @@ export async function scheduleEventNotification(params: {
     trigger: {
       type: 'date',
       date: triggerDate,
-    } as any, // 👈 نخلي TS يسكت
-  });
+    } as Notifications.DateTriggerInput,  });
 
   const stored = {
     id: params.id,
@@ -176,8 +194,6 @@ export default function NotificationsScreen() {
     }
   };
 
-  const unread = notifications.filter((n) => !n.read).length;
-
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -188,44 +204,43 @@ export default function NotificationsScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* زرار تجربة الإشعار */}
+      <TouchableOpacity
+        style={{
+          backgroundColor: '#2196F3',
+          padding: 12,
+          borderRadius: 8,
+          margin: 20,
+          alignItems: 'center',
+        }}
+        onPress={async () => {
+          const schedulingId = await Notifications.scheduleNotificationAsync({
+            content: {
+              title: 'Test Notification 🎉',
+              body: 'This is a test notification fired immediately.',
+              data: { test: true },
+            },
+            trigger: null, // 👈 null = show immediately
+          });
 
-<TouchableOpacity
-  style={{
-    backgroundColor: '#2196F3',
-    padding: 12,
-    borderRadius: 8,
-    margin: 20,
-    alignItems: 'center',
-  }}
-  onPress={async () => {
-    const schedulingId = await Notifications.scheduleNotificationAsync({
-      content: {
-        title: 'Test Notification 🎉',
-        body: 'This is a test notification fired immediately.',
-        data: { test: true },
-      },
-      trigger: null, // 👈 null = show immediately
-    });
-
-    // خزّنه لو حابب يظهر في لستتك
-    const stored = {
-      id: String(Date.now()),
-      title: 'Test Notification 🎉',
-      body: 'This is a test notification fired immediately.',
-      date: new Date().toISOString(),
-      read: false,
-      type: 'test',
-      systemNotificationId: schedulingId,
-    };
-    await saveNotification(stored);
-    await updateBadgeCount();
-    notifyChange();
-  }}
->
-  <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>
-    Test Notification
-  </Text>
-</TouchableOpacity>
+          const stored = {
+            id: String(Date.now()),
+            title: 'Test Notification 🎉',
+            body: 'This is a test notification fired immediately.',
+            date: new Date().toISOString(),
+            read: false,
+            type: 'test',
+            systemNotificationId: schedulingId,
+          };
+          await saveNotification(stored);
+          await updateBadgeCount();
+          notifyChange();
+        }}
+      >
+        <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>
+          Test Notification
+        </Text>
+      </TouchableOpacity>
 
       {/* Notifications List */}
       <ScrollView style={styles.notificationsList} showsVerticalScrollIndicator={false}>

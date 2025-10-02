@@ -5,7 +5,8 @@
     "entryPoint": "./app/index.js",
     "icon": "./assets/images/quackplanicon.png",
     "notification": {
-      "icon": "./assets/images/quackplanicon.png"
+      "icon": "./assets/images/notification-icon.png", 
+      "color": "#ef4444" 
     },
     "ios": {
       "bundleIdentifier": "com.anonymous.quackplan"
@@ -17,14 +18,16 @@
         "backgroundColor": "#ffffff"
       },
       "notification": {
-        "icon": "./assets/images/quackplanicon.png"
+        "icon": "./assets/images/notification-icon.png",
+        "color": "#ef4444"
       }
     },
     "plugins": [
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/quackplanicon.png"
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#ef4444"
         }
       ]
     ]

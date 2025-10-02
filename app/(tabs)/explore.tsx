@@ -87,8 +87,8 @@ export default function ExploreScreen() {
 
       // Filter for future events and find the closest one
       const now = new Date();
-      const futureEvents = formattedEvents.filter(event => event.startsAt && new Date(event.startsAt) > now);
-      futureEvents.sort((a, b) => {
+      const futureEvents = formattedEvents.filter((event: Event) => event.startsAt && new Date(event.startsAt) > now);
+      futureEvents.sort((a: Event, b: Event) => {
         if (!a.startsAt || !b.startsAt) return 0;
         return new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime();
       });

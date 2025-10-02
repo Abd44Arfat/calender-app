@@ -18,6 +18,8 @@ import EventCard from '../../components/EventCard';
 import { useAuth } from '../../contexts/AuthContext';
 import { apiService, Booking } from '../../services/api';
 import { useSnackbar } from '../../hooks/useSnackbar';
+import { useRouter } from 'expo-router';
+import * as Notifications from 'expo-notifications';
 
 interface Event {
   id: string | number;
