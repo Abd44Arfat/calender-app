@@ -1,5 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useState } from 'react';
+import { Image } from 'react-native';
+
 import {
   ScrollView,
   StatusBar,
@@ -13,13 +15,16 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import EventCard from '../../components/EventCard';
 import { useAuth } from '../../contexts/AuthContext';
 import { apiService, Booking } from '../../services/api';
 import { useSnackbar } from '../../hooks/useSnackbar';
-import { useRouter } from 'expo-router';
 import * as Notifications from 'expo-notifications';
+import { initNotifications, getNotifications, addChangeListener } from './notifications';
+
+// Change this value to adjust reminder offset
+const REMINDER_OFFSET_MINUTES = 10;
 
 interface Event {
   id: string | number;
@@ -41,6 +46,7 @@ const HomeScreen = () => {
     token = null;
   }
 
+  const navigation = useNavigation();
   const { snackbar, showError, showSuccess } = useSnackbar();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -51,6 +57,7 @@ const HomeScreen = () => {
   const [newStartTime, setNewStartTime] = useState<string>('09:00');
   const [newEndTime, setNewEndTime] = useState<string>('10:00');
   const [newNotes, setNewNotes] = useState<string>('');
+  const [unreadCount, setUnreadCount] = useState<number>(0);
 
   const days = useMemo(() => {
     const formatter = new Intl.DateTimeFormat('en', { weekday: 'short' });
@@ -98,18 +105,9 @@ const HomeScreen = () => {
 
   const getRandomColor = (seed: string) => {
     const colors = [
-      '#EF4444',
-      '#F97316',
-      '#EAB308',
-      '#22C55E',
-      '#06B6D4',
-      '#3B82F6',
-      '#8B5CF6',
-      '#EC4899',
-      '#84CC16',
-      '#F59E0B',
-      '#10B981',
-      '#6366F1',
+      '#EF4444','#F97316','#EAB308','#22C55E','#06B6D4',
+      '#3B82F6','#8B5CF6','#EC4899','#84CC16','#F59E0B',
+      '#10B981','#6366F1',
     ];
     let hash = 0;
     for (let i = 0; i < seed.length; i++) {
@@ -120,6 +118,52 @@ const HomeScreen = () => {
     return colors[Math.abs(hash) % colors.length];
   };
 
+  const scheduleEventReminders = async (combinedEvents: Event[], bookingsList: Booking[]) => {
+    const now = new Date().getTime();
+    const offsetMs = REMINDER_OFFSET_MINUTES * 60 * 1000;
+
+    const upcomingPersonal = combinedEvents.filter(
+      e => e.type === 'personal' && new Date(e.startsAt).getTime() > now
+    );
+    const upcomingBookings = bookingsList.filter(
+      b => b.eventId && new Date(b.eventId.startsAt).getTime() > now
+    );
+
+    for (const e of upcomingPersonal) {
+      const triggerTime = new Date(e.startsAt).getTime() - offsetMs;
+      if (triggerTime > now) {
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: 'Event Reminder',
+            body: `Your personal event "${e.title}" starts in ${REMINDER_OFFSET_MINUTES} minutes!`,
+            data: { type: 'reminder' },
+          },
+          trigger: { date: new Date(triggerTime) } as any,
+        });
+      }
+    }
+
+    for (const b of upcomingBookings) {
+      const e = b.eventId;
+      const triggerTime = new Date(e.startsAt).getTime() - offsetMs;
+      if (triggerTime > now) {
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: 'Booking Reminder',
+            body: `Your booked event "${e.title}" starts in ${REMINDER_OFFSET_MINUTES} minutes!`,
+            data: { type: 'reminder' },
+          },
+          trigger: { date: new Date(triggerTime) } as any,
+        });
+      }
+    }
+  };
+  const getImageUrl = (imagePath: string | undefined) => {
+    if (!imagePath) return null;
+    if (imagePath.startsWith('http')) return imagePath;
+    return `https://quackplan2.ahmed-abd-elmohsen.tech${imagePath}`;
+  };
+  
   const fetchEvents = async () => {
     try {
       setIsLoading(true);
@@ -155,13 +199,17 @@ const HomeScreen = () => {
 
       setEvents(combined);
 
+      let bookingsList: Booking[] = [];
       if (token) {
         const bookingsResponse = await apiService.listBookings(token, {
           status: 'confirmed',
           limit: 50,
         });
-        setBookings(bookingsResponse.bookings || []);
+        bookingsList = bookingsResponse.bookings || [];
+        setBookings(bookingsList);
       }
+
+      await scheduleEventReminders(combined, bookingsList);
     } catch (err: any) {
       showError(err.message || 'Failed to fetch events');
     } finally {
@@ -170,6 +218,7 @@ const HomeScreen = () => {
   };
 
   useEffect(() => {
+    initNotifications();
     fetchEvents();
   }, [selectedDate, token]);
 
@@ -178,6 +227,16 @@ const HomeScreen = () => {
       fetchEvents();
     }, [selectedDate, token])
   );
+
+  useEffect(() => {
+    const updateUnread = async () => {
+      const notifs = await getNotifications();
+      setUnreadCount(notifs.filter((n: { read: boolean }) => !n.read).length);
+    };
+    updateUnread();
+    const unsubscribe = addChangeListener(updateUnread);
+    return () => unsubscribe();
+  }, []);
 
   const getEventsForTime = (time: string) => {
     const parsed = parseTime(time);
@@ -305,30 +364,45 @@ const HomeScreen = () => {
   };
 
   const timeSlots = [
-    '08:00 am', '09:00 am', '10:00 am', '11:00 am', '12:00 pm',
-    '01:00 pm', '02:00 pm', '03:00 pm', '04:00 pm', '05:00 pm',
-    '06:00 pm', '07:00 pm', '08:00 pm', '09:00 pm', '10:00 pm',
+    '08:00 am','09:00 am','10:00 am','11:00 am','12:00 pm',
+    '01:00 pm','02:00 pm','03:00 pm','04:00 pm','05:00 pm',
+    '06:00 pm','07:00 pm','08:00 pm','09:00 pm','10:00 pm',
   ];
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="white" />
-
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <View style={styles.profileSection}>
-            <View style={styles.profilePic}>
-              <Ionicons name="person" size={24} color="#2196F3" />
-            </View>
-            <Text style={styles.greetingText}>
-              Hi, {user?.profile?.fullName?.split(' ')[0] || 'User'}!
-            </Text>
-          </View>
-          <TouchableOpacity style={styles.notificationIcon}>
-            <Ionicons name="notifications-outline" size={24} color="#000" />
-          </TouchableOpacity>
-        </View>
+  <View style={styles.profileSection}>
+    <View style={styles.profilePic}>
+      {getImageUrl(user?.profile?.profilePicture) ? (
+        <Image
+          source={{ uri: getImageUrl(user?.profile?.profilePicture)! }}
+          style={{ width: 40, height: 40, borderRadius: 20 }}
+        />
+      ) : (
+        <Ionicons name="person" size={40} color="#2196F3" />
+      )}
+    </View>
+    <Text style={styles.greetingText}>
+      Hi, {user?.profile?.fullName?.split(' ')[0] || 'User'}!
+    </Text>
+  </View>
+  <TouchableOpacity 
+    style={styles.notificationIcon}
+    onPress={() => navigation.navigate('notifications' as never)}
+  >
+    <Ionicons name="notifications-outline" size={24} color="#000" />
+    {unreadCount > 0 && (
+      <View style={styles.badge}>
+        <Text style={styles.badgeText}>{unreadCount}</Text>
+      </View>
+    )}
+  </TouchableOpacity>
+</View>
+
 
         {/* Date Selector */}
         <View style={styles.dateSection}>
@@ -510,7 +584,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   greetingText: { fontSize: 24, fontWeight: 'bold', color: '#000' },
-  notificationIcon: { padding: 8 },
+  notificationIcon: { padding: 8, position: 'relative' },
+  badge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    backgroundColor: '#EF4444',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  badgeText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
   dateSection: { paddingHorizontal: 20, paddingBottom: 20 },
   daysContainer: { flexDirection: 'row' },
   dayItem: {

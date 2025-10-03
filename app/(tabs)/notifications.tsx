@@ -3,15 +3,16 @@ import React, { useEffect, useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation } from '@react-navigation/native';
 
 type StoredNotification = {
   id: string;
   title: string;
   body: string;
-  date: string; // ISO
+  date: string;
   read: boolean;
   type?: string;
-  systemNotificationId?: string; // id returned by scheduleNotificationAsync or delivered notification
+  systemNotificationId?: string;
 };
 
 const STORAGE_KEY = 'APP_NOTIFICATIONS';
@@ -20,8 +21,28 @@ let changeListeners: (() => void)[] = [];
 const notifyChange = () => {
   changeListeners.forEach((l) => l());
 };
+// Inside NotificationsScreen component
+const scheduleTestNotification = async () => {
+  try {
+    // Example: trigger after 10 seconds
+    const trigger = new Date(Date.now() + 10 * 1000);
 
-// ✅ تهيئة الإشعارات + صلاحيات + channel لأندرويد
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: '⏰ Test Notification',
+        body: 'This is a test notification triggered in 10 seconds.',
+        data: { type: 'reminder' },
+      },
+      trigger: { date: trigger } as any,
+    });
+
+    alert('Test notification scheduled in 10 seconds!');
+  } catch (err) {
+    console.error('Failed to schedule test notification', err);
+  }
+};
+
+// ✅ Initialize Notifications
 export async function initNotifications() {
   try {
     const { status } = await Notifications.requestPermissionsAsync();
@@ -39,7 +60,6 @@ export async function initNotifications() {
       });
     }
 
-    // استماع عند استلام إشعار
     Notifications.addNotificationReceivedListener(async (notif) => {
       const content = notif.request.content;
       const stored: StoredNotification = {
@@ -48,6 +68,7 @@ export async function initNotifications() {
         body: content.body ?? '',
         date: new Date().toISOString(),
         read: false,
+        type: content.data?.type as string ?? 'reminder',
         systemNotificationId: notif.request.identifier,
       };
       await saveNotification(stored);
@@ -55,7 +76,6 @@ export async function initNotifications() {
       notifyChange();
     });
 
-    // عند ضغط المستخدم على الإشعار
     Notifications.addNotificationResponseReceivedListener(async () => {
       await updateBadgeCount();
       notifyChange();
@@ -80,55 +100,10 @@ export async function getNotifications(): Promise<StoredNotification[]> {
   return readAll();
 }
 
-export async function cancelAllScheduledNotifications() {
-  await Notifications.cancelAllScheduledNotificationsAsync();
-}
-
 export async function saveNotification(n: StoredNotification) {
   const list = await readAll();
   list.unshift(n); // newest first
   await writeAll(list);
-}
-
-export async function scheduleEventNotification(params: {
-  id: string;
-  title: string;
-  body: string;
-  eventDateISO: string;
-  type?: string;
-}) {
-  await Notifications.cancelAllScheduledNotificationsAsync(); // Cancel all previous notifications
-
-  const eventDate = new Date(params.eventDateISO);
-  const triggerDate = new Date(eventDate.getTime() - 5 * 60 * 1000); // 5 دقائق قبل الحدث
-  const now = new Date();
-
-  if (triggerDate <= now) return null; // ما تشغلش إشعار فات معاده
-
-  const schedulingId = await Notifications.scheduleNotificationAsync({
-    content: {
-      title: params.title,
-      body: params.body,
-      data: { eventId: params.id, type: params.type ?? 'event' },
-    },
-    trigger: {
-      type: 'date',
-      date: triggerDate,
-    } as Notifications.DateTriggerInput,  });
-
-  const stored = {
-    id: params.id,
-    title: params.title,
-    body: params.body,
-    date: triggerDate.toISOString(),
-    read: false,
-    type: params.type,
-    systemNotificationId: schedulingId,
-  };
-  await saveNotification(stored);
-  await updateBadgeCount();
-  notifyChange();
-  return schedulingId;
 }
 
 export async function markAsRead(notificationId: string) {
@@ -150,9 +125,7 @@ export async function updateBadgeCount() {
   const unread = list.filter((n) => !n.read).length;
   try {
     await Notifications.setBadgeCountAsync(unread);
-  } catch {
-    // setBadge may be platform limited
-  }
+  } catch {}
 }
 
 export function addChangeListener(fn: () => void) {
@@ -163,6 +136,7 @@ export function addChangeListener(fn: () => void) {
 }
 
 export default function NotificationsScreen() {
+  const navigation = useNavigation();
   const [notifications, setNotifications] = useState<StoredNotification[]>([]);
 
   useEffect(() => {
@@ -170,12 +144,8 @@ export default function NotificationsScreen() {
       const storedNotifications = await getNotifications();
       setNotifications(storedNotifications);
     };
-
     fetchNotifications();
-    const unsubscribe = addChangeListener(() => {
-      fetchNotifications();
-    });
-
+    const unsubscribe = addChangeListener(fetchNotifications);
     return () => {
       unsubscribe();
     };
@@ -183,20 +153,21 @@ export default function NotificationsScreen() {
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
-      case 'reminder':
-        return <Ionicons name="time" size={20} color="#EF4444" />;
-      case 'event':
-        return <Ionicons name="calendar" size={20} color="#2196F3" />;
-      case 'update':
-        return <Ionicons name="refresh" size={20} color="#FF9800" />;
-      default:
-        return <Ionicons name="notifications" size={20} color="#666" />;
+      case 'reminder': return <Ionicons name="time" size={20} color="#EF4444" />;
+      case 'event': return <Ionicons name="calendar" size={20} color="#2196F3" />;
+      case 'update': return <Ionicons name="refresh" size={20} color="#FF9800" />;
+      default: return <Ionicons name="notifications" size={20} color="#666" />;
     }
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
+      <TouchableOpacity
+  style={{ marginLeft: 16, padding: 10, backgroundColor: '#3B82F6', borderRadius: 6 }}
+  onPress={scheduleTestNotification}
+>
+  <Text style={{ color: 'white', fontWeight: 'bold' }}>Test Notification</Text>
+</TouchableOpacity>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Notifications</Text>
         <TouchableOpacity style={styles.clearButton} onPress={clearAllNotifications}>
@@ -204,58 +175,14 @@ export default function NotificationsScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* زرار تجربة الإشعار */}
-      <TouchableOpacity
-        style={{
-          backgroundColor: '#2196F3',
-          padding: 12,
-          borderRadius: 8,
-          margin: 20,
-          alignItems: 'center',
-        }}
-        onPress={async () => {
-          const schedulingId = await Notifications.scheduleNotificationAsync({
-            content: {
-              title: 'Test Notification 🎉',
-              body: 'This is a test notification fired immediately.',
-              data: { test: true },
-            },
-            trigger: null, // 👈 null = show immediately
-          });
-
-          const stored = {
-            id: String(Date.now()),
-            title: 'Test Notification 🎉',
-            body: 'This is a test notification fired immediately.',
-            date: new Date().toISOString(),
-            read: false,
-            type: 'test',
-            systemNotificationId: schedulingId,
-          };
-          await saveNotification(stored);
-          await updateBadgeCount();
-          notifyChange();
-        }}
-      >
-        <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>
-          Test Notification
-        </Text>
-      </TouchableOpacity>
-
-      {/* Notifications List */}
       <ScrollView style={styles.notificationsList} showsVerticalScrollIndicator={false}>
         {notifications.map((notification) => (
           <TouchableOpacity
             key={notification.id}
-            style={[
-              styles.notificationItem,
-              !notification.read && styles.unreadNotification
-            ]}
+            style={[styles.notificationItem, !notification.read && styles.unreadNotification]}
             onPress={() => markAsRead(notification.id)}
           >
-            <View style={styles.notificationIcon}>
-              {getNotificationIcon(notification.type ?? '')}
-            </View>
+            <View style={styles.notificationIcon}>{getNotificationIcon(notification.type ?? '')}</View>
             <View style={styles.notificationContent}>
               <Text style={styles.notificationTitle}>{notification.title}</Text>
               <Text style={styles.notificationMessage}>{notification.body}</Text>
@@ -266,7 +193,6 @@ export default function NotificationsScreen() {
         ))}
       </ScrollView>
 
-      {/* Empty State */}
       {notifications.length === 0 && (
         <View style={styles.emptyState}>
           <Ionicons name="notifications-off" size={64} color="#CCC" />
@@ -279,98 +205,21 @@ export default function NotificationsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: 'white',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#000',
-  },
-  clearButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  clearButtonText: {
-    color: '#EF4444',
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  notificationsList: {
-    flex: 1,
-  },
-  notificationItem: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-    backgroundColor: 'white',
-  },
-  unreadNotification: {
-    backgroundColor: '#F8F9FA',
-  },
-  notificationIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F0F0F0',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  notificationContent: {
-    flex: 1,
-  },
-  notificationTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000',
-    marginBottom: 4,
-  },
-  notificationMessage: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
-    lineHeight: 20,
-  },
-  notificationTime: {
-    fontSize: 12,
-    color: '#999',
-  },
-  unreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#EF4444',
-    alignSelf: 'center',
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#666',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  emptyMessage: {
-    fontSize: 16,
-    color: '#999',
-    textAlign: 'center',
-  },
+  container: { flex: 1, backgroundColor: 'white' },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: '#E0E0E0' },
+  headerTitle: { fontSize: 24, fontWeight: 'bold', color: '#000' },
+  clearButton: { paddingHorizontal: 12, paddingVertical: 6 },
+  clearButtonText: { color: '#EF4444', fontSize: 16, fontWeight: '500' },
+  notificationsList: { flex: 1 },
+  notificationItem: { flexDirection: 'row', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#F0F0F0', backgroundColor: 'white' },
+  unreadNotification: { backgroundColor: '#F8F9FA' },
+  notificationIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F0F0F0', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  notificationContent: { flex: 1 },
+  notificationTitle: { fontSize: 16, fontWeight: '600', color: '#000', marginBottom: 4 },
+  notificationMessage: { fontSize: 14, color: '#666', marginBottom: 4, lineHeight: 20 },
+  notificationTime: { fontSize: 12, color: '#999' },
+  unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#EF4444', alignSelf: 'center' },
+  emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40 },
+  emptyTitle: { fontSize: 20, fontWeight: '600', color: '#666', marginTop: 16, marginBottom: 8 },
+  emptyMessage: { fontSize: 16, color: '#999', textAlign: 'center' },
 });
