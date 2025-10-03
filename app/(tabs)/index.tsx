@@ -1,7 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Image } from 'react-native';
-
 import {
   ScrollView,
   StatusBar,
@@ -121,49 +119,78 @@ const HomeScreen = () => {
   const scheduleEventReminders = async (combinedEvents: Event[], bookingsList: Booking[]) => {
     const now = new Date().getTime();
     const offsetMs = REMINDER_OFFSET_MINUTES * 60 * 1000;
-
-    const upcomingPersonal = combinedEvents.filter(
-      e => e.type === 'personal' && new Date(e.startsAt).getTime() > now
+  
+    console.log("⏰ Scheduling reminders...");
+    console.log("Now:", new Date(now).toISOString());
+  
+    // ✅ FIX: include both "event" and "personal"
+    const upcomingEvents = combinedEvents.filter(
+      e => (e.type === 'personal' || e.type === 'event') && new Date(e.startsAt).getTime() > now
     );
+  
+    // bookings may come empty from API but keep logic
     const upcomingBookings = bookingsList.filter(
       b => b.eventId && new Date(b.eventId.startsAt).getTime() > now
     );
-
-    for (const e of upcomingPersonal) {
+  
+    console.log(`📌 Upcoming events: ${upcomingEvents.length}`);
+    console.log(`📌 Upcoming bookings: ${upcomingBookings.length}`);
+  
+    console.log("📋 Upcoming events detail:", upcomingEvents.map(e => ({
+      title: e.title,
+      startsAt: e.startsAt,
+      endsAt: e.endsAt
+    })));
+  
+    for (const e of upcomingEvents) {
       const triggerTime = new Date(e.startsAt).getTime() - offsetMs;
-      if (triggerTime > now) {
-        await Notifications.scheduleNotificationAsync({
-          content: {
-            title: 'Event Reminder',
-            body: `Your personal event "${e.title}" starts in ${REMINDER_OFFSET_MINUTES} minutes!`,
-            data: { type: 'reminder' },
-          },
-          trigger: { date: new Date(triggerTime) } as any,
-        });
-      }
+      const fireDate = triggerTime > now ? new Date(triggerTime) : new Date(now + 5000);
+  
+      console.log(
+        `🔔 Scheduling Event: "${e.title}" | startsAt=${e.startsAt} | fireDate=${fireDate.toISOString()}`
+      );
+  
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Event Reminder',
+          body:
+            triggerTime > now
+              ? `Your event "${e.title}" starts in ${REMINDER_OFFSET_MINUTES} minutes!`
+              : `Your event "${e.title}" is starting soon!`,
+          data: { type: 'reminder' },
+        },
+        trigger: { date: fireDate } as any,
+      });
+  
+      console.log(`✅ Notification scheduled for "${e.title}" at ${fireDate.toISOString()}`);
     }
-
+  
     for (const b of upcomingBookings) {
       const e = b.eventId;
       const triggerTime = new Date(e.startsAt).getTime() - offsetMs;
-      if (triggerTime > now) {
-        await Notifications.scheduleNotificationAsync({
-          content: {
-            title: 'Booking Reminder',
-            body: `Your booked event "${e.title}" starts in ${REMINDER_OFFSET_MINUTES} minutes!`,
-            data: { type: 'reminder' },
-          },
-          trigger: { date: new Date(triggerTime) } as any,
-        });
-      }
+      const fireDate = triggerTime > now ? new Date(triggerTime) : new Date(now + 5000);
+  
+      console.log(
+        `🔔 Scheduling Booking: "${e.title}" | startsAt=${e.startsAt} | fireDate=${fireDate.toISOString()}`
+      );
+  
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Booking Reminder',
+          body:
+            triggerTime > now
+              ? `Your booked event "${e.title}" starts in ${REMINDER_OFFSET_MINUTES} minutes!`
+              : `Your booked event "${e.title}" is starting soon!`,
+          data: { type: 'reminder' },
+        },
+        trigger: { date: fireDate } as any,
+      });
+  
+      console.log(`✅ Notification scheduled for booking "${e.title}" at ${fireDate.toISOString()}`);
     }
   };
-  const getImageUrl = (imagePath: string | undefined) => {
-    if (!imagePath) return null;
-    if (imagePath.startsWith('http')) return imagePath;
-    return `https://quackplan2.ahmed-abd-elmohsen.tech${imagePath}`;
-  };
   
+
   const fetchEvents = async () => {
     try {
       setIsLoading(true);
@@ -375,34 +402,26 @@ const HomeScreen = () => {
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-  <View style={styles.profileSection}>
-    <View style={styles.profilePic}>
-      {getImageUrl(user?.profile?.profilePicture) ? (
-        <Image
-          source={{ uri: getImageUrl(user?.profile?.profilePicture)! }}
-          style={{ width: 40, height: 40, borderRadius: 20 }}
-        />
-      ) : (
-        <Ionicons name="person" size={40} color="#2196F3" />
-      )}
-    </View>
-    <Text style={styles.greetingText}>
-      Hi, {user?.profile?.fullName?.split(' ')[0] || 'User'}!
-    </Text>
-  </View>
-  <TouchableOpacity 
-    style={styles.notificationIcon}
-    onPress={() => navigation.navigate('notifications' as never)}
-  >
-    <Ionicons name="notifications-outline" size={24} color="#000" />
-    {unreadCount > 0 && (
-      <View style={styles.badge}>
-        <Text style={styles.badgeText}>{unreadCount}</Text>
-      </View>
-    )}
-  </TouchableOpacity>
-</View>
-
+          <View style={styles.profileSection}>
+            <View style={styles.profilePic}>
+              <Ionicons name="person" size={24} color="#2196F3" />
+            </View>
+            <Text style={styles.greetingText}>
+              Hi, {user?.profile?.fullName?.split(' ')[0] || 'User'}!
+            </Text>
+          </View>
+          <TouchableOpacity 
+            style={styles.notificationIcon}
+            onPress={() => navigation.navigate('notifications' as never)}
+          >
+            <Ionicons name="notifications-outline" size={24} color="#000" />
+            {unreadCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{unreadCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
 
         {/* Date Selector */}
         <View style={styles.dateSection}>
