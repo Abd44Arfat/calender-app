@@ -20,6 +20,8 @@ import { apiService, Booking } from '../../services/api';
 import { useSnackbar } from '../../hooks/useSnackbar';
 import * as Notifications from 'expo-notifications';
 import { initNotifications, getNotifications, addChangeListener } from './notifications';
+import { Image } from 'react-native';
+
 
 // Change this value to adjust reminder offset
 const REMINDER_OFFSET_MINUTES = 10;
@@ -100,7 +102,12 @@ const HomeScreen = () => {
     if (Array.isArray(res)) return res;
     return [];
   };
-
+  const getImageUrl = (imagePath: string | undefined) => {
+    if (!imagePath) return null;
+    if (imagePath.startsWith('http')) return imagePath;
+    return `https://quackplan2.ahmed-abd-elmohsen.tech${imagePath}`;
+  };
+  
   const getRandomColor = (seed: string) => {
     const colors = [
       '#EF4444','#F97316','#EAB308','#22C55E','#06B6D4',
@@ -402,26 +409,34 @@ const HomeScreen = () => {
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <View style={styles.profileSection}>
-            <View style={styles.profilePic}>
-              <Ionicons name="person" size={24} color="#2196F3" />
-            </View>
-            <Text style={styles.greetingText}>
-              Hi, {user?.profile?.fullName?.split(' ')[0] || 'User'}!
-            </Text>
-          </View>
-          <TouchableOpacity 
-            style={styles.notificationIcon}
-            onPress={() => navigation.navigate('notifications' as never)}
-          >
-            <Ionicons name="notifications-outline" size={24} color="#000" />
-            {unreadCount > 0 && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{unreadCount}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
+  <View style={styles.profileSection}>
+    <View style={styles.profilePic}>
+      {getImageUrl(user?.profile?.profilePicture) ? (
+        <Image
+          source={{ uri: getImageUrl(user?.profile?.profilePicture)! }}
+          style={{ width: 40, height: 40, borderRadius: 20 }}
+        />
+      ) : (
+        <Ionicons name="person" size={40} color="#2196F3" />
+      )}
+    </View>
+    <Text style={styles.greetingText}>
+      Hi, {user?.profile?.fullName?.split(' ')[0] || 'User'}!
+    </Text>
+  </View>
+  <TouchableOpacity 
+    style={styles.notificationIcon}
+    onPress={() => navigation.navigate('notifications' as never)}
+  >
+    <Ionicons name="notifications-outline" size={24} color="#000" />
+    {unreadCount > 0 && (
+      <View style={styles.badge}>
+        <Text style={styles.badgeText}>{unreadCount}</Text>
+      </View>
+    )}
+  </TouchableOpacity>
+</View>
+
 
         {/* Date Selector */}
         <View style={styles.dateSection}>

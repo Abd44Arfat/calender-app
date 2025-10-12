@@ -2,17 +2,38 @@
   "expo": {
     "name": "Quack Plan v1",
     "slug": "quack-plan",
+    "version": "1.0.0",
+    "orientation": "portrait",
     "entryPoint": "./app/index.js",
+    "scheme": "quackplan",
     "icon": "./assets/images/quackplanicon.png",
-    "notification": {
-      "icon": "./assets/images/notification-icon.png", 
-      "color": "#ef4444" 
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/images/quackplanicon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
     },
     "ios": {
-      "bundleIdentifier": "com.anonymous.quackplan"
+      "bundleIdentifier": "com.quackplan.quackplan",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "We use the camera for profile photos and scanning features.",
+        "NSPhotoLibraryUsageDescription": "We need access to your photos to let you upload images.",
+        "NSLocationWhenInUseUsageDescription": "We use your location to personalize your experience.",
+        "NSUserTrackingUsageDescription": "We use tracking to improve recommendations and app performance.",
+        "NSMicrophoneUsageDescription": "We need microphone access for optional voice features.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
-      "package": "com.anonymous.quackplan",
+      "package": "com.quackplan.quackplan",
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "ACCESS_FINE_LOCATION",
+        "RECORD_AUDIO"
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/quackplanicon.png",
         "backgroundColor": "#ffffff"
@@ -22,6 +43,10 @@
         "color": "#ef4444"
       }
     },
+    "notification": {
+      "icon": "./assets/images/notification-icon.png",
+      "color": "#ef4444"
+    },
     "plugins": [
       [
         "expo-notifications",
@@ -30,6 +55,17 @@
           "color": "#ef4444"
         }
       ]
-    ]
+    ],
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/bf93f7e4-641d-4882-be34-13d0edc1207e"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "bf93f7e4-641d-4882-be34-13d0edc1207e"
+      }
+    }
   }
 }

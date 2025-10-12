@@ -162,12 +162,7 @@ export default function NotificationsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <TouchableOpacity
-  style={{ marginLeft: 16, padding: 10, backgroundColor: '#3B82F6', borderRadius: 6 }}
-  onPress={scheduleTestNotification}
->
-  <Text style={{ color: 'white', fontWeight: 'bold' }}>Test Notification</Text>
-</TouchableOpacity>
+
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Notifications</Text>
         <TouchableOpacity style={styles.clearButton} onPress={clearAllNotifications}>
