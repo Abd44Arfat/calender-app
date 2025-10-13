@@ -139,6 +139,16 @@ export async function saveNotification(n: StoredNotification) {
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(list));
 }
 
+// Force reset scheduled reminders — cancels all scheduled notifications and clears registry.
+export async function resetScheduledReminders() {
+  try {
+    await Notifications.cancelAllScheduledNotificationsAsync();
+  } catch (e) {}
+  try {
+    await AsyncStorage.removeItem(SCHEDULED_KEY);
+  } catch (e) {}
+}
+
 export async function markAsRead(notificationId: string) {
   const list = await getNotifications();
   const updated = list.map((n) => (n.id === notificationId ? { ...n, read: true } : n));
@@ -186,8 +196,13 @@ export async function scheduleEventNotification({
   const REMINDER_MINUTES = 10; // schedule 10 minutes before
   const triggerDate = new Date(eventDate.getTime() - REMINDER_MINUTES * 60 * 1000);
 
+  console.debug('scheduleEventNotification debug', { id, eventDateISO, eventDate: eventDate.toISOString(), triggerDate: triggerDate.toISOString(), now: new Date().toISOString() });
+
   // don't schedule reminders for past triggers
-  if (triggerDate <= new Date()) return;
+  if (triggerDate <= new Date()) {
+    console.debug('scheduleEventNotification: trigger in past, skipping', { id });
+    return;
+  }
   try {
     // load registry + scheduled list
     const registry = await getScheduledRegistry();
@@ -200,18 +215,30 @@ export async function scheduleEventNotification({
         const ident = (s as any).identifier ?? (s as any).id ?? null;
         return ident && String(ident) === String(knownIdent);
       });
-      if (exists) return;
-      // registry pointed to missing identifier; remove it and continue
+      // If an identifier exists in registry and still scheduled, cancel it first to
+      // avoid duplicates (we want exactly one reminder per event)
+      if (exists) {
+        try {
+          await Notifications.cancelScheduledNotificationAsync(knownIdent as any);
+        } catch (e) {}
+      }
+      // registry pointed to missing identifier or we've removed it; clear and continue
       delete registry[String(id)];
       await saveScheduledRegistry(registry);
     }
 
-    // If a scheduled notification already carries data.eventId matching this event, skip
-    const alreadyByData = scheduled.some((s) => {
-      const data = (s as any).content?.data as any;
-      return data && (data.eventId === id || data.eventId === String(id));
-    });
-    if (alreadyByData) return;
+    // If scheduled notifications carry data.eventId matching this event, cancel them
+    for (const s of scheduled) {
+      try {
+        const data = (s as any).content?.data as any;
+        const ident = (s as any).identifier ?? (s as any).id ?? null;
+        if (data && (data.eventId === id || data.eventId === String(id))) {
+          if (ident) {
+            try { await Notifications.cancelScheduledNotificationAsync(ident); } catch (e) {}
+          }
+        }
+      } catch (e) {}
+    }
 
     // Heuristic cleanup: cancel older scheduled notifications whose content mentions the same title
     for (const s of scheduled) {

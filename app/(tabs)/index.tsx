@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 // use centralized notification helper instead of direct expo-notifications scheduling
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -65,6 +65,7 @@ const HomeScreen = () => {
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [isEventDetailsVisible, setIsEventDetailsVisible] = useState(false);
+  const modalOpeningRef = useRef(false);
 
   const days = useMemo(() => {
     const formatter = new Intl.DateTimeFormat('en', { weekday: 'short' });
@@ -84,6 +85,22 @@ const HomeScreen = () => {
 
   const toHHmm = (iso?: string) =>
     iso ? new Date(iso).toTimeString().slice(0, 5) : '--:--';
+
+  const isValidISO = (iso?: string) => {
+    if (!iso) return false;
+    const d = new Date(iso);
+    return d instanceof Date && !isNaN(d.getTime());
+  };
+
+  const formatTimeForModal = (iso?: string) => {
+    if (!isValidISO(iso)) return '--:--';
+  return new Date(iso as string).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+  };
+
+  const formatDateForModal = (iso?: string) => {
+    if (!isValidISO(iso)) return 'Unknown date';
+  return new Date(iso as string).toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
+  };
 
   const parseTime = (value: string): { h: number; m: number } | null => {
     if (!value) return null;
@@ -265,7 +282,7 @@ const HomeScreen = () => {
     const setup = async () => {
       await initNotifications();
       
-      try {
+  try {
         // Fetch only future events for reminders (now to end of day)
         const startISO = new Date();
         const endISO = new Date();
@@ -306,10 +323,19 @@ const HomeScreen = () => {
             status: 'confirmed',
             limit: 50,
           });
+          const now = new Date();
           bookingsList = (bookingsResponse.bookings || []).filter(b => {
-            const end = b.eventId?.endsAt ? new Date(b.eventId.endsAt) : null;
-            return end && end > startISO;
-          });
+              const end = b.eventId?.endsAt ? new Date(b.eventId.endsAt) : null;
+              return end && end > now;
+            });
+        }
+
+        // Clear any previously scheduled reminders to avoid stale entries
+        try {
+          const { resetScheduledReminders } = await import('../../services/notificationservice');
+          await resetScheduledReminders();
+        } catch (e) {
+          console.warn('Failed to reset scheduled reminders:', e);
         }
 
         // Schedule reminders once, not on every fetch
@@ -326,6 +352,16 @@ const HomeScreen = () => {
   useEffect(() => {
     fetchEvents();
   }, [selectedDate, token]);
+
+  // Debug: log selectedEvent when it changes to help trace modal rendering issues
+  useEffect(() => {
+    if (selectedEvent) {
+      console.debug('RENDER: selectedEvent changed ->', selectedEvent);
+    } else {
+      console.debug('RENDER: selectedEvent cleared');
+    }
+    console.debug('RENDER: isEventDetailsVisible ->', isEventDetailsVisible);
+  }, [selectedEvent, isEventDetailsVisible]);
 
   // Refresh events (without scheduling) on focus
   useFocusEffect(
@@ -563,7 +599,26 @@ const HomeScreen = () => {
             <Text style={styles.sectionTitle}>My Bookings</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bookingsContainer}>
               {bookings.slice(0, 5).map((booking) => (
-                <View key={booking._id} style={styles.bookingCard}>
+                <TouchableOpacity
+                  key={booking._id}
+                  style={styles.bookingCard}
+                  onPress={() => {
+                    setSelectedEvent({
+                      id: booking.eventId?._id || booking._id,
+                      title: booking.eventId?.title || 'Untitled',
+                      startsAt: booking.eventId?.startsAt,
+                      endsAt: booking.eventId?.endsAt,
+                      type: 'booking',
+                      isPersonal: false,
+                      bookingData: booking,
+                    });
+                    modalOpeningRef.current = true;
+                    setTimeout(() => {
+                      setIsEventDetailsVisible(true);
+                      setTimeout(() => { modalOpeningRef.current = false; }, 200);
+                    }, 120);
+                  }}
+                >
                   <Text style={styles.bookingTitle} numberOfLines={1}>
                     {booking.eventId?.title || 'Untitled'}
                   </Text>
@@ -587,7 +642,7 @@ const HomeScreen = () => {
                   >
                     <Text style={styles.cancelButtonText}>Cancel</Text>
                   </TouchableOpacity>
-                </View>
+                </TouchableOpacity>
               ))}
             </ScrollView>
           </View>
@@ -611,8 +666,26 @@ const HomeScreen = () => {
                           onPress={() => {
                             // try to find original event by originalId
                             if (ev.fullEvent) {
-                              setSelectedEvent(ev.fullEvent);
-                              setIsEventDetailsVisible(true);
+                              const e = ev.fullEvent;
+                              const normalized = {
+                                id: e.id || e._id,
+                                title: e.title || 'Untitled',
+                                startsAt: e.startsAt,
+                                endsAt: e.endsAt,
+                                description: e.description || e.notes || '',
+                                location: e.location || '',
+                                priceCents: e.priceCents || e.costCents || null,
+                                type: e.type || 'event',
+                                isPersonal: !!e.isPersonal,
+                              } as any;
+                              console.debug('Opening event modal for', normalized);
+                              setSelectedEvent(normalized);
+                              modalOpeningRef.current = true;
+                              setTimeout(() => {
+                                setIsEventDetailsVisible(true);
+                                // clear the opening flag shortly after modal is visible
+                                setTimeout(() => { modalOpeningRef.current = false; }, 200);
+                              }, 120);
                               return;
                             }
                             // fallback: if this item contains booking data, show booking's event info
@@ -620,13 +693,21 @@ const HomeScreen = () => {
                               const bEvent = ev.booking.eventId as any;
                               setSelectedEvent({
                                 id: bEvent._id || ev.originalId,
-                                title: bEvent.title,
+                                title: bEvent.title || 'Untitled',
                                 startsAt: bEvent.startsAt,
                                 endsAt: bEvent.endsAt,
+                                description: bEvent.description || '',
+                                location: bEvent.location || '',
+                                priceCents: bEvent.priceCents || null,
                                 type: 'booking',
                                 isPersonal: false,
+                                bookingData: ev.booking,
                               });
-                              setIsEventDetailsVisible(true);
+                              modalOpeningRef.current = true;
+                              setTimeout(() => {
+                                setIsEventDetailsVisible(true);
+                                setTimeout(() => { modalOpeningRef.current = false; }, 200);
+                              }, 120);
                             }
                           }}
                         >
@@ -691,6 +772,56 @@ const HomeScreen = () => {
         </View>
       </Modal>
 
+      {/* Booking Details Modal (centered) */}
+      <Modal
+        visible={isEventDetailsVisible && (selectedEvent as any)?.bookingData}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsEventDetailsVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.centeredModalOverlay}
+          activeOpacity={1}
+          onPress={() => {
+            if (modalOpeningRef.current) return; // ignore taps while modal is opening
+            setIsEventDetailsVisible(false);
+          }}
+        >
+          {/* ignore taps while modal is being opened to avoid immediate close */}
+          <TouchableOpacity
+            style={styles.centeredModalCard}
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+          >
+            {selectedEvent && (selectedEvent as any).bookingData && (
+              <>
+                <Text style={styles.centeredModalTitle}>{selectedEvent.title}</Text>
+                <View style={styles.eventDetailItem}>
+                  <Ionicons name="time-outline" size={20} color="#666" style={styles.detailIcon} />
+                  <Text style={styles.eventDetailText}>
+                    {toHHmm((selectedEvent as any).startsAt)} - {toHHmm((selectedEvent as any).endsAt)}
+                  </Text>
+                </View>
+                {(selectedEvent as any).bookingData?.eventId?.location && (
+                  <View style={styles.eventDetailItem}>
+                    <Ionicons name="location-outline" size={20} color="#666" style={styles.detailIcon} />
+                    <Text style={styles.eventDetailText}>{(selectedEvent as any).bookingData.eventId.location}</Text>
+                  </View>
+                )}
+                {(selectedEvent as any).bookingData?.eventId?.priceCents != null && (
+                  <View style={styles.eventDetailItem}>
+                    <Text style={[styles.eventDetailText, { fontWeight: '700', color: '#10B981' }]}>${((selectedEvent as any).bookingData.eventId.priceCents/100).toFixed(2)}</Text>
+                  </View>
+                )}
+                <TouchableOpacity style={styles.closeModalButton} onPress={() => setIsEventDetailsVisible(false)}>
+                  <Text style={styles.closeModalButtonText}>Close</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
       {/* Booking Success Modal (shown after creating personal event) */}
       <Modal
         visible={isBookingSuccess}
@@ -710,82 +841,76 @@ const HomeScreen = () => {
         </View>
       </Modal>
 
-      {/* Event Details Modal */}
+      {/* Event Details Modal (bottom sheet for non-booking events) */}
       <Modal
-        visible={isEventDetailsVisible}
+        visible={isEventDetailsVisible && !!selectedEvent && !(selectedEvent as any).bookingData}
         transparent
-        animationType="fade"
+        animationType="slide"
         onRequestClose={() => setIsEventDetailsVisible(false)}
       >
-        <TouchableOpacity 
-          style={styles.centeredModalOverlay} 
+        <TouchableOpacity
+          style={styles.eventModalOverlay}
           activeOpacity={1}
-          onPress={() => setIsEventDetailsVisible(false)}
+          onPress={() => {
+            if (modalOpeningRef.current) return;
+            setIsEventDetailsVisible(false);
+          }}
         >
-          <TouchableOpacity 
-            style={styles.centeredModalCard}
+          <TouchableOpacity
+            style={styles.eventModalCard}
             activeOpacity={1}
             onPress={(e) => e.stopPropagation()}
           >
+            {/* drag indicator */}
+            <View style={{ width: 40, height: 5, backgroundColor: '#E5E7EB', borderRadius: 4, marginBottom: 12 }} />
             {selectedEvent && (
-              <>
+              <ScrollView style={{ width: '100%' }} showsVerticalScrollIndicator={false}>
                 <View style={styles.modalIconHeader}>
-                  <View style={[styles.modalIcon, { 
-                    backgroundColor: selectedEvent.type === 'personal' ? '#60A5FA' : '#10B981' 
+                  <View style={[styles.modalIcon, {
+                    backgroundColor: (selectedEvent as any).isPersonal ? '#60A5FA' : '#10B981'
                   }]}>
-                    <Ionicons 
-                      name={selectedEvent.type === 'personal' ? 'calendar' : 'calendar-outline'} 
-                      size={32} 
-                      color="white" 
-                    />
+                    <Ionicons name={(selectedEvent as any).isPersonal ? 'calendar' : 'calendar-outline'} size={32} color="white" />
                   </View>
                 </View>
 
-                <Text style={styles.centeredModalTitle}>{selectedEvent.title}</Text>
-                
-                <View style={styles.eventDetailItem}>
-                  <Ionicons name="time-outline" size={24} color="#666" style={styles.detailIcon} />
-                  <Text style={styles.eventDetailText}>
-                    {new Date(selectedEvent.startsAt).toLocaleTimeString([], { 
-                      hour: '2-digit', 
-                      minute: '2-digit',
-                      hour12: true
-                    })}
-                    {' - '}
-                    {new Date(selectedEvent.endsAt).toLocaleTimeString([], { 
-                      hour: '2-digit', 
-                      minute: '2-digit',
-                      hour12: true 
-                    })}
-                  </Text>
+                <Text style={[styles.eventModalTitle, { textAlign: 'center' }]}>{(selectedEvent as any).title}</Text>
+
+                <View style={[styles.eventDetailItem, { marginTop: 8 }]}>
+                  <Ionicons name="time-outline" size={20} color="#666" style={styles.detailIcon} />
+                  <Text style={styles.eventDetailText}>{formatTimeForModal((selectedEvent as any).startsAt)} - {formatTimeForModal((selectedEvent as any).endsAt)}</Text>
                 </View>
 
                 <View style={styles.eventDetailItem}>
-                  <Ionicons name="calendar-outline" size={24} color="#666" style={styles.detailIcon} />
-                  <Text style={styles.eventDetailText}>
-                    {new Date(selectedEvent.startsAt).toLocaleDateString([], {
-                      weekday: 'long',
-                      month: 'long',
-                      day: 'numeric'
-                    })}
-                  </Text>
+                  <Ionicons name="calendar-outline" size={20} color="#666" style={styles.detailIcon} />
+                  <Text style={styles.eventDetailText}>{formatDateForModal((selectedEvent as any).startsAt)}</Text>
                 </View>
 
-                <View style={styles.eventTypePill}>
-                  <Text style={[styles.eventTypeText, { 
-                    color: (selectedEvent as any).isPersonal ? '#60A5FA' : '#10B981'
-                  }]}>
-                    {(selectedEvent as any).isPersonal ? 'Personal Event' : 'Public Event'}
-                  </Text>
+                <View style={styles.eventDetailItem}>
+                  <Ionicons name="location-outline" size={20} color="#666" style={styles.detailIcon} />
+                  <Text style={styles.eventDetailText}>{(selectedEvent as any).location || 'No location'}</Text>
                 </View>
 
-                <TouchableOpacity
-                  style={styles.closeModalButton}
-                  onPress={() => setIsEventDetailsVisible(false)}
-                >
+                {(selectedEvent as any).description ? (
+                  <View style={[styles.eventDetailItem, { alignItems: 'flex-start' }]}>
+                    <Ionicons name="document-text-outline" size={20} color="#666" style={styles.detailIcon} />
+                    <Text style={[styles.eventDetailText, { color: '#444' }]}>{(selectedEvent as any).description}</Text>
+                  </View>
+                ) : null}
+
+                {(selectedEvent as any).priceCents != null && (
+                  <View style={styles.eventDetailItem}>
+                    <Text style={[styles.eventDetailText, { fontWeight: '700', color: '#10B981' }]}>${(((selectedEvent as any).priceCents) / 100).toFixed(2)}</Text>
+                  </View>
+                )}
+
+                <View style={[styles.eventTypePill, { alignSelf: 'center', marginTop: 12 }]}> 
+                  <Text style={[styles.eventTypeText, { color: (selectedEvent as any).isPersonal ? '#60A5FA' : '#10B981' }]}>{(selectedEvent as any).isPersonal ? 'Personal Event' : 'Public Event'}</Text>
+                </View>
+
+                <TouchableOpacity style={[styles.closeModalButton, { marginTop: 18 }]} onPress={() => setIsEventDetailsVisible(false)}>
                   <Text style={styles.closeModalButtonText}>Close</Text>
                 </TouchableOpacity>
-              </>
+              </ScrollView>
             )}
           </TouchableOpacity>
         </TouchableOpacity>

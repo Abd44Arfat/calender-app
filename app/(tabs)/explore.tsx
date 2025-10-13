@@ -230,23 +230,37 @@ export default function ExploreScreen() {
                   await apiService.createBooking(token, { eventId });
                   // close events modal so confirmation modal appears on top
                   setIsEventsModalVisible(false);
-                  // Schedule only one notification for this booking (non-personal)
-                  if (event.startsAt && event.type !== 'personal') {
-                    try {
-                      await scheduleEventNotification({
-                        id: eventId,
-                        title: 'Booking Reminder',
-                        body: `Your booked event "${event.title}" starts in 10 minutes!`,
-                        eventDateISO: event.startsAt,
-                        type: event.type,
-                      });
-                    } catch (sErr) {
-                      console.warn('Failed to schedule booking reminder', sErr);
-                    }
-                  }
+                  // Do not schedule a system notification immediately on booking.
+                  // The app shows a confirmation modal instead. Scheduling of reminders
+                  // is centralized and run once on app mount to avoid duplicates.
                   setConfirmationMessage('Your booking is confirmed!');
                   setIsConfirmationVisible(true);
                   showSuccess('Event booked successfully!');
+                  // Ensure exactly one reminder exists for this event: schedule only if
+                  // the reminder trigger (10 minutes before event) is safely in the future
+                  // to avoid delivering an immediate notification right after booking.
+                  if (event.startsAt && event.type !== 'personal') {
+                    try {
+                      const eventDate = new Date(event.startsAt);
+                      const REMINDER_MINUTES = 10;
+                      const triggerDate = new Date(eventDate.getTime() - REMINDER_MINUTES * 60 * 1000);
+                      // if trigger time is more than 5 seconds from now, schedule; otherwise skip
+                      if (triggerDate.getTime() > Date.now() + 5000) {
+                        await scheduleEventNotification({
+                          id: eventId,
+                          title: 'Booking Reminder',
+                          body: `Your booked event "${event.title}" starts in ${REMINDER_MINUTES} minutes!`,
+                          eventDateISO: event.startsAt,
+                          type: event.type,
+                        });
+                      } else {
+                        // skip scheduling because trigger is too near and could deliver immediately
+                        console.debug('Skipping immediate scheduling for event', eventId);
+                      }
+                    } catch (sErr) {
+                      console.warn('Failed to ensure booking reminder', sErr);
+                    }
+                  }
             } catch (err: any) {
               showError(err.message || 'Failed to book event');
             } finally {
@@ -369,7 +383,13 @@ export default function ExploreScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      {isLoading ? (
+        <View style={styles.centeredLoading}>
+          <ActivityIndicator size="large" color="#1E88E5" />
+          <Text style={{ marginTop: 12, color: '#666' }}>Loading events...</Text>
+        </View>
+      ) : (
+        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
 
 
         {/* Month Header */}
@@ -454,7 +474,7 @@ export default function ExploreScreen() {
         )}
       </ScrollView>
 
-      {/* Events Modal */}
+      )}{/* Events Modal */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -934,6 +954,12 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 5,
     textAlign: 'center',
+  },
+  centeredLoading: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 60,
   },
   fab: {
     position: 'absolute',
