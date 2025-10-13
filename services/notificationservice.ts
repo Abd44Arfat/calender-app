@@ -13,6 +13,7 @@ export type StoredNotification = {
 };
 
 const STORAGE_KEY = 'APP_NOTIFICATIONS';
+const SCHEDULED_KEY = 'SCHEDULED_REMINDERS';
 let changeListeners: (() => void)[] = [];
 
 const notifyChange = () => changeListeners.forEach((l) => l());
@@ -53,6 +54,21 @@ export async function initNotifications() {
 export async function getNotifications(): Promise<StoredNotification[]> {
   const raw = await AsyncStorage.getItem(STORAGE_KEY);
   return raw ? JSON.parse(raw) : [];
+}
+
+async function getScheduledRegistry(): Promise<Record<string, string>> {
+  try {
+    const raw = await AsyncStorage.getItem(SCHEDULED_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+async function saveScheduledRegistry(reg: Record<string, string>) {
+  try {
+    await AsyncStorage.setItem(SCHEDULED_KEY, JSON.stringify(reg));
+  } catch {}
 }
 
 export async function saveNotification(n: StoredNotification) {

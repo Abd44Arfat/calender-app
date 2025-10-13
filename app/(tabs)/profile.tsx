@@ -358,13 +358,7 @@ export default function ProfileScreen() {
               />
             )}
           
-            <TextInput
-              placeholder="Rating (0-5)"
-              value={editRating}
-              onChangeText={setEditRating}
-              style={styles.input}
-              keyboardType="numeric"
-            />
+          
             <View style={styles.modalButtons}>
               <TouchableOpacity 
                 onPress={() => setIsEditModalVisible(false)} 
