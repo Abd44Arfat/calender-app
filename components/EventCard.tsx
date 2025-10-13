@@ -14,15 +14,15 @@ interface EventCardProps {
 
 const EventCard: React.FC<EventCardProps> = ({ event }) => {
   return (
-    <TouchableOpacity style={[styles.eventCard, { backgroundColor: event.color }]}>
+    <View style={[styles.eventCard, { backgroundColor: event.color }]}>
       <View style={styles.eventContent}>
         <Text style={styles.eventTitle}>{event.title}</Text>
         <Text style={styles.eventTime}>{event.time}</Text>
       </View>
-      <TouchableOpacity style={styles.eventIcon}>
+      <TouchableOpacity style={styles.eventIcon} onPress={() => { /* optional icon action */ }}>
         <Ionicons name="open-outline" size={16} color="white" />
       </TouchableOpacity>
-    </TouchableOpacity>
+    </View>
   );
 };
 

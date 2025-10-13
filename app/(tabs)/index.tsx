@@ -61,6 +61,8 @@ const HomeScreen = () => {
   const [newEndTime, setNewEndTime] = useState<string>('10:00');
   const [newNotes, setNewNotes] = useState<string>('');
   const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [isEventDetailsVisible, setIsEventDetailsVisible] = useState(false);
 
   const days = useMemo(() => {
     const formatter = new Intl.DateTimeFormat('en', { weekday: 'short' });
@@ -347,6 +349,8 @@ const HomeScreen = () => {
     const allItems = [
       ...currentDayEvents.map((e, idx) => ({
         id: `${e.id}-event-${idx}`,
+        originalId: String(e.id),
+        fullEvent: e,
         title: e.title,
         time: `${toHHmm(e.startsAt)} - ${toHHmm(e.endsAt)}`,
         color: getRandomColor(e.title + e.startsAt),
@@ -355,11 +359,13 @@ const HomeScreen = () => {
       })),
       ...currentDayBookings.map((b, idx) => ({
         id: `${b._id}-booking-${idx}`,
+  originalId: String(b.eventId?._id || b._id),
         title: `📅 ${b.eventId?.title || 'No Title'}`,
         time: `${toHHmm(b.eventId?.startsAt)} - ${toHHmm(b.eventId?.endsAt)}`,
         color: getRandomColor((b.eventId?.title || '') + (b.eventId?.startsAt || '') + 'booking'),
         startHour: b.eventId?.startsAt ? new Date(b.eventId.startsAt).getHours() : -1,
         type: 'booking',
+        booking: b,
       })),
     ];
 
@@ -468,6 +474,7 @@ const HomeScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="white" />
+      
       {isLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#1E88E5" />
@@ -475,6 +482,7 @@ const HomeScreen = () => {
         </View>
       ) : (
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+          {/* Header */}
           {/* Header */}
         <View style={styles.header}>
   <View style={styles.profileSection}>
@@ -587,7 +595,33 @@ const HomeScreen = () => {
                 </View>
                 <View style={styles.eventColumn}>
                   {eventsAt.length
-                    ? eventsAt.map(ev => <EventCard key={`${index}-${ev.id}`} event={ev} />)
+                    ? eventsAt.map((ev: any) => (
+                        <TouchableOpacity
+                          key={`${index}-${ev.id}`}
+                          onPress={() => {
+                            // try to find original event by originalId
+                            if (ev.fullEvent) {
+                              setSelectedEvent(ev.fullEvent);
+                              setIsEventDetailsVisible(true);
+                              return;
+                            }
+                            // fallback: if this item contains booking data, show booking's event info
+                            if (ev.booking) {
+                              const bEvent = ev.booking.eventId as any;
+                              setSelectedEvent({
+                                id: bEvent._id || ev.originalId,
+                                title: bEvent.title,
+                                startsAt: bEvent.startsAt,
+                                endsAt: bEvent.endsAt,
+                                type: 'booking',
+                              });
+                              setIsEventDetailsVisible(true);
+                            }
+                          }}
+                        >
+                          <EventCard event={ev} />
+                        </TouchableOpacity>
+                      ))
                     : <View style={styles.emptySlot} />}
                 </View>
               </View>
@@ -665,6 +699,99 @@ const HomeScreen = () => {
         </View>
       </Modal>
 
+      {/* Event Details Modal */}
+      <Modal
+        visible={isEventDetailsVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsEventDetailsVisible(false)}
+      >
+        <TouchableOpacity 
+          style={styles.centeredModalOverlay} 
+          activeOpacity={1}
+          onPress={() => setIsEventDetailsVisible(false)}
+        >
+          <TouchableOpacity 
+            style={styles.centeredModalCard}
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+          >
+            {selectedEvent && (
+              <>
+                <View style={styles.modalIconHeader}>
+                  <View style={[styles.modalIcon, { 
+                    backgroundColor: selectedEvent.type === 'personal' ? '#60A5FA' : '#10B981' 
+                  }]}>
+                    <Ionicons 
+                      name={selectedEvent.type === 'personal' ? 'calendar' : 'calendar-outline'} 
+                      size={32} 
+                      color="white" 
+                    />
+                  </View>
+                </View>
+
+                <Text style={styles.centeredModalTitle}>{selectedEvent.title}</Text>
+                
+                <View style={styles.eventDetailItem}>
+                  <Ionicons name="time-outline" size={24} color="#666" style={styles.detailIcon} />
+                  <Text style={styles.eventDetailText}>
+                    {new Date(selectedEvent.startsAt).toLocaleTimeString([], { 
+                      hour: '2-digit', 
+                      minute: '2-digit',
+                      hour12: true
+                    })}
+                    {' - '}
+                    {new Date(selectedEvent.endsAt).toLocaleTimeString([], { 
+                      hour: '2-digit', 
+                      minute: '2-digit',
+                      hour12: true 
+                    })}
+                  </Text>
+                </View>
+
+                <View style={styles.eventDetailItem}>
+                  <Ionicons name="calendar-outline" size={24} color="#666" style={styles.detailIcon} />
+                  <Text style={styles.eventDetailText}>
+                    {new Date(selectedEvent.startsAt).toLocaleDateString([], {
+                      weekday: 'long',
+                      month: 'long',
+                      day: 'numeric'
+                    })}
+                  </Text>
+                </View>
+
+                <View style={styles.eventTypePill}>
+                  <Text style={[styles.eventTypeText, { 
+                    color: selectedEvent.type === 'personal' ? '#60A5FA' : '#10B981'
+                  }]}>
+                    {selectedEvent.type === 'personal' ? 'Personal Event' : 'Public Event'}
+                  </Text>
+                </View>
+
+                {selectedEvent.type !== 'personal' && (
+                  <TouchableOpacity
+                    style={styles.bookButton}
+                    onPress={() => {
+                      setIsEventDetailsVisible(false);
+                      // Add booking logic here
+                    }}
+                  >
+                    <Text style={styles.bookButtonText}>Book Now</Text>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                  style={styles.closeModalButton}
+                  onPress={() => setIsEventDetailsVisible(false)}
+                >
+                  <Text style={styles.closeModalButtonText}>Close</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
       {/* Snackbar */}
       {snackbar.visible && (
         <View
@@ -689,6 +816,98 @@ const HomeScreen = () => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: 'white' },
   scrollView: { flex: 1 },
+  centeredModalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  centeredModalCard: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 24,
+    width: '85%',
+    maxWidth: 400,
+    alignItems: 'center',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  modalIconHeader: {
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  modalIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  centeredModalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1a1a1a',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  eventDetailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    width: '100%',
+  },
+  detailIcon: {
+    marginRight: 12,
+  },
+  eventDetailText: {
+    fontSize: 16,
+    color: '#666',
+    flex: 1,
+  },
+  eventTypePill: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+    marginTop: 8,
+    marginBottom: 20,
+  },
+  eventTypeText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  bookButton: {
+    backgroundColor: '#2563EB',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  bookButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  closeModalButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    width: '100%',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+  },
+  closeModalButtonText: {
+    color: '#666',
+    fontSize: 16,
+    fontWeight: '500',
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -699,6 +918,68 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 16,
     color: '#666',
+  },
+  eventModalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  eventModalCard: {
+    backgroundColor: 'white',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    maxHeight: '80%',
+  },
+  closeButton: {
+    alignSelf: 'flex-end',
+    padding: 8,
+  },
+  eventModalHeader: {
+    marginBottom: 20,
+  },
+  eventModalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    color: '#1a1a1a',
+  },
+  eventModalContent: {
+    gap: 16,
+  },
+  eventDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  eventDetailTextAlt: {
+    fontSize: 16,
+    color: '#666',
+  },
+  eventTypeBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginBottom: 12,
+  },
+  eventTypeBadgeText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  bookEventButton: {
+    backgroundColor: '#2563EB',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  bookEventButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
   header: {
     flexDirection: 'row',
