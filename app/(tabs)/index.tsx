@@ -33,6 +33,8 @@ interface Event {
   startsAt: string;
   endsAt: string;
   type: string;
+  isPersonal?: boolean;
+  [key: string]: any;
 }
 
 const HomeScreen = () => {
@@ -220,13 +222,17 @@ const HomeScreen = () => {
       }
 
       const combined = [...normalize(publicEvents), ...normalize(personalEvents)].map(
-        (e: any, idx: number) => ({
-          id: e._id || e.id || `event-${Date.now()}-${idx}`,
-          title: e.title || 'Untitled',
-          startsAt: e.startsAt,
-          endsAt: e.endsAt,
-          type: e.type || (e.isPersonal ? 'personal' : 'event'),
-        })
+        (e: any, idx: number) => {
+          const isPersonal = !!(e.isPersonal || e.type === 'personal');
+          return ({
+            id: e._id || e.id || `event-${Date.now()}-${idx}`,
+            title: e.title || 'Untitled',
+            startsAt: e.startsAt,
+            endsAt: e.endsAt,
+            type: isPersonal ? 'personal' : (e.type || 'event'),
+            isPersonal,
+          });
+        }
       );
 
       setEvents(combined);
@@ -281,13 +287,17 @@ const HomeScreen = () => {
         }
 
         const combined = [...normalize(publicEvents), ...normalize(personalEvents)].map(
-          (e: any) => ({
-            id: e._id || e.id,
-            title: e.title || 'Untitled',
-            startsAt: e.startsAt,
-            endsAt: e.endsAt,
-            type: e.type || (e.isPersonal ? 'personal' : 'event'),
-          })
+          (e: any) => {
+            const isPersonal = !!(e.isPersonal || e.type === 'personal');
+            return ({
+              id: e._id || e.id,
+              title: e.title || 'Untitled',
+              startsAt: e.startsAt,
+              endsAt: e.endsAt,
+              type: isPersonal ? 'personal' : (e.type || 'event'),
+              isPersonal,
+            });
+          }
         );
 
         let bookingsList: Booking[] = [];
@@ -614,6 +624,7 @@ const HomeScreen = () => {
                                 startsAt: bEvent.startsAt,
                                 endsAt: bEvent.endsAt,
                                 type: 'booking',
+                                isPersonal: false,
                               });
                               setIsEventDetailsVisible(true);
                             }
@@ -762,23 +773,11 @@ const HomeScreen = () => {
 
                 <View style={styles.eventTypePill}>
                   <Text style={[styles.eventTypeText, { 
-                    color: selectedEvent.type === 'personal' ? '#60A5FA' : '#10B981'
+                    color: (selectedEvent as any).isPersonal ? '#60A5FA' : '#10B981'
                   }]}>
-                    {selectedEvent.type === 'personal' ? 'Personal Event' : 'Public Event'}
+                    {(selectedEvent as any).isPersonal ? 'Personal Event' : 'Public Event'}
                   </Text>
                 </View>
-
-                {selectedEvent.type !== 'personal' && (
-                  <TouchableOpacity
-                    style={styles.bookButton}
-                    onPress={() => {
-                      setIsEventDetailsVisible(false);
-                      // Add booking logic here
-                    }}
-                  >
-                    <Text style={styles.bookButtonText}>Book Now</Text>
-                  </TouchableOpacity>
-                )}
 
                 <TouchableOpacity
                   style={styles.closeModalButton}
@@ -952,7 +951,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  eventDetailTextAlt: {
+  eventDetailTextRow: { // renamed from duplicate eventDetailText
     fontSize: 16,
     color: '#666',
   },

@@ -98,16 +98,8 @@ export default function ExploreScreen() {
         return new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime();
       });
 
-      if (futureEvents.length > 0) {
-        const closestEvent = futureEvents[0];
-        await scheduleEventNotification({
-          id: closestEvent.id.toString(),
-          title: closestEvent.title,
-          body: closestEvent.description || `Your event ${closestEvent.title} is starting soon!`, // Customize body as needed
-          eventDateISO: closestEvent.startsAt!,
-          type: closestEvent.type,
-        });
-      }
+  // Do not auto-schedule notifications when simply opening the Events tab.
+  // Scheduling reminders is handled centrally elsewhere (or when user books an event).
     } catch (err: any) {
       showError(err.message || 'Failed to fetch events');
     } finally {
