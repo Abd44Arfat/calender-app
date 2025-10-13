@@ -1,26 +1,27 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+// use centralized notification helper instead of direct expo-notifications scheduling
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Modal,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
-  Modal,
-  TextInput,
-  ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import EventCard from '../../components/EventCard';
 import { useAuth } from '../../contexts/AuthContext';
-import { apiService, Booking } from '../../services/api';
 import { useSnackbar } from '../../hooks/useSnackbar';
-import * as Notifications from 'expo-notifications';
-import { initNotifications, getNotifications, addChangeListener } from './notifications';
-import { Image } from 'react-native';
+import { apiService, Booking } from '../../services/api';
+import { addChangeListener, getNotifications, initNotifications } from './notifications';
+import { scheduleEventNotification } from '../../services/notificationservice';
 
 
 // Change this value to adjust reminder offset
@@ -52,6 +53,8 @@ const HomeScreen = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [events, setEvents] = useState<Event[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [isBookingSuccess, setIsBookingSuccess] = useState(false);
+  const [bookingSuccessMsg, setBookingSuccessMsg] = useState('');
   const [isModalVisible, setIsModalVisible] = useState<boolean>(false);
   const [newTitle, setNewTitle] = useState<string>('');
   const [newStartTime, setNewStartTime] = useState<string>('09:00');
@@ -149,51 +152,44 @@ const HomeScreen = () => {
       endsAt: e.endsAt
     })));
   
+    // Use centralized scheduling to avoid duplicates and to respect event type rules.
     for (const e of upcomingEvents) {
-      const triggerTime = new Date(e.startsAt).getTime() - offsetMs;
-      const fireDate = triggerTime > now ? new Date(triggerTime) : new Date(now + 5000);
-  
-      console.log(
-        `🔔 Scheduling Event: "${e.title}" | startsAt=${e.startsAt} | fireDate=${fireDate.toISOString()}`
-      );
-  
-      await Notifications.scheduleNotificationAsync({
-        content: {
+      try {
+        // Do not schedule system notifications for personal events
+        if (e.type === 'personal') {
+          console.log(`ℹ️ Skipping system reminder for personal event "${e.title}"`);
+          continue;
+        }
+        await scheduleEventNotification({
+          id: String(e.id),
           title: 'Event Reminder',
-          body:
-            triggerTime > now
-              ? `Your event "${e.title}" starts in ${REMINDER_OFFSET_MINUTES} minutes!`
-              : `Your event "${e.title}" is starting soon!`,
-          data: { type: 'reminder' },
-        },
-        trigger: { date: fireDate } as any,
-      });
-  
-      console.log(`✅ Notification scheduled for "${e.title}" at ${fireDate.toISOString()}`);
+          body: `Your event "${e.title}" starts in ${REMINDER_OFFSET_MINUTES} minutes!`,
+          eventDateISO: e.startsAt,
+          type: e.type,
+        });
+        console.log(`✅ Requested scheduling for event "${e.title}"`);
+      } catch (err) {
+        console.warn('Failed to schedule reminder for event', e.title, err);
+      }
     }
-  
+
     for (const b of upcomingBookings) {
-      const e = b.eventId;
-      const triggerTime = new Date(e.startsAt).getTime() - offsetMs;
-      const fireDate = triggerTime > now ? new Date(triggerTime) : new Date(now + 5000);
-  
-      console.log(
-        `🔔 Scheduling Booking: "${e.title}" | startsAt=${e.startsAt} | fireDate=${fireDate.toISOString()}`
-      );
-  
-      await Notifications.scheduleNotificationAsync({
-        content: {
+      try {
+        const e = b.eventId as any;
+        if (!e) continue;
+        // use the underlying event id to avoid duplicate reminders (event vs booking)
+        const eventId = String(e._id || e.id);
+        await scheduleEventNotification({
+          id: eventId,
           title: 'Booking Reminder',
-          body:
-            triggerTime > now
-              ? `Your booked event "${e.title}" starts in ${REMINDER_OFFSET_MINUTES} minutes!`
-              : `Your booked event "${e.title}" is starting soon!`,
-          data: { type: 'reminder' },
-        },
-        trigger: { date: fireDate } as any,
-      });
-  
-      console.log(`✅ Notification scheduled for booking "${e.title}" at ${fireDate.toISOString()}`);
+          body: `Your booked event "${e.title}" starts in ${REMINDER_OFFSET_MINUTES} minutes!`,
+          eventDateISO: e.startsAt,
+          type: 'booking',
+        });
+        console.log(`✅ Requested scheduling for booking "${e.title}"`);
+      } catch (err) {
+        console.warn('Failed to schedule reminder for booking', err);
+      }
     }
   };
   
@@ -239,7 +235,12 @@ const HomeScreen = () => {
           status: 'confirmed',
           limit: 50,
         });
-        bookingsList = bookingsResponse.bookings || [];
+        // Filter out bookings whose event end time is in the past
+        const now = new Date();
+        bookingsList = (bookingsResponse.bookings || []).filter(b => {
+          const end = b.eventId?.endsAt ? new Date(b.eventId.endsAt) : null;
+          return end && end > now;
+        });
         setBookings(bookingsList);
       }
 
@@ -350,9 +351,11 @@ const HomeScreen = () => {
       };
 
       await apiService.createPersonalEvent(token, payload);
-      showSuccess('Personal event created');
-      setIsModalVisible(false);
-      await fetchEvents();
+  showSuccess('Personal event created');
+  setIsModalVisible(false);
+  setBookingSuccessMsg('Your event was created successfully!');
+  setIsBookingSuccess(true);
+  await fetchEvents();
     } catch (err: any) {
       showError(err.message || 'Failed to create event');
     } finally {
@@ -573,6 +576,25 @@ const HomeScreen = () => {
                 {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalBtnText}>Create</Text>}
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Booking Success Modal (shown after creating personal event) */}
+      <Modal
+        visible={isBookingSuccess}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsBookingSuccess(false)}
+      >
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.4)' }}>
+          <View style={{ backgroundColor: 'white', padding: 24, borderRadius: 12, alignItems: 'center', minWidth: 250 }}>
+            <Ionicons name="checkmark-circle" size={48} color="#4CAF50" style={{ marginBottom: 12 }} />
+            <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 8 }}>Success</Text>
+            <Text style={{ fontSize: 16, color: '#333', marginBottom: 16, textAlign: 'center' }}>{bookingSuccessMsg}</Text>
+            <TouchableOpacity onPress={() => setIsBookingSuccess(false)} style={{ backgroundColor: '#4CAF50', paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8 }}>
+              <Text style={{ color: 'white', fontWeight: '600', fontSize: 16 }}>OK</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>

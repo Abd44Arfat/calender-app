@@ -1,25 +1,29 @@
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  View,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { Snackbar } from '../components/Snackbar';
 import { useAuth } from '../contexts/AuthContext';
 import { useSnackbar } from '../hooks/useSnackbar';
-import { Snackbar } from '../components/Snackbar';
 import { RegisterRequest } from '../services/api';
 
 export default function RegisterScreen() {
   const { register, isLoading } = useAuth();
   const { snackbar, showSuccess, showError, hideSnackbar } = useSnackbar();
-  
+
+  // State for date picker
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
   const [formData, setFormData] = useState<RegisterRequest>({
     email: '',
     password: '',
@@ -252,14 +256,34 @@ export default function RegisterScreen() {
             {/* Date of Birth */}
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Date of Birth</Text>
-              <TextInput
-                style={[styles.input, errors.dob && styles.inputError]}
-                placeholder="YYYY-MM-DD"
-                value={formData.profile.dob}
-                onChangeText={(text) => updateFormData('profile.dob', text)}
-              />
+              <TouchableOpacity
+                style={[styles.input, { justifyContent: 'center' }, errors.dob && styles.inputError]}
+                onPress={() => setShowDatePicker(true)}
+                activeOpacity={0.8}
+              >
+                <Text style={{ color: formData.profile.dob ? '#111827' : '#888' }}>
+                  {formData.profile.dob ? formData.profile.dob : 'Select your date of birth'}
+                </Text>
+              </TouchableOpacity>
+              {showDatePicker && (
+                <DateTimePicker
+                  value={formData.profile.dob ? new Date(formData.profile.dob) : new Date(2000, 0, 1)}
+                  mode="date"
+                  display="default"
+                  maximumDate={new Date()}
+                  onChange={(event, selectedDate) => {
+                    setShowDatePicker(false);
+                    if (selectedDate) {
+                      const iso = selectedDate.toISOString().split('T')[0];
+                      updateFormData('profile.dob', iso);
+                    }
+                  }}
+                />
+              )}
               {errors.dob && <Text style={styles.errorText}>{errors.dob}</Text>}
             </View>
+  // State for date picker
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
             {/* Location */}
             <View style={styles.inputContainer}>

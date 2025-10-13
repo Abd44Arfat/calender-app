@@ -1,7 +1,7 @@
+import * as Notifications from 'expo-notifications';
 import { Stack } from 'expo-router';
 import { useColorScheme } from 'react-native';
 import { AuthProvider } from '../contexts/AuthContext';
-import * as Notifications from 'expo-notifications';
 
 // 🟢 حط الـ handler هنا قبل ما ترجع الـ JSX
 Notifications.setNotificationHandler({
@@ -19,10 +19,10 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-      <Stack initialRouteName="login">
-        <Stack.Screen name="login" options={{ headerShown: false }} />
-        <Stack.Screen name="register" options={{ headerShown: false }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack initialRouteName="login" screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="login" />
+        <Stack.Screen name="register" />
+        <Stack.Screen name="(tabs)" />
       </Stack>
     </AuthProvider>
   );

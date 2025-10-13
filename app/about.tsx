@@ -1,7 +1,8 @@
+export const options = { headerShown: false };
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, Linking } from 'react-native';
 import { router } from 'expo-router';
+import React from 'react';
+import { Linking, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function AboutScreen() {
   const teamMembers = [
@@ -33,8 +34,13 @@ export default function AboutScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-
-
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={24} color="#111827" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>About</Text>
+        <View style={{ width: 40 }} />
+      </View>
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* App Logo/Icon */}
         <View style={styles.logoSection}>

@@ -1,11 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, Alert, Image, ActivityIndicator, Modal, TextInput } from 'react-native';
-import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import { router } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Image, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Snackbar } from '../../components/Snackbar';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSnackbar } from '../../hooks/useSnackbar';
-import { Snackbar } from '../../components/Snackbar';
 import { apiService } from '../../services/api';
 
 export default function ProfileScreen() {
@@ -284,7 +284,7 @@ export default function ProfileScreen() {
           <Text style={styles.profileBio}>
             {user?.userType === 'vendor' 
               ? `Fitness Academy Owner - ${user?.profile?.academyName || 'Academy'}`
-              : 'Fitness Enthusiast'
+              : ''
             }
           </Text>
           {user?.profile?.rating && user.profile.rating > 0 && (

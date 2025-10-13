@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import React, { useEffect, useMemo, useState } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, Alert, Modal, TextInput } from 'react-native';
+import { ActivityIndicator, Alert, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
-import { apiService } from '../../services/api';
 import { useSnackbar } from '../../hooks/useSnackbar';
-import { scheduleEventNotification } from './notifications';
+import { apiService } from '../../services/api';
+import { scheduleEventNotification } from '../../services/notificationservice';
 
 interface Event {
   id: string | number;
@@ -43,11 +44,15 @@ export default function ExploreScreen() {
   const [events, setEvents] = useState<Event[]>([]);
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
   const [isEventsModalVisible, setIsEventsModalVisible] = useState(false);
+  const [isConfirmationVisible, setIsConfirmationVisible] = useState(false);
+  const [confirmationMessage, setConfirmationMessage] = useState('');
   const [newEventTitle, setNewEventTitle] = useState('');
   const [newEventDescription, setNewEventDescription] = useState('');
   const [newEventLocation, setNewEventLocation] = useState('');
   const [newEventStartTime, setNewEventStartTime] = useState('');
   const [newEventEndTime, setNewEventEndTime] = useState('');
+  const [showStartTimePicker, setShowStartTimePicker] = useState(false);
+  const [showEndTimePicker, setShowEndTimePicker] = useState(false);
   const [newEventCapacity, setNewEventCapacity] = useState('');
   const [newEventPrice, setNewEventPrice] = useState('');
   const [newEventTags, setNewEventTags] = useState('');
@@ -227,10 +232,29 @@ export default function ExploreScreen() {
             try {
               setIsLoading(true);
               // Extract the original event ID (remove the index suffix if present)
-              const eventIdStr = event.id.toString();
-              const eventId = eventIdStr.includes('-') ? eventIdStr.split('-')[0] : eventIdStr;
-              await apiService.createBooking(token, { eventId });
-              showSuccess('Event booked successfully!');
+                  const eventIdStr = event.id.toString();
+                  // keep the full id we used in the server (do not strip suffixes)
+                  const eventId = eventIdStr;
+                  await apiService.createBooking(token, { eventId });
+                  // close events modal so confirmation modal appears on top
+                  setIsEventsModalVisible(false);
+                  // Schedule only one notification for this booking (non-personal)
+                  if (event.startsAt && event.type !== 'personal') {
+                    try {
+                      await scheduleEventNotification({
+                        id: eventId,
+                        title: 'Booking Reminder',
+                        body: `Your booked event "${event.title}" starts in 10 minutes!`,
+                        eventDateISO: event.startsAt,
+                        type: event.type,
+                      });
+                    } catch (sErr) {
+                      console.warn('Failed to schedule booking reminder', sErr);
+                    }
+                  }
+                  setConfirmationMessage('Your booking is confirmed!');
+                  setIsConfirmationVisible(true);
+                  showSuccess('Event booked successfully!');
             } catch (err: any) {
               showError(err.message || 'Failed to book event');
             } finally {
@@ -241,6 +265,7 @@ export default function ExploreScreen() {
       ]
     );
   };
+      
 
   const cancelBooking = async (bookingId: string) => {
     if (!token || !user?._id) {
@@ -545,19 +570,55 @@ export default function ExploreScreen() {
               style={styles.input}
             />
             <View style={{ flexDirection: 'row', gap: 8 }}>
-              <TextInput
-                placeholder="Start Time (HH:mm)"
-                value={newEventStartTime}
-                onChangeText={setNewEventStartTime}
-                style={[styles.input, { flex: 1 }]}
-              />
-              <TextInput
-                placeholder="End Time (HH:mm)"
-                value={newEventEndTime}
-                onChangeText={setNewEventEndTime}
-                style={[styles.input, { flex: 1 }]}
-              />
+              <TouchableOpacity
+                style={[styles.input, { flex: 1, justifyContent: 'center' }]}
+                onPress={() => setShowStartTimePicker(true)}
+                activeOpacity={0.8}
+              >
+                <Text style={{ color: newEventStartTime ? '#111827' : '#888' }}>
+                  {newEventStartTime ? newEventStartTime : 'Start Time (HH:mm)'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.input, { flex: 1, justifyContent: 'center' }]}
+                onPress={() => setShowEndTimePicker(true)}
+                activeOpacity={0.8}
+              >
+                <Text style={{ color: newEventEndTime ? '#111827' : '#888' }}>
+                  {newEventEndTime ? newEventEndTime : 'End Time (HH:mm)'}
+                </Text>
+              </TouchableOpacity>
             </View>
+            {showStartTimePicker && (
+              <DateTimePicker
+                value={newEventStartTime ? new Date(`2000-01-01T${newEventStartTime}:00`) : new Date()}
+                mode="time"
+                display="default"
+                onChange={(event, selectedDate) => {
+                  setShowStartTimePicker(false);
+                  if (selectedDate) {
+                    const hours = selectedDate.getHours().toString().padStart(2, '0');
+                    const minutes = selectedDate.getMinutes().toString().padStart(2, '0');
+                    setNewEventStartTime(`${hours}:${minutes}`);
+                  }
+                }}
+              />
+            )}
+            {showEndTimePicker && (
+              <DateTimePicker
+                value={newEventEndTime ? new Date(`2000-01-01T${newEventEndTime}:00`) : new Date()}
+                mode="time"
+                display="default"
+                onChange={(event, selectedDate) => {
+                  setShowEndTimePicker(false);
+                  if (selectedDate) {
+                    const hours = selectedDate.getHours().toString().padStart(2, '0');
+                    const minutes = selectedDate.getMinutes().toString().padStart(2, '0');
+                    setNewEventEndTime(`${hours}:${minutes}`);
+                  }
+                }}
+              />
+            )}
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <TextInput
                 placeholder="Capacity"
@@ -600,6 +661,25 @@ export default function ExploreScreen() {
       </Modal>
 
       {/* Snackbar */}
+      {/* Booking confirmation modal (centered, green check) */}
+      <Modal
+        visible={isConfirmationVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsConfirmationVisible(false)}
+      >
+        <View style={styles.confirmOverlay}>
+          <View style={styles.confirmCard}>
+            <Ionicons name="checkmark-circle" size={64} color="#22C55E" style={{ marginBottom: 12 }} />
+            <Text style={styles.confirmTitle}>Booking Confirmed</Text>
+            <Text style={styles.confirmMessage}>{confirmationMessage}</Text>
+            <TouchableOpacity onPress={() => setIsConfirmationVisible(false)} style={styles.confirmButton}>
+              <Text style={{ color: '#fff', fontWeight: '600' }}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {snackbar.visible && (
         <View
           style={{
@@ -917,4 +997,20 @@ const styles = StyleSheet.create({
     color: 'white', 
     fontWeight: '600' 
   },
+  confirmOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  confirmCard: {
+    width: '80%',
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+  },
+  confirmTitle: { fontSize: 18, fontWeight: '700', marginBottom: 8 },
+  confirmMessage: { fontSize: 15, color: '#333', textAlign: 'center', marginBottom: 16 },
+  confirmButton: { backgroundColor: '#22C55E', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 8 },
 }); 

@@ -1,5 +1,5 @@
-import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 export type StoredNotification = {
@@ -105,12 +105,29 @@ export async function scheduleEventNotification({
   type?: string;
 }) {
   const eventDate = new Date(eventDateISO);
-  const triggerDate = new Date(eventDate.getTime() - 10 * 60 * 1000); // 10 min before
+  const REMINDER_MINUTES = 10; // schedule 10 minutes before
+  const triggerDate = new Date(eventDate.getTime() - REMINDER_MINUTES * 60 * 1000);
 
-  if (triggerDate <= new Date()) return; // skip past events
+  // don't schedule reminders for past triggers
+  if (triggerDate <= new Date()) return;
 
+  try {
+    // Check existing scheduled notifications and avoid duplicate scheduling.
+    // We store the event id inside the scheduled notification's content.data.eventId
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    const already = scheduled.some((s) => {
+      // ScheduledNotification has a `content` field at top-level
+      const data = (s as any).content?.data as any;
+      return data && (data.eventId === id || data.eventId === String(id));
+    });
+    if (already) return; // an identical reminder already exists
+  } catch (e) {
+    // ignore and continue to schedule if we can't inspect
+  }
+
+  // schedule and attach the event id to the notification payload so we can inspect/cancel later
   await Notifications.scheduleNotificationAsync({
-    content: { title, body, sound: 'default' },
-    trigger: { date: triggerDate }as any,
+    content: { title, body, sound: 'default', data: { eventId: id, type } },
+    trigger: { date: triggerDate } as any,
   });
 }
