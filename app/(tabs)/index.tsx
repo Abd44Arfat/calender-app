@@ -20,8 +20,8 @@ import EventCard from '../../components/EventCard';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSnackbar } from '../../hooks/useSnackbar';
 import { apiService, Booking } from '../../services/api';
-import { addChangeListener, getNotifications, initNotifications } from './notifications';
 import { scheduleEventNotification } from '../../services/notificationservice';
+import { addChangeListener, getNotifications, initNotifications } from './notifications';
 
 
 // Change this value to adjust reminder offset
@@ -243,8 +243,8 @@ const HomeScreen = () => {
         });
         setBookings(bookingsList);
       }
-
-      await scheduleEventReminders(combined, bookingsList);
+      
+      // Removed scheduling from here since it's now handled in the mount effect
     } catch (err: any) {
       showError(err.message || 'Failed to fetch events');
     } finally {
@@ -252,11 +252,70 @@ const HomeScreen = () => {
     }
   };
 
+  // Set up reminders once on mount
   useEffect(() => {
-    initNotifications();
+    const setup = async () => {
+      await initNotifications();
+      
+      try {
+        // Fetch only future events for reminders (now to end of day)
+        const startISO = new Date();
+        const endISO = new Date();
+        endISO.setHours(23, 59, 59, 999);
+
+        const publicEvents = await apiService.listEvents({
+          startDate: startISO.toISOString(),
+          endDate: endISO.toISOString(),
+          limit: 200,
+        });
+
+        let personalEvents: any = [];
+        if (token) {
+          personalEvents = await apiService.listPersonalEvents(token, {
+            startDate: startISO.toISOString(),
+            endDate: endISO.toISOString(),
+            limit: 200,
+          });
+        }
+
+        const combined = [...normalize(publicEvents), ...normalize(personalEvents)].map(
+          (e: any) => ({
+            id: e._id || e.id,
+            title: e.title || 'Untitled',
+            startsAt: e.startsAt,
+            endsAt: e.endsAt,
+            type: e.type || (e.isPersonal ? 'personal' : 'event'),
+          })
+        );
+
+        let bookingsList: Booking[] = [];
+        if (token) {
+          const bookingsResponse = await apiService.listBookings(token, {
+            status: 'confirmed',
+            limit: 50,
+          });
+          bookingsList = (bookingsResponse.bookings || []).filter(b => {
+            const end = b.eventId?.endsAt ? new Date(b.eventId.endsAt) : null;
+            return end && end > startISO;
+          });
+        }
+
+        // Schedule reminders once, not on every fetch
+        await scheduleEventReminders(combined, bookingsList);
+      } catch (err) {
+        console.warn('Failed to set up reminders:', err);
+      }
+    };
+    
+    setup();
+  }, []); // Run once on mount
+
+  // Fetch events (without scheduling) when selected date changes
+  useEffect(() => {
     fetchEvents();
   }, [selectedDate, token]);
 
+  // Refresh events (without scheduling) on focus
   useFocusEffect(
     React.useCallback(() => {
       fetchEvents();
@@ -409,8 +468,14 @@ const HomeScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="white" />
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Header */}
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#1E88E5" />
+          <Text style={styles.loadingText}>Loading events...</Text>
+        </View>
+      ) : (
+        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+          {/* Header */}
         <View style={styles.header}>
   <View style={styles.profileSection}>
     <View style={styles.profilePic}>
@@ -529,7 +594,8 @@ const HomeScreen = () => {
             );
           })}
         </View>
-      </ScrollView>
+        </ScrollView>
+      )}
 
       {/* Floating Action Button */}
       <TouchableOpacity style={styles.fab} onPress={openCreateModal}>
@@ -623,6 +689,17 @@ const HomeScreen = () => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: 'white' },
   scrollView: { flex: 1 },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'white',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#666',
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
