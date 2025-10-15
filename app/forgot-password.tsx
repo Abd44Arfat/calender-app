@@ -13,12 +13,13 @@ export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = async () => {
+    const handleSubmit = async () => {
     try {
       setIsSubmitting(true);
       await forgotPassword({ email });
       showSuccess('If an account exists, a reset code has been sent');
-      router.push('/reset-password');
+      // pass email to the OTP entry screen
+      router.push({ pathname: '/reset-password', params: { email } } as any);
     } catch (err: any) {
       showError(err?.response?.data?.message || err.message || 'Failed to request reset');
     } finally {

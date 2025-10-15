@@ -3,39 +3,49 @@ import React, { useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Snackbar } from '../components/Snackbar';
+import { useAuth } from '../contexts/AuthContext';
 import { useSnackbar } from '../hooks/useSnackbar';
 
-export default function ResetPasswordOtpScreen() {
+export default function ResetPasswordNewScreen() {
   const params = useLocalSearchParams();
-  const emailParam = (params as any)?.email || '';
+  const email = (params as any)?.email || '';
+  const otp = (params as any)?.otp || '';
+  const { resetPassword } = useAuth() as any;
   const { snackbar, showError, showSuccess, hideSnackbar } = useSnackbar();
 
-  const [otp, setOtp] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async () => {
-    if (!emailParam) {
-      showError('Missing email parameter');
+    if (!email || !otp) {
+      showError('Missing email or code');
       return;
     }
-    if (!otp) {
-      showError('Enter the OTP sent to your email');
+    if (!newPassword || newPassword.length < 6) {
+      showError('Password must be at least 6 characters');
       return;
     }
-    setIsSubmitting(true);
-    // navigate to the new password screen with email and otp
-    router.push({ pathname: '/reset-password-new', params: { email: emailParam, otp } } as any);
-    setIsSubmitting(false);
+
+    try {
+      setIsSubmitting(true);
+      await resetPassword({ email, otp, newPassword });
+      showSuccess('Password reset successful. Please login.');
+      router.replace('/login');
+    } catch (err: any) {
+      showError(err?.response?.data?.message || err.message || 'Reset failed');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        <Text style={styles.title}>Verify Code</Text>
-        <Text style={styles.subtitle}>A code was sent to {emailParam}</Text>
-        <TextInput placeholder="OTP" value={otp} onChangeText={setOtp} style={styles.input} keyboardType="number-pad" />
+        <Text style={styles.title}>New Password</Text>
+        <Text style={styles.subtitle}>Set a new password for {email}</Text>
+        <TextInput placeholder="New password" value={newPassword} onChangeText={setNewPassword} style={styles.input} secureTextEntry />
         <TouchableOpacity style={styles.button} onPress={handleSubmit} disabled={isSubmitting}>
-          <Text style={styles.buttonText}>{isSubmitting ? 'Next...' : 'Next'}</Text>
+          <Text style={styles.buttonText}>{isSubmitting ? 'Saving...' : 'Save New Password'}</Text>
         </TouchableOpacity>
       </View>
       <Snackbar visible={snackbar.visible} message={snackbar.message} type={snackbar.type} onHide={hideSnackbar} />
