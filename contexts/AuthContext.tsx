@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { apiService, RegisterRequest, LoginRequest } from '../services/api';
+import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import { apiService, LoginRequest, RegisterRequest } from '../services/api';
 
 interface User {
   _id: string;
@@ -31,7 +31,11 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (data: LoginRequest) => Promise<void>;
-  register: (data: RegisterRequest) => Promise<void>;
+  register: (data: RegisterRequest) => Promise<any>;
+  verifyEmail?: (payload: { email: string; otp: string }) => Promise<any>;
+  resendOtp?: (payload: { email: string }) => Promise<any>;
+  forgotPassword?: (payload: { email: string }) => Promise<any>;
+  resetPassword?: (payload: { email: string; otp: string; newPassword: string }) => Promise<any>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   uploadProfileImage: (imageUri: string) => Promise<void>;
@@ -115,23 +119,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       console.log('📝 Starting registration process...', data);
       setIsLoading(true);
-      
+      // New flow: registration returns a message and requires OTP verification.
       const response = await apiService.register(data);
       console.log('📝 Registration response received:', response);
-      
-      if (response.token && response.user) {
-        console.log('✅ Registration successful, storing data...');
-        setToken(response.token);
-        setUser(response.user);
-        
-        // Store in AsyncStorage
-        await AsyncStorage.setItem('auth_token', response.token);
-        await AsyncStorage.setItem('user_data', JSON.stringify(response.user));
-        console.log('💾 User data stored successfully');
-      } else {
-        console.error('❌ Registration failed - missing token or user data:', response);
-        throw new Error(response.message || 'Registration failed - missing token or user data');
-      }
+      // Do not auto-login here — the user must verify OTP via verifyEmail endpoint.
+      return response;
     } catch (error: any) {
       console.error('💥 Registration error:', {
         message: error.message,
@@ -142,6 +134,36 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const verifyEmail = async (payload: { email: string; otp: string }) => {
+    try {
+      setIsLoading(true);
+      const response = await apiService.verifyEmail(payload);
+      if (response.token && response.user) {
+        setToken(response.token);
+        setUser(response.user);
+        await AsyncStorage.setItem('auth_token', response.token);
+        await AsyncStorage.setItem('user_data', JSON.stringify(response.user));
+      }
+      return response;
+    } catch (e) {
+      throw e;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const resendOtp = async (payload: { email: string }) => {
+    return apiService.resendOtp(payload);
+  };
+
+  const forgotPassword = async (payload: { email: string }) => {
+    return apiService.forgotPassword(payload);
+  };
+
+  const resetPassword = async (payload: { email: string; otp: string; newPassword: string }) => {
+    return apiService.resetPassword(payload);
   };
 
   const refreshProfile = async () => {
@@ -205,6 +227,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     isAuthenticated,
     login,
     register,
+  // new methods
+  verifyEmail,
+  resendOtp,
+  forgotPassword,
+  resetPassword,
     logout,
     refreshProfile,
     uploadProfileImage,

@@ -2,14 +2,14 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Snackbar } from '../components/Snackbar';
@@ -95,10 +95,11 @@ export default function RegisterScreen() {
 
     try {
       console.log('🚀 Registration form submitted:', submitData);
-      await register(submitData);
-      console.log('✅ Registration successful, showing success message');
-      showSuccess('Registration successful! Welcome to the app!');
-      router.replace('/(tabs)');
+      const res = await register(submitData);
+      console.log('✅ Registration response received', res);
+      // The API now requires OTP verification. Redirect to verify screen with email prefilled.
+      showSuccess('Registration created. Check your email for the verification code.');
+      router.push({ pathname: '/verify-email', params: { email: submitData.email } } as any);
     } catch (error: any) {
       console.error('💥 Registration form error:', {
         message: error.message,
