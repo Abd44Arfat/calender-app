@@ -772,9 +772,9 @@ const HomeScreen = () => {
         </View>
       </Modal>
 
-      {/* Booking Details Modal (centered) */}
+      {/* Details Modal (centered for both events and bookings) */}
       <Modal
-        visible={isEventDetailsVisible && (selectedEvent as any)?.bookingData}
+        visible={isEventDetailsVisible && !!selectedEvent}
         transparent
         animationType="fade"
         onRequestClose={() => setIsEventDetailsVisible(false)}
@@ -787,33 +787,52 @@ const HomeScreen = () => {
             setIsEventDetailsVisible(false);
           }}
         >
-          {/* ignore taps while modal is being opened to avoid immediate close */}
           <TouchableOpacity
             style={styles.centeredModalCard}
             activeOpacity={1}
             onPress={(e) => e.stopPropagation()}
           >
-            {selectedEvent && (selectedEvent as any).bookingData && (
+            {selectedEvent && (
               <>
-                <Text style={styles.centeredModalTitle}>{selectedEvent.title}</Text>
+                <Text style={styles.centeredModalTitle}>{(selectedEvent as any).title}</Text>
+
                 <View style={styles.eventDetailItem}>
                   <Ionicons name="time-outline" size={20} color="#666" style={styles.detailIcon} />
                   <Text style={styles.eventDetailText}>
-                    {toHHmm((selectedEvent as any).startsAt)} - {toHHmm((selectedEvent as any).endsAt)}
+                    {formatTimeForModal((selectedEvent as any).startsAt)} - {formatTimeForModal((selectedEvent as any).endsAt)}
                   </Text>
                 </View>
-                {(selectedEvent as any).bookingData?.eventId?.location && (
+
+                <View style={styles.eventDetailItem}>
+                  <Ionicons name="calendar-outline" size={20} color="#666" style={styles.detailIcon} />
+                  <Text style={styles.eventDetailText}>{formatDateForModal((selectedEvent as any).startsAt)}</Text>
+                </View>
+
+                {(selectedEvent as any).bookingData?.eventId?.location || (selectedEvent as any).location ? (
                   <View style={styles.eventDetailItem}>
                     <Ionicons name="location-outline" size={20} color="#666" style={styles.detailIcon} />
-                    <Text style={styles.eventDetailText}>{(selectedEvent as any).bookingData.eventId.location}</Text>
+                    <Text style={styles.eventDetailText}>{(selectedEvent as any).bookingData?.eventId?.location || (selectedEvent as any).location}</Text>
                   </View>
-                )}
-                {(selectedEvent as any).bookingData?.eventId?.priceCents != null && (
+                ) : null}
+
+                {((selectedEvent as any).bookingData?.eventId?.description || (selectedEvent as any).description) ? (
+                  <View style={[styles.eventDetailItem, { alignItems: 'flex-start' }]}> 
+                    <Ionicons name="document-text-outline" size={20} color="#666" style={styles.detailIcon} />
+                    <Text style={[styles.eventDetailText, { color: '#444' }]}>{(selectedEvent as any).bookingData?.eventId?.description || (selectedEvent as any).description}</Text>
+                  </View>
+                ) : null}
+
+                {(selectedEvent as any).bookingData?.eventId?.priceCents != null || (selectedEvent as any).priceCents != null ? (
                   <View style={styles.eventDetailItem}>
-                    <Text style={[styles.eventDetailText, { fontWeight: '700', color: '#10B981' }]}>${((selectedEvent as any).bookingData.eventId.priceCents/100).toFixed(2)}</Text>
+                    <Text style={[styles.eventDetailText, { fontWeight: '700', color: '#10B981' }]}>${(((selectedEvent as any).bookingData?.eventId?.priceCents ?? (selectedEvent as any).priceCents) / 100).toFixed(2)}</Text>
                   </View>
-                )}
-                <TouchableOpacity style={styles.closeModalButton} onPress={() => setIsEventDetailsVisible(false)}>
+                ) : null}
+
+                <View style={[styles.eventTypePill, { alignSelf: 'center', marginTop: 8 }]}> 
+                  <Text style={[styles.eventTypeText, { color: (selectedEvent as any).isPersonal ? '#60A5FA' : '#10B981' }]}>{(selectedEvent as any).isPersonal ? 'Personal Event' : ((selectedEvent as any).type === 'booking' ? 'Booking' : 'Personal')}</Text>
+                </View>
+
+                <TouchableOpacity style={[styles.closeModalButton, { marginTop: 18 }]} onPress={() => setIsEventDetailsVisible(false)}>
                   <Text style={styles.closeModalButtonText}>Close</Text>
                 </TouchableOpacity>
               </>
