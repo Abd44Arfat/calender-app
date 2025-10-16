@@ -47,7 +47,7 @@ export async function initNotifications() {
     });
     // Deduplicate any previously scheduled reminders so we start clean
     try {
-      await cleanupScheduledReminders();
+      await dedupeAndRebuildRegistry();
     } catch (e) {
       // ignore cleanup errors
     }
@@ -109,6 +109,73 @@ async function cleanupScheduledReminders() {
     await saveScheduledRegistry(registry);
   } catch (e) {
     // ignore cleanup failures
+  }
+}
+
+// Rebuild a canonical registry and deduplicate scheduled reminders so there is
+// only one scheduled notification per eventId (and a best-effort dedupe for
+// notifications without eventId by title/body).
+async function dedupeAndRebuildRegistry() {
+  try {
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    const byEvent: Record<string, any[]> = {};
+    const byText: Record<string, any[]> = {};
+
+    for (const s of scheduled) {
+      const content = (s as any).content || {};
+      const data = content.data || {};
+      const ident = (s as any).identifier ?? (s as any).id ?? null;
+      if (data && data.eventId) {
+        const key = String(data.eventId);
+        byEvent[key] = byEvent[key] || [];
+        byEvent[key].push({ s, ident });
+      } else {
+        const textKey = ((content.title || '') + '|' + (content.body || '')).toLowerCase();
+        byText[textKey] = byText[textKey] || [];
+        byText[textKey].push({ s, ident });
+      }
+    }
+
+    const registry: Record<string, string> = {};
+
+    // For eventId groups, keep one and cancel others
+    for (const k of Object.keys(byEvent)) {
+      const items = byEvent[k];
+      if (!items || items.length === 0) continue;
+      // pick the keeper with the latest trigger date (closest to the event)
+      items.sort((a: any, b: any) => {
+        const ta = a.s.trigger?.date ? new Date(a.s.trigger.date).getTime() : 0;
+        const tb = b.s.trigger?.date ? new Date(b.s.trigger.date).getTime() : 0;
+        return tb - ta;
+      });
+      const keeper = items[0];
+      const keeperIdent = keeper.ident;
+      // cancel the rest
+      for (let i = 1; i < items.length; i++) {
+        try { if (items[i].ident) await Notifications.cancelScheduledNotificationAsync(items[i].ident); } catch (e) {}
+      }
+      if (keeperIdent) registry[String(k)] = String(keeperIdent);
+    }
+
+    // For non-event notifications, dedupe by text and keep one
+    for (const k of Object.keys(byText)) {
+      const items = byText[k];
+      if (!items || items.length <= 1) continue;
+      // keep the latest
+      items.sort((a: any, b: any) => {
+        const ta = a.s.trigger?.date ? new Date(a.s.trigger.date).getTime() : 0;
+        const tb = b.s.trigger?.date ? new Date(b.s.trigger.date).getTime() : 0;
+        return tb - ta;
+      });
+      const keeper = items[0];
+      for (let i = 1; i < items.length; i++) {
+        try { if (items[i].ident) await Notifications.cancelScheduledNotificationAsync(items[i].ident); } catch (e) {}
+      }
+    }
+
+    await saveScheduledRegistry(registry);
+  } catch (e) {
+    // ignore
   }
 }
 
@@ -199,8 +266,15 @@ export async function scheduleEventNotification({
   console.debug('scheduleEventNotification debug', { id, eventDateISO, eventDate: eventDate.toISOString(), triggerDate: triggerDate.toISOString(), now: new Date().toISOString() });
 
   // don't schedule reminders for past triggers
-  if (triggerDate <= new Date()) {
-    console.debug('scheduleEventNotification: trigger in past, skipping', { id });
+  const now = new Date();
+  const deltaMs = triggerDate.getTime() - now.getTime();
+  if (triggerDate <= now) {
+    console.debug('scheduleEventNotification: trigger in past, skipping', { id, triggerDate: triggerDate.toISOString(), now: now.toISOString(), deltaMs });
+    return;
+  }
+  // If trigger is very soon (<= 30s), skip scheduling to avoid immediate platform delivery
+  if (deltaMs <= 30_000) {
+    console.debug('scheduleEventNotification: trigger too soon (<=30s), skipping to avoid immediate delivery', { id, triggerDate: triggerDate.toISOString(), now: now.toISOString(), deltaMs });
     return;
   }
   try {
@@ -208,21 +282,18 @@ export async function scheduleEventNotification({
     const registry = await getScheduledRegistry();
     const scheduled = await Notifications.getAllScheduledNotificationsAsync();
 
-    // if registry maps this event -> identifier and that identifier still exists, do nothing
+    // if registry maps this event -> identifier and that identifier still exists, skip scheduling
     const knownIdent = registry[String(id)];
     if (knownIdent) {
       const exists = scheduled.some((s) => {
         const ident = (s as any).identifier ?? (s as any).id ?? null;
         return ident && String(ident) === String(knownIdent);
       });
-      // If an identifier exists in registry and still scheduled, cancel it first to
-      // avoid duplicates (we want exactly one reminder per event)
       if (exists) {
-        try {
-          await Notifications.cancelScheduledNotificationAsync(knownIdent as any);
-        } catch (e) {}
+        console.debug('scheduleEventNotification: found existing scheduled reminder, skipping', { id, knownIdent });
+        return;
       }
-      // registry pointed to missing identifier or we've removed it; clear and continue
+      // otherwise remove stale mapping and continue to create a new one
       delete registry[String(id)];
       await saveScheduledRegistry(registry);
     }
@@ -232,7 +303,7 @@ export async function scheduleEventNotification({
       try {
         const data = (s as any).content?.data as any;
         const ident = (s as any).identifier ?? (s as any).id ?? null;
-        if (data && (data.eventId === id || data.eventId === String(id))) {
+        if (data && data.eventId && String(data.eventId) === String(id)) {
           if (ident) {
             try { await Notifications.cancelScheduledNotificationAsync(ident); } catch (e) {}
           }
@@ -248,7 +319,7 @@ export async function scheduleEventNotification({
         if (title && title.length > 3 && text.includes(title.toLowerCase())) {
           const ident = (s as any).identifier ?? (s as any).id ?? null;
           if (ident) {
-            await Notifications.cancelScheduledNotificationAsync(ident);
+            try { await Notifications.cancelScheduledNotificationAsync(ident); } catch (e) {}
           }
         }
       } catch (e) {
@@ -259,8 +330,10 @@ export async function scheduleEventNotification({
     // schedule and attach the event id to the notification payload so we can inspect/cancel later
     const newIdent = await Notifications.scheduleNotificationAsync({
       content: { title, body, sound: 'default', data: { eventId: id, type } },
-      trigger: { date: triggerDate } as any,
+      trigger: triggerDate as any,
     });
+
+    console.debug('scheduleEventNotification: scheduled', { id, newIdent, triggerDate: triggerDate.toISOString() });
 
     // persist mapping eventId -> scheduled identifier
     const reg2 = await getScheduledRegistry();
