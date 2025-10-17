@@ -738,6 +738,7 @@ const HomeScreen = () => {
               value={newTitle}
               onChangeText={setNewTitle}
               style={styles.input}
+              placeholderTextColor="#9ca3af"
             />
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <TextInput
@@ -745,12 +746,14 @@ const HomeScreen = () => {
                 value={newStartTime}
                 onChangeText={setNewStartTime}
                 style={[styles.input, { flex: 1 }]}
+                placeholderTextColor="#9ca3af"
               />
               <TextInput
                 placeholder="End (HH:mm)"
                 value={newEndTime}
                 onChangeText={setNewEndTime}
                 style={[styles.input, { flex: 1 }]}
+                 placeholderTextColor="#9ca3af"
               />
             </View>
             <TextInput
@@ -759,6 +762,7 @@ const HomeScreen = () => {
               onChangeText={setNewNotes}
               style={styles.input}
               multiline
+              placeholderTextColor="#9ca3af"
             />
             <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 12 }}>
               <TouchableOpacity onPress={() => setIsModalVisible(false)} style={[styles.modalBtn, { backgroundColor: '#9ca3af' }]}>

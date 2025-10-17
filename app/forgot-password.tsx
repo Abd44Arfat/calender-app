@@ -13,12 +13,11 @@ export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const handleSubmit = async () => {
+  const handleSubmit = async () => {
     try {
       setIsSubmitting(true);
       await forgotPassword({ email });
       showSuccess('If an account exists, a reset code has been sent');
-      // pass email to the OTP entry screen
       router.push({ pathname: '/reset-password', params: { email } } as any);
     } catch (err: any) {
       showError(err?.response?.data?.message || err.message || 'Failed to request reset');
@@ -27,16 +26,33 @@ export default function ForgotPasswordScreen() {
     }
   };
 
+  const handleBack = () => {
+    router.back();
+  };
+
   return (
     <SafeAreaView style={styles.container}>
+      {/* Back button */}
+      <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+        <Text style={styles.backButtonText}>← Back</Text>
+      </TouchableOpacity>
+
       <View style={styles.content}>
         <Text style={styles.title}>Forgot Password</Text>
         <Text style={styles.subtitle}>Enter your email to receive a reset code</Text>
-        <TextInput placeholder="Email" value={email} onChangeText={setEmail} style={styles.input} autoCapitalize="none" />
+        <TextInput
+          placeholder="Email"
+            placeholderTextColor="#9ca3af"
+          value={email}
+          onChangeText={setEmail}
+          style={styles.input}
+          autoCapitalize="none"
+        />
         <TouchableOpacity style={styles.button} onPress={handleSubmit} disabled={isSubmitting}>
           <Text style={styles.buttonText}>{isSubmitting ? 'Requesting...' : 'Request Reset Code'}</Text>
         </TouchableOpacity>
       </View>
+
       <Snackbar visible={snackbar.visible} message={snackbar.message} type={snackbar.type} onHide={hideSnackbar} />
     </SafeAreaView>
   );
@@ -44,6 +60,14 @@ export default function ForgotPasswordScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8fafc' },
+  backButton: {
+    padding: 16,
+  },
+  backButtonText: {
+    color: '#ef4444',
+    fontWeight: '600',
+    fontSize: 16,
+  },
   content: { padding: 20, flex: 1, justifyContent: 'center' },
   title: { fontSize: 24, fontWeight: '700', marginBottom: 8 },
   subtitle: { fontSize: 14, color: '#6b7280', marginBottom: 20 },

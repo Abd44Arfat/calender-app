@@ -26,16 +26,9 @@ interface EventsData {
 }
 
 export default function ExploreScreen() {
-  let user, token;
-  try {
-    const auth = useAuth();
-    user = auth.user;
-    token = auth.token;
-  } catch (error) {
-    console.log('Auth context not available in ExploreScreen');
-    user = null;
-    token = null;
-  }
+  const auth = useAuth();
+  const user = auth?.user ?? null;
+  const token = auth?.token ?? null;
   
   const { snackbar, showError, showSuccess } = useSnackbar();
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -98,8 +91,6 @@ export default function ExploreScreen() {
         return new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime();
       });
 
-  // Do not auto-schedule notifications when simply opening the Events tab.
-  // Scheduling reminders is handled centrally elsewhere (or when user books an event).
     } catch (err: any) {
       showError(err.message || 'Failed to fetch events');
     } finally {
@@ -212,7 +203,17 @@ export default function ExploreScreen() {
       showError('Please login to book events');
       return;
     }
-
+  
+    // Prevent booking if event start time is not in the future
+    if (event.startsAt) {
+      const eventDate = new Date(event.startsAt);
+      if (eventDate.getTime() <= Date.now()) {
+        setConfirmationMessage('Cannot book: Event time has passed or is ongoing.');
+        setIsConfirmationVisible(true);
+        return;
+      }
+    }
+  
     Alert.alert(
       'Book Event',
       `Do you want to book "${event.title}" for $${event.priceCents ? (event.priceCents / 100).toFixed(2) : '0.00'}?`,
@@ -223,44 +224,33 @@ export default function ExploreScreen() {
           onPress: async () => {
             try {
               setIsLoading(true);
-              // Extract the original event ID (remove the index suffix if present)
-                  const eventIdStr = event.id.toString();
-                  // keep the full id we used in the server (do not strip suffixes)
-                  const eventId = eventIdStr;
-                  await apiService.createBooking(token, { eventId });
-                  // close events modal so confirmation modal appears on top
-                  setIsEventsModalVisible(false);
-                  // Do not schedule a system notification immediately on booking.
-                  // The app shows a confirmation modal instead. Scheduling of reminders
-                  // is centralized and run once on app mount to avoid duplicates.
-                  setConfirmationMessage('Your booking is confirmed!');
-                  setIsConfirmationVisible(true);
-                  showSuccess('Event booked successfully!');
-                  // Ensure exactly one reminder exists for this event: schedule only if
-                  // the reminder trigger (10 minutes before event) is safely in the future
-                  // to avoid delivering an immediate notification right after booking.
-                  if (event.startsAt && event.type !== 'personal') {
-                    try {
-                      const eventDate = new Date(event.startsAt);
-                      const REMINDER_MINUTES = 10;
-                      const triggerDate = new Date(eventDate.getTime() - REMINDER_MINUTES * 60 * 1000);
-                      // if trigger time is more than 5 seconds from now, schedule; otherwise skip
-                      if (triggerDate.getTime() > Date.now() + 5000) {
-                        await scheduleEventNotification({
-                          id: eventId,
-                          title: 'Booking Reminder',
-                          body: `Your booked event "${event.title}" starts in ${REMINDER_MINUTES} minutes!`,
-                          eventDateISO: event.startsAt,
-                          type: event.type,
-                        });
-                      } else {
-                        // skip scheduling because trigger is too near and could deliver immediately
-                        console.debug('Skipping immediate scheduling for event', eventId);
-                      }
-                    } catch (sErr) {
-                      console.warn('Failed to ensure booking reminder', sErr);
-                    }
+              const eventIdStr = event.id.toString();
+              const eventId = eventIdStr;
+              await apiService.createBooking(token, { eventId });
+              setIsEventsModalVisible(false);
+              setConfirmationMessage('Your booking is confirmed!');
+              setIsConfirmationVisible(true);
+              showSuccess('Event booked successfully!');
+              if (event.startsAt && event.type !== 'personal') {
+                try {
+                  const eventDate = new Date(event.startsAt);
+                  const REMINDER_MINUTES = 10;
+                  const triggerDate = new Date(eventDate.getTime() - REMINDER_MINUTES * 60 * 1000);
+                  if (triggerDate.getTime() > Date.now() + 5000) {
+                    await scheduleEventNotification({
+                      id: eventId,
+                      title: 'Booking Reminder',
+                      body: `Your booked event "${event.title}" starts in ${REMINDER_MINUTES} minutes!`,
+                      eventDateISO: event.startsAt,
+                      type: event.type,
+                    });
+                  } else {
+                    console.debug('Skipping immediate scheduling for event', eventId);
                   }
+                } catch (sErr) {
+                  console.warn('Failed to ensure booking reminder', sErr);
+                }
+              }
             } catch (err: any) {
               showError(err.message || 'Failed to book event');
             } finally {
@@ -271,14 +261,13 @@ export default function ExploreScreen() {
       ]
     );
   };
-      
-
+  
   const cancelBooking = async (bookingId: string) => {
     if (!token || !user?._id) {
       showError('Please login to cancel bookings');
       return;
     }
-
+  
     Alert.alert(
       'Cancel Booking',
       'Are you sure you want to cancel this booking?',
@@ -294,7 +283,7 @@ export default function ExploreScreen() {
                 byUserId: user._id as string,
               });
               showSuccess('Booking cancelled successfully!');
-              await fetchEvents(); // Refresh the events
+              await fetchEvents();
             } catch (err: any) {
               showError(err.message || 'Failed to cancel booking');
             } finally {
@@ -370,7 +359,6 @@ export default function ExploreScreen() {
 
   // Use useMemo to ensure events list updates when selectedDate changes
   const allEvents = useMemo(() => {
-    // Only show selected day events, not upcoming events
     return selectedDayEvents.map((event, index) => ({
       ...event,
       id: `${event.id}-${index}`, // Ensure unique IDs by combining with index
@@ -383,15 +371,7 @@ export default function ExploreScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {isLoading ? (
-        <View style={styles.centeredLoading}>
-          <ActivityIndicator size="large" color="#1E88E5" />
-          <Text style={{ marginTop: 12, color: '#666' }}>Loading events...</Text>
-        </View>
-      ) : (
-        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-
-
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Month Header */}
         <View style={styles.monthHeader}>
           <TouchableOpacity 
@@ -474,7 +454,7 @@ export default function ExploreScreen() {
         )}
       </ScrollView>
 
-      )}{/* Events Modal */}
+      {/* Events Modal */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -502,48 +482,56 @@ export default function ExploreScreen() {
                 {isLoading ? (
                   <ActivityIndicator size="large" color="#ef4444" />
                 ) : selectedDayEvents.length > 0 ? (
-                  selectedDayEvents.map((event) => (
-                    <View key={event.id} style={styles.eventCard}>
-                      <View style={[styles.eventColorDot, { backgroundColor: event.color }]} />
-                      <View style={styles.eventContent}>
-                        <Text style={styles.eventTime}>{event.time}</Text>
-                        <Text style={styles.eventTitle}>{event.title}</Text>
-                        {event.location && (
-                          <Text style={styles.eventLocation} numberOfLines={1}>
-                            📍 {event.location}
-                          </Text>
-                        )}
-                        {event.description && (
-                          <Text style={styles.eventSubtitle} numberOfLines={2}>
-                            {event.description}
-                          </Text>
-                        )}
-                        {event.priceCents && (
-                          <Text style={styles.eventPrice}>
-                            ${(event.priceCents / 100).toFixed(2)}
-                          </Text>
-                        )}
-                      </View>
-                      <View style={styles.eventActions}>
-                        {user?.userType === 'customer' && (
-                          <TouchableOpacity
-                            style={styles.bookButton}
-                            onPress={() => bookEvent(event)}
-                            disabled={isLoading}
-                          >
-                            {isLoading ? (
-                              <ActivityIndicator size="small" color="white" />
-                            ) : (
-                              <Text style={styles.bookButtonText}>Book</Text>
-                            )}
+                  selectedDayEvents.map((event) => {
+                    const isPastEvent = event.startsAt && new Date(event.startsAt).getTime() <= Date.now();
+                    return (
+                      <View key={event.id} style={styles.eventCard}>
+                        <View style={[styles.eventColorDot, { backgroundColor: event.color }]} />
+                        <View style={styles.eventContent}>
+                          <Text style={styles.eventTime}>{event.time}</Text>
+                          <Text style={styles.eventTitle}>{event.title}</Text>
+                          {event.location && (
+                            <Text style={styles.eventLocation} numberOfLines={1}>
+                              📍 {event.location}
+                            </Text>
+                          )}
+                          {event.description && (
+                            <Text style={styles.eventSubtitle} numberOfLines={2}>
+                              {event.description}
+                            </Text>
+                          )}
+                          {event.priceCents && (
+                            <Text style={styles.eventPrice}>
+                              ${(event.priceCents / 100).toFixed(2)}
+                            </Text>
+                          )}
+                          {isPastEvent && (
+                            <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4 }}>
+                              Event has passed
+                            </Text>
+                          )}
+                        </View>
+                        <View style={styles.eventActions}>
+                          {user?.userType === 'customer' && !isPastEvent && (
+                            <TouchableOpacity
+                              style={styles.bookButton}
+                              onPress={() => bookEvent(event)}
+                              disabled={isLoading}
+                            >
+                              {isLoading ? (
+                                <ActivityIndicator size="small" color="white" />
+                              ) : (
+                                <Text style={styles.bookButtonText}>Book</Text>
+                              )}
+                            </TouchableOpacity>
+                          )}
+                          <TouchableOpacity style={styles.eventAction}>
+                            <Ionicons name="ellipsis-vertical" size={16} color="#666" />
                           </TouchableOpacity>
-                        )}
-                        <TouchableOpacity style={styles.eventAction}>
-                          <Ionicons name="ellipsis-vertical" size={16} color="#666" />
-                        </TouchableOpacity>
+                        </View>
                       </View>
-                    </View>
-                  ))
+                    );
+                  })
                 ) : (
                   <View style={styles.noEventsContainer}>
                     <Ionicons name="calendar-outline" size={64} color="#CCC" />
@@ -672,8 +660,7 @@ export default function ExploreScreen() {
         </View>
       </Modal>
 
-      {/* Snackbar */}
-      {/* Booking confirmation modal (centered, green check) */}
+      {/* Confirmation Modal */}
       <Modal
         visible={isConfirmationVisible}
         transparent
@@ -683,7 +670,9 @@ export default function ExploreScreen() {
         <View style={styles.confirmOverlay}>
           <View style={styles.confirmCard}>
             <Ionicons name="checkmark-circle" size={64} color="#22C55E" style={{ marginBottom: 12 }} />
-            <Text style={styles.confirmTitle}>Booking Confirmed</Text>
+            <Text style={styles.confirmTitle}>
+              {confirmationMessage.includes('Cannot book') ? 'Booking Error' : 'Booking Confirmed'}
+            </Text>
             <Text style={styles.confirmMessage}>{confirmationMessage}</Text>
             <TouchableOpacity onPress={() => setIsConfirmationVisible(false)} style={styles.confirmButton}>
               <Text style={{ color: '#fff', fontWeight: '600' }}>OK</Text>
@@ -692,6 +681,7 @@ export default function ExploreScreen() {
         </View>
       </Modal>
 
+      {/* Snackbar */}
       {snackbar.visible && (
         <View
           style={{
@@ -707,6 +697,13 @@ export default function ExploreScreen() {
           <Text style={{ color: 'white', textAlign: 'center' }}>{snackbar.message}</Text>
         </View>
       )}
+
+      {/* Global Loading Overlay */}
+      {isLoading && (
+        <View style={styles.globalLoadingOverlay}>
+          <ActivityIndicator size="large" color="#1E88E5" />
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -717,23 +714,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
   },
   scrollView: {
-    flexGrow: 1, // Use flexGrow instead of flex: 1 to allow content to grow while enabling scrolling
-  },
-  statusBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-  },
-  statusTime: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000',
-  },
-  statusIcons: {
-    flexDirection: 'row',
-    gap: 4,
+    flex: 1,
   },
   monthHeader: {
     flexDirection: 'row',
@@ -756,56 +737,52 @@ const styles = StyleSheet.create({
     color: '#000',
   },
   calendarContainer: {
-    flex: 1, // Take full height
-    paddingHorizontal: 5, // Reduced padding
+    paddingHorizontal: 5,
     paddingVertical: 5,
   },
   dayHeaders: {
     flexDirection: 'row',
-    marginBottom: 5, // Reduced margin
+    marginBottom: 5,
   },
   dayHeader: {
     flex: 1,
     textAlign: 'center',
-    fontSize: 12, // Slightly smaller headers
-    fontWeight: 'bold', // Bolder
+    fontSize: 12,
+    fontWeight: 'bold',
     color: '#666',
-    paddingVertical: 5, // Reduced padding
+    paddingVertical: 5,
   },
   calendarGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    flex: 1,
-    alignContent: 'stretch', // Stretch items to fill container height
-    justifyContent: 'space-between', // Distribute items evenly with space between
+    justifyContent: 'space-between',
   },
   dayCell: {
-    width: '13.5%', // Adjusted width for 7 columns with spacing
-    height: 'auto', // Allow height to adjust based on content
-    minHeight: 80, // Minimum height for cells
-    marginVertical: 2, // Vertical margin for spacing
-    marginHorizontal: 0.5, // Horizontal margin for spacing
-    borderRadius: 4, // Slightly less rounded corners
+    width: '13.5%',
+    minHeight: 80,
+    marginVertical: 2,
+    marginHorizontal: 0.5,
+    borderRadius: 4,
     borderWidth: 1,
     borderColor: '#E0E0E0',
-    justifyContent: 'flex-start', // Align content to top-start
+    justifyContent: 'flex-start',
     alignItems: 'flex-start',
-    padding: 5, // Internal padding
+    padding: 5,
     overflow: 'hidden',
   },
   selectedDayCell: {
-    backgroundColor: '#FCE7E9', // Lighter red background for selected day
+    backgroundColor: '#FCE7E9',
     borderColor: '#EF4444',
   },
   otherMonthDay: {
-    backgroundColor: '#FDFDFD', // Very light grey for other month days
+    backgroundColor: '#FDFDFD',
     opacity: 0.7,
   },
   dayNumber: {
-    fontSize: 16, // Font size for day number
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 5, // Space between number and events
+    marginBottom: 5,
   },
   selectedDayNumber: {
     color: '#EF4444',
@@ -814,29 +791,29 @@ const styles = StyleSheet.create({
     color: '#AAA',
   },
   eventIndicator: {
-    width: '100%', // Full width for event display
+    width: '100%',
     paddingHorizontal: 2,
     paddingVertical: 1,
     borderRadius: 3,
-    marginBottom: 2, // Space between events
-    alignSelf: 'flex-start', // Align to the start of the cell
+    marginBottom: 2,
+    alignSelf: 'flex-start',
   },
   eventText: {
-    fontSize: 9, // Smaller font size for events
+    fontSize: 9,
     color: 'white',
     fontWeight: '500',
   },
   eventsModalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end', // Align to bottom
+    justifyContent: 'flex-end',
   },
   eventsModalContent: {
     backgroundColor: 'white',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
-    maxHeight: '70%', // Take up to 70% of screen height
+    maxHeight: '70%',
   },
   modalHandle: {
     width: 40,
@@ -854,10 +831,10 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   upcomingTitle: {
-    fontSize: 22, // Bigger title
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#000',
-    marginBottom: 20, // More space
+    marginBottom: 20,
     textAlign: 'center',
   },
   upcomingEventsList: {
@@ -866,10 +843,10 @@ const styles = StyleSheet.create({
   eventCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5', // Lighter background
+    backgroundColor: '#F5F5F5',
     padding: 15,
     borderRadius: 12,
-    shadowColor: '#000', // Add shadow for depth
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 1.41,
@@ -927,21 +904,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-  viewMoreText: {
-    color: '#F44336',
-    fontWeight: '500',
-  },
   eventAction: {
     padding: 4,
   },
   noEventsContainer: {
     alignItems: 'center',
     paddingVertical: 20,
-  },
-  noEventsText: {
-    fontSize: 16,
-    color: '#666',
-    fontStyle: 'italic',
   },
   noEventsTitle: {
     fontSize: 20,
@@ -954,12 +922,6 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 5,
     textAlign: 'center',
-  },
-  centeredLoading: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 60,
   },
   fab: {
     position: 'absolute',
@@ -1028,7 +990,32 @@ const styles = StyleSheet.create({
     padding: 20,
     alignItems: 'center',
   },
-  confirmTitle: { fontSize: 18, fontWeight: '700', marginBottom: 8 },
-  confirmMessage: { fontSize: 15, color: '#333', textAlign: 'center', marginBottom: 16 },
-  confirmButton: { backgroundColor: '#22C55E', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 8 },
-}); 
+  confirmTitle: { 
+    fontSize: 18, 
+    fontWeight: '700', 
+    marginBottom: 8 
+  },
+  confirmMessage: { 
+    fontSize: 15, 
+    color: '#333', 
+    textAlign: 'center', 
+    marginBottom: 16 
+  },
+  confirmButton: { 
+    backgroundColor: '#22C55E', 
+    paddingHorizontal: 18, 
+    paddingVertical: 10, 
+    borderRadius: 8 
+  },
+  globalLoadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+});

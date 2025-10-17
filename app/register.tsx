@@ -2,14 +2,14 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Snackbar } from '../components/Snackbar';
@@ -99,7 +99,10 @@ export default function RegisterScreen() {
       console.log('✅ Registration response received', res);
       // The API now requires OTP verification. Redirect to verify screen with email prefilled.
       showSuccess('Registration created. Check your email for the verification code.');
-      router.push({ pathname: '/verify-email', params: { email: submitData.email } } as any);
+      router.push({
+        pathname: '/verify-email',
+        params: { email: submitData.email.trim() },
+      });
     } catch (error: any) {
       console.error('💥 Registration form error:', {
         message: error.message,
@@ -210,6 +213,7 @@ export default function RegisterScreen() {
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
+                  placeholderTextColor="#9ca3af"
               />
               {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
             </View>
@@ -224,6 +228,7 @@ export default function RegisterScreen() {
                 onChangeText={(text) => updateFormData('password', text)}
                 secureTextEntry
                 autoCapitalize="none"
+                  placeholderTextColor="#9ca3af"
               />
               {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
             </View>
@@ -237,6 +242,7 @@ export default function RegisterScreen() {
                 value={formData.profile.fullName}
                 onChangeText={(text) => updateFormData('profile.fullName', text)}
                 autoCapitalize="words"
+                  placeholderTextColor="#9ca3af"
               />
               {errors.fullName && <Text style={styles.errorText}>{errors.fullName}</Text>}
             </View>
@@ -250,6 +256,7 @@ export default function RegisterScreen() {
                 value={formData.profile.phone}
                 onChangeText={(text) => updateFormData('profile.phone', text)}
                 keyboardType="phone-pad"
+                  placeholderTextColor="#9ca3af"
               />
               {errors.phone && <Text style={styles.errorText}>{errors.phone}</Text>}
             </View>
@@ -295,6 +302,7 @@ export default function RegisterScreen() {
                 value={formData.profile.location}
                 onChangeText={(text) => updateFormData('profile.location', text)}
                 autoCapitalize="words"
+                  placeholderTextColor="#9ca3af"
               />
               {errors.location && <Text style={styles.errorText}>{errors.location}</Text>}
             </View>
@@ -310,6 +318,7 @@ export default function RegisterScreen() {
                     value={formData.profile.academyName || ''}
                     onChangeText={(text) => updateFormData('profile.academyName', text)}
                     autoCapitalize="words"
+                      placeholderTextColor="#9ca3af"
                   />
                   {errors.academyName && <Text style={styles.errorText}>{errors.academyName}</Text>}
                 </View>
@@ -319,10 +328,12 @@ export default function RegisterScreen() {
                   <TextInput
                     style={styles.input}
                     placeholder="e.g., fitness, yoga, pilates"
+                      placeholderTextColor="#9ca3af"
                     value={formData.profile.specializations?.join(', ') || ''}
                     onChangeText={(text) => {
                       const specializations = text.split(',').map(s => s.trim()).filter(s => s);
                       updateFormData('profile.specializations', specializations);
+                      
                     }}
                     autoCapitalize="words"
                   />

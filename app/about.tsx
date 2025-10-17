@@ -159,6 +159,7 @@ const styles = StyleSheet.create({
   },
   placeholder: {
     width: 40,
+      
   },
   content: {
     flex: 1,

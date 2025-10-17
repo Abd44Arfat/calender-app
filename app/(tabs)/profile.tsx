@@ -336,18 +336,21 @@ export default function ProfileScreen() {
               value={editFullName}
               onChangeText={setEditFullName}
               style={styles.input}
+                placeholderTextColor="#9ca3af"
             />
             <TextInput
               placeholder="Phone"
               value={editPhone}
               onChangeText={setEditPhone}
               style={styles.input}
+                placeholderTextColor="#9ca3af"
             />
             <TextInput
               placeholder="Location"
               value={editLocation}
               onChangeText={setEditLocation}
               style={styles.input}
+                placeholderTextColor="#9ca3af"
             />
             {user?.userType === 'vendor' && (
               <TextInput
@@ -355,6 +358,7 @@ export default function ProfileScreen() {
                 value={editAcademyName}
                 onChangeText={setEditAcademyName}
                 style={styles.input}
+                  placeholderTextColor="#9ca3af"
               />
             )}
           
@@ -389,6 +393,7 @@ export default function ProfileScreen() {
               onChangeText={setCurrentPassword}
               style={styles.input}
               secureTextEntry
+                placeholderTextColor="#9ca3af"
             />
             <TextInput
               placeholder="New Password"
@@ -396,6 +401,7 @@ export default function ProfileScreen() {
               onChangeText={setNewPassword}
               style={styles.input}
               secureTextEntry
+                placeholderTextColor="#9ca3af"
             />
             <TextInput
               placeholder="Confirm New Password"
@@ -403,6 +409,7 @@ export default function ProfileScreen() {
               onChangeText={setConfirmPassword}
               style={styles.input}
               secureTextEntry
+                placeholderTextColor="#9ca3af"
             />
             <View style={styles.modalButtons}>
               <TouchableOpacity 

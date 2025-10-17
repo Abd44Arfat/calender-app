@@ -213,11 +213,18 @@ class ApiService {
 
   // Verify email OTP after registration
   async verifyEmail(body: { email: string; otp: string }): Promise<AuthResponse> {
+    console.log('📤 VERIFY PAYLOAD', body);
+
     return this.request<AuthResponse>('/api/auth/verify-email', {
       method: 'POST',
-      body: JSON.stringify(body),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: body.email.trim(),
+        otp: body.otp.trim(),
+      }),
     });
   }
+  
 
   // Resend verification OTP
   async resendOtp(body: { email: string }): Promise<any> {
@@ -229,6 +236,7 @@ class ApiService {
 
   // Forgot password: request reset OTP
   async forgotPassword(body: { email: string }): Promise<any> {
+    console.log('📤 VERIFY PAYLOAD', body);
     return this.request<any>('/api/auth/forgot-password', {
       method: 'POST',
       body: JSON.stringify(body),
@@ -237,6 +245,7 @@ class ApiService {
 
   // Reset password with OTP
   async resetPassword(body: { email: string; otp: string; newPassword: string }): Promise<any> {
+    console.log('📤 VERIFY PAYLOAD', body);
     return this.request<any>('/api/auth/reset-password', {
       method: 'POST',
       body: JSON.stringify(body),

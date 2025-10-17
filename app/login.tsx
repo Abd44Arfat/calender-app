@@ -94,6 +94,7 @@ export default function LoginScreen() {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
+                    placeholderTextColor="#9ca3af"
                 />
               </View>
               {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
@@ -111,6 +112,7 @@ export default function LoginScreen() {
                   onChangeText={(text) => setFormData(prev => ({ ...prev, password: text }))}
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
+                    placeholderTextColor="#9ca3af"
                 />
                 <TouchableOpacity
                   onPress={() => setShowPassword(!showPassword)}
