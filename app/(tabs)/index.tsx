@@ -23,7 +23,6 @@ import { apiService, Booking } from '../../services/api';
 import { scheduleEventNotification } from '../../services/notificationservice';
 import { addChangeListener, getNotifications, initNotifications } from './notifications';
 
-
 // Change this value to adjust reminder offset
 const REMINDER_OFFSET_MINUTES = 10;
 
@@ -64,7 +63,7 @@ const HomeScreen = () => {
   const [newNotes, setNewNotes] = useState<string>('');
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-  const [isEventDetailsVisible, setIsEventDetailsVisible] = useState(false);
+  const [isEventDetailsVisible, setIsEventDetailsVisible] = useState<boolean>(false);
   const modalOpeningRef = useRef(false);
 
   const days = useMemo(() => {
@@ -94,12 +93,12 @@ const HomeScreen = () => {
 
   const formatTimeForModal = (iso?: string) => {
     if (!isValidISO(iso)) return '--:--';
-  return new Date(iso as string).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+    return new Date(iso as string).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
   };
 
   const formatDateForModal = (iso?: string) => {
     if (!isValidISO(iso)) return 'Unknown date';
-  return new Date(iso as string).toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
+    return new Date(iso as string).toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
   };
 
   const parseTime = (value: string): { h: number; m: number } | null => {
@@ -154,14 +153,12 @@ const HomeScreen = () => {
     console.log("⏰ Scheduling reminders...");
     console.log("Now:", new Date(now).toISOString());
   
-    // ✅ FIX: include both "event" and "personal"
     const upcomingEvents = combinedEvents.filter(
       e => (e.type === 'personal' || e.type === 'event') && new Date(e.startsAt).getTime() > now
     );
   
-    // bookings may come empty from API but keep logic
     const upcomingBookings = bookingsList.filter(
-      b => b.eventId && new Date(b.eventId.startsAt).getTime() > now
+      b => b.eventId?.startsAt && new Date(b.eventId.startsAt).getTime() > now
     );
   
     console.log(`📌 Upcoming events: ${upcomingEvents.length}`);
@@ -173,10 +170,8 @@ const HomeScreen = () => {
       endsAt: e.endsAt
     })));
   
-    // Use centralized scheduling to avoid duplicates and to respect event type rules.
     for (const e of upcomingEvents) {
       try {
-        // Do not schedule system notifications for personal events
         if (e.type === 'personal') {
           console.log(`ℹ️ Skipping system reminder for personal event "${e.title}"`);
           continue;
@@ -198,7 +193,6 @@ const HomeScreen = () => {
       try {
         const e = b.eventId as any;
         if (!e) continue;
-        // use the underlying event id to avoid duplicate reminders (event vs booking)
         const eventId = String(e._id || e.id);
         await scheduleEventNotification({
           id: eventId,
@@ -260,7 +254,6 @@ const HomeScreen = () => {
           status: 'confirmed',
           limit: 50,
         });
-        // Filter out bookings whose event end time is in the past
         const now = new Date();
         bookingsList = (bookingsResponse.bookings || []).filter(b => {
           const end = b.eventId?.endsAt ? new Date(b.eventId.endsAt) : null;
@@ -268,8 +261,6 @@ const HomeScreen = () => {
         });
         setBookings(bookingsList);
       }
-      
-      // Removed scheduling from here since it's now handled in the mount effect
     } catch (err: any) {
       showError(err.message || 'Failed to fetch events');
     } finally {
@@ -277,13 +268,10 @@ const HomeScreen = () => {
     }
   };
 
-  // Set up reminders once on mount
   useEffect(() => {
     const setup = async () => {
       await initNotifications();
-      
-  try {
-        // Fetch only future events for reminders (now to end of day)
+      try {
         const startISO = new Date();
         const endISO = new Date();
         endISO.setHours(23, 59, 59, 999);
@@ -325,12 +313,11 @@ const HomeScreen = () => {
           });
           const now = new Date();
           bookingsList = (bookingsResponse.bookings || []).filter(b => {
-              const end = b.eventId?.endsAt ? new Date(b.eventId.endsAt) : null;
-              return end && end > now;
-            });
+            const end = b.eventId?.endsAt ? new Date(b.eventId.endsAt) : null;
+            return end && end > now;
+          });
         }
 
-        // Clear any previously scheduled reminders to avoid stale entries
         try {
           const { resetScheduledReminders } = await import('../../services/notificationservice');
           await resetScheduledReminders();
@@ -338,22 +325,18 @@ const HomeScreen = () => {
           console.warn('Failed to reset scheduled reminders:', e);
         }
 
-        // Schedule reminders once, not on every fetch
         await scheduleEventReminders(combined, bookingsList);
       } catch (err) {
         console.warn('Failed to set up reminders:', err);
       }
     };
-    
     setup();
-  }, []); // Run once on mount
+  }, []);
 
-  // Fetch events (without scheduling) when selected date changes
   useEffect(() => {
     fetchEvents();
   }, [selectedDate, token]);
 
-  // Debug: log selectedEvent when it changes to help trace modal rendering issues
   useEffect(() => {
     if (selectedEvent) {
       console.debug('RENDER: selectedEvent changed ->', selectedEvent);
@@ -363,7 +346,6 @@ const HomeScreen = () => {
     console.debug('RENDER: isEventDetailsVisible ->', isEventDetailsVisible);
   }, [selectedEvent, isEventDetailsVisible]);
 
-  // Refresh events (without scheduling) on focus
   useFocusEffect(
     React.useCallback(() => {
       fetchEvents();
@@ -405,7 +387,7 @@ const HomeScreen = () => {
       })),
       ...currentDayBookings.map((b, idx) => ({
         id: `${b._id}-booking-${idx}`,
-  originalId: String(b.eventId?._id || b._id),
+        originalId: String(b.eventId?._id || b._id),
         title: `📅 ${b.eventId?.title || 'No Title'}`,
         time: `${toHHmm(b.eventId?.startsAt)} - ${toHHmm(b.eventId?.endsAt)}`,
         color: getRandomColor((b.eventId?.title || '') + (b.eventId?.startsAt || '') + 'booking'),
@@ -415,7 +397,16 @@ const HomeScreen = () => {
       })),
     ];
 
-    return allItems.filter(item => item.startHour === parsed.h);
+    // Deduplicate based on title and startHour to group items with the same name at the same time
+    const uniqueItems = allItems.reduce((acc, item) => {
+      const key = `${item.title}-${item.startHour}`; // Use title and hour as the deduplication key
+      if (!acc[key]) {
+        acc[key] = item;
+      }
+      return acc;
+    }, {} as { [key: string]: any });
+
+    return Object.values(uniqueItems).filter(item => item.startHour === parsed.h);
   };
 
   const openCreateModal = () => {
@@ -462,11 +453,11 @@ const HomeScreen = () => {
       };
 
       await apiService.createPersonalEvent(token, payload);
-  showSuccess('Personal event created');
-  setIsModalVisible(false);
-  setBookingSuccessMsg('Your event was created successfully!');
-  setIsBookingSuccess(true);
-  await fetchEvents();
+      showSuccess('Personal event created');
+      setIsModalVisible(false);
+      setBookingSuccessMsg('Your event was created successfully!');
+      setIsBookingSuccess(true);
+      await fetchEvents();
     } catch (err: any) {
       showError(err.message || 'Failed to create event');
     } finally {
@@ -529,197 +520,192 @@ const HomeScreen = () => {
       ) : (
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
           {/* Header */}
-          {/* Header */}
-        <View style={styles.header}>
-  <View style={styles.profileSection}>
-    <View style={styles.profilePic}>
-      {getImageUrl(user?.profile?.profilePicture) ? (
-        <Image
-          source={{ uri: getImageUrl(user?.profile?.profilePicture)! }}
-          style={{ width: 40, height: 40, borderRadius: 20 }}
-        />
-      ) : (
-        <Ionicons name="person" size={40} color="#2196F3" />
-      )}
-    </View>
-    <Text style={styles.greetingText}>
-      Hi, {user?.profile?.fullName?.split(' ')[0] || 'User'}!
-    </Text>
-  </View>
-  <TouchableOpacity 
-    style={styles.notificationIcon}
-    onPress={() => navigation.navigate('notifications' as never)}
-  >
-    <Ionicons name="notifications-outline" size={24} color="#000" />
-    {unreadCount > 0 && (
-      <View style={styles.badge}>
-        <Text style={styles.badgeText}>{unreadCount}</Text>
-      </View>
-    )}
-  </TouchableOpacity>
-</View>
+          <View style={styles.header}>
+            <View style={styles.profileSection}>
+              <View style={styles.profilePic}>
+                {getImageUrl(user?.profile?.profilePicture) ? (
+                  <Image
+                    source={{ uri: getImageUrl(user?.profile?.profilePicture)! }}
+                    style={{ width: 40, height: 40, borderRadius: 20 }}
+                  />
+                ) : (
+                  <Ionicons name="person" size={40} color="#2196F3" />
+                )}
+              </View>
+              <Text style={styles.greetingText}>
+                Hi, {user?.profile?.fullName?.split(' ')[0] || 'User'}!
+              </Text>
+            </View>
+            <TouchableOpacity 
+              style={styles.notificationIcon}
+              onPress={() => navigation.navigate('notifications' as never)}
+            >
+              <Ionicons name="notifications-outline" size={24} color="#000" />
+              {unreadCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{unreadCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
 
-
-        {/* Date Selector */}
-        <View style={styles.dateSection}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.daysContainer}>
-            {days.map((item, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.dayItem,
-                  sameDay(item.date, selectedDate) && styles.selectedDay,
-                ]}
-                onPress={() => setSelectedDate(item.date)}
-              >
-                <Text
-                  style={[
-                    styles.dayNumber,
-                    sameDay(item.date, selectedDate) && styles.selectedDayText,
-                  ]}
-                >
-                  {item.date.getDate()}
-                </Text>
-                <Text
-                  style={[
-                    styles.dayLabel,
-                    sameDay(item.date, selectedDate) && styles.selectedDayText,
-                  ]}
-                >
-                  {item.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-
-        {/* My Bookings Section */}
-        {user?.userType === 'customer' && bookings.length > 0 && (
-          <View style={styles.bookingsSection}>
-            <Text style={styles.sectionTitle}>My Bookings</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bookingsContainer}>
-              {bookings.slice(0, 5).map((booking) => (
+          {/* Date Selector */}
+          <View style={styles.dateSection}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.daysContainer}>
+              {days.map((item, index) => (
                 <TouchableOpacity
-                  key={booking._id}
-                  style={styles.bookingCard}
-                  onPress={() => {
-                    setSelectedEvent({
-                      id: booking.eventId?._id || booking._id,
-                      title: booking.eventId?.title || 'Untitled',
-                      startsAt: booking.eventId?.startsAt,
-                      endsAt: booking.eventId?.endsAt,
-                      type: 'booking',
-                      isPersonal: false,
-                      bookingData: booking,
-                    });
-                    modalOpeningRef.current = true;
-                    setTimeout(() => {
-                      setIsEventDetailsVisible(true);
-                      setTimeout(() => { modalOpeningRef.current = false; }, 200);
-                    }, 120);
-                  }}
+                  key={index}
+                  style={[
+                    styles.dayItem,
+                    sameDay(item.date, selectedDate) && styles.selectedDay,
+                  ]}
+                  onPress={() => setSelectedDate(item.date)}
                 >
-                  <Text style={styles.bookingTitle} numberOfLines={1}>
-                    {booking.eventId?.title || 'Untitled'}
-                  </Text>
-                  <Text style={styles.bookingTime}>
-                    {toHHmm(booking.eventId?.startsAt)} - {toHHmm(booking.eventId?.endsAt)}
-                  </Text>
-                  {booking.eventId?.location && (
-                    <Text style={styles.bookingLocation} numberOfLines={1}>
-                      📍 {booking.eventId.location}
-                    </Text>
-                  )}
-                  {typeof booking.eventId?.priceCents === 'number' && (
-                    <Text style={styles.bookingPrice}>
-                      ${(booking.eventId.priceCents / 100).toFixed(2)}
-                    </Text>
-                  )}
-                  <TouchableOpacity
-                    style={styles.cancelButton}
-                    onPress={() => cancelBooking(booking)}
-                    disabled={isLoading}
+                  <Text
+                    style={[
+                      styles.dayNumber,
+                      sameDay(item.date, selectedDate) && styles.selectedDayText,
+                    ]}
                   >
-                    <Text style={styles.cancelButtonText}>Cancel</Text>
-                  </TouchableOpacity>
+                    {item.date.getDate()}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.dayLabel,
+                      sameDay(item.date, selectedDate) && styles.selectedDayText,
+                    ]}
+                  >
+                    {item.label}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
           </View>
-        )}
 
-        {/* Schedule Timeline */}
-        <View style={styles.scheduleContainer}>
-          {timeSlots.map((time, index) => {
-            const eventsAt = getEventsForTime(time);
-            return (
-              <View key={index} style={styles.timelineRow}>
-                <View style={styles.timeColumn}>
-                  <Text style={styles.timeText}>{time}</Text>
-                  <View style={styles.timelineLine} />
+          {/* My Bookings Section */}
+          {user?.userType === 'customer' && bookings.length > 0 && (
+            <View style={styles.bookingsSection}>
+              <Text style={styles.sectionTitle}>My Bookings</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bookingsContainer}>
+                {bookings.slice(0, 5).map((booking) => (
+                  <TouchableOpacity
+                    key={booking._id}
+                    style={styles.bookingCard}
+                    onPress={() => {
+                      setSelectedEvent({
+                        id: booking.eventId?._id || booking._id,
+                        title: booking.eventId?.title || 'Untitled',
+                        startsAt: booking.eventId?.startsAt,
+                        endsAt: booking.eventId?.endsAt,
+                        type: 'booking',
+                        isPersonal: false,
+                        bookingData: booking,
+                      });
+                      modalOpeningRef.current = true;
+                      setTimeout(() => {
+                        setIsEventDetailsVisible(true);
+                        setTimeout(() => { modalOpeningRef.current = false; }, 200);
+                      }, 120);
+                    }}
+                  >
+                    <Text style={styles.bookingTitle} numberOfLines={1}>
+                      {booking.eventId?.title || 'Untitled'}
+                    </Text>
+                    <Text style={styles.bookingTime}>
+                      {toHHmm(booking.eventId?.startsAt)} - {toHHmm(booking.eventId?.endsAt)}
+                    </Text>
+                    {booking.eventId?.location && (
+                      <Text style={styles.bookingLocation} numberOfLines={1}>
+                        📍 {booking.eventId.location}
+                      </Text>
+                    )}
+                    {typeof booking.eventId?.priceCents === 'number' && (
+                      <Text style={styles.bookingPrice}>
+                        ${(booking.eventId.priceCents / 100).toFixed(2)}
+                      </Text>
+                    )}
+                    <TouchableOpacity
+                      style={styles.cancelButton}
+                      onPress={() => cancelBooking(booking)}
+                      disabled={isLoading}
+                    >
+                      <Text style={styles.cancelButtonText}>Cancel</Text>
+                    </TouchableOpacity>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
+          {/* Schedule Timeline */}
+          <View style={styles.scheduleContainer}>
+            {timeSlots.map((time, index) => {
+              const eventsAt = getEventsForTime(time);
+              return (
+                <View key={index} style={styles.timelineRow}>
+                  <View style={styles.timeColumn}>
+                    <Text style={styles.timeText}>{time}</Text>
+                    <View style={styles.timelineLine} />
+                  </View>
+                  <View style={styles.eventColumn}>
+                    {eventsAt.length
+                      ? eventsAt.map((ev: any) => (
+                          <TouchableOpacity
+                            key={`${index}-${ev.id}`}
+                            onPress={() => {
+                              if (ev.fullEvent) {
+                                const e = ev.fullEvent;
+                                const normalized = {
+                                  id: e.id || e._id,
+                                  title: e.title || 'Untitled',
+                                  startsAt: e.startsAt,
+                                  endsAt: e.endsAt,
+                                  description: e.description || e.notes || '',
+                                  location: e.location || '',
+                                  priceCents: e.priceCents || e.costCents || null,
+                                  type: e.type || 'event',
+                                  isPersonal: !!e.isPersonal,
+                                } as any;
+                                console.debug('Opening event modal for', normalized);
+                                setSelectedEvent(normalized);
+                                modalOpeningRef.current = true;
+                                setTimeout(() => {
+                                  setIsEventDetailsVisible(true);
+                                  setTimeout(() => { modalOpeningRef.current = false; }, 200);
+                                }, 120);
+                                return;
+                              }
+                              if (ev.booking) {
+                                const bEvent = ev.booking.eventId as any;
+                                setSelectedEvent({
+                                  id: bEvent._id || ev.originalId,
+                                  title: bEvent.title || 'Untitled',
+                                  startsAt: bEvent.startsAt,
+                                  endsAt: bEvent.endsAt,
+                                  description: bEvent.description || '',
+                                  location: bEvent.location || '',
+                                  priceCents: bEvent.priceCents || null,
+                                  type: 'booking',
+                                  isPersonal: false,
+                                  bookingData: ev.booking,
+                                });
+                                modalOpeningRef.current = true;
+                                setTimeout(() => {
+                                  setIsEventDetailsVisible(true);
+                                  setTimeout(() => { modalOpeningRef.current = false; }, 200);
+                                }, 120);
+                              }
+                            }}
+                          >
+                            <EventCard event={ev} />
+                          </TouchableOpacity>
+                        ))
+                      : <View style={styles.emptySlot} />}
+                  </View>
                 </View>
-                <View style={styles.eventColumn}>
-                  {eventsAt.length
-                    ? eventsAt.map((ev: any) => (
-                        <TouchableOpacity
-                          key={`${index}-${ev.id}`}
-                          onPress={() => {
-                            // try to find original event by originalId
-                            if (ev.fullEvent) {
-                              const e = ev.fullEvent;
-                              const normalized = {
-                                id: e.id || e._id,
-                                title: e.title || 'Untitled',
-                                startsAt: e.startsAt,
-                                endsAt: e.endsAt,
-                                description: e.description || e.notes || '',
-                                location: e.location || '',
-                                priceCents: e.priceCents || e.costCents || null,
-                                type: e.type || 'event',
-                                isPersonal: !!e.isPersonal,
-                              } as any;
-                              console.debug('Opening event modal for', normalized);
-                              setSelectedEvent(normalized);
-                              modalOpeningRef.current = true;
-                              setTimeout(() => {
-                                setIsEventDetailsVisible(true);
-                                // clear the opening flag shortly after modal is visible
-                                setTimeout(() => { modalOpeningRef.current = false; }, 200);
-                              }, 120);
-                              return;
-                            }
-                            // fallback: if this item contains booking data, show booking's event info
-                            if (ev.booking) {
-                              const bEvent = ev.booking.eventId as any;
-                              setSelectedEvent({
-                                id: bEvent._id || ev.originalId,
-                                title: bEvent.title || 'Untitled',
-                                startsAt: bEvent.startsAt,
-                                endsAt: bEvent.endsAt,
-                                description: bEvent.description || '',
-                                location: bEvent.location || '',
-                                priceCents: bEvent.priceCents || null,
-                                type: 'booking',
-                                isPersonal: false,
-                                bookingData: ev.booking,
-                              });
-                              modalOpeningRef.current = true;
-                              setTimeout(() => {
-                                setIsEventDetailsVisible(true);
-                                setTimeout(() => { modalOpeningRef.current = false; }, 200);
-                              }, 120);
-                            }
-                          }}
-                        >
-                          <EventCard event={ev} />
-                        </TouchableOpacity>
-                      ))
-                    : <View style={styles.emptySlot} />}
-                </View>
-              </View>
-            );
-          })}
-        </View>
+              );
+            })}
+          </View>
         </ScrollView>
       )}
 
@@ -753,7 +739,7 @@ const HomeScreen = () => {
                 value={newEndTime}
                 onChangeText={setNewEndTime}
                 style={[styles.input, { flex: 1 }]}
-                 placeholderTextColor="#9ca3af"
+                placeholderTextColor="#9ca3af"
               />
             </View>
             <TextInput
@@ -787,7 +773,7 @@ const HomeScreen = () => {
           style={styles.centeredModalOverlay}
           activeOpacity={1}
           onPress={() => {
-            if (modalOpeningRef.current) return; // ignore taps while modal is opening
+            if (modalOpeningRef.current) return;
             setIsEventDetailsVisible(false);
           }}
         >
@@ -820,7 +806,7 @@ const HomeScreen = () => {
                 ) : null}
 
                 {((selectedEvent as any).bookingData?.eventId?.description || (selectedEvent as any).description) ? (
-                  <View style={[styles.eventDetailItem, { alignItems: 'flex-start' }]}> 
+                  <View style={[styles.eventDetailItem, { alignItems: 'flex-start' }]}>
                     <Ionicons name="document-text-outline" size={20} color="#666" style={styles.detailIcon} />
                     <Text style={[styles.eventDetailText, { color: '#444' }]}>{(selectedEvent as any).bookingData?.eventId?.description || (selectedEvent as any).description}</Text>
                   </View>
@@ -884,7 +870,6 @@ const HomeScreen = () => {
             activeOpacity={1}
             onPress={(e) => e.stopPropagation()}
           >
-            {/* drag indicator */}
             <View style={{ width: 40, height: 5, backgroundColor: '#E5E7EB', borderRadius: 4, marginBottom: 12 }} />
             {selectedEvent && (
               <ScrollView style={{ width: '100%' }} showsVerticalScrollIndicator={false}>
@@ -958,7 +943,6 @@ const HomeScreen = () => {
     </SafeAreaView>
   );
 };
-
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: 'white' },
@@ -1099,7 +1083,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  eventDetailTextRow: { // renamed from duplicate eventDetailText
+  eventDetailTextRow: {
     fontSize: 16,
     color: '#666',
   },
