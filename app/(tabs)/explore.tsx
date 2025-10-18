@@ -68,7 +68,7 @@ export default function ExploreScreen() {
                               Array.isArray(eventsResponse) ? eventsResponse : [];
 
       const formattedEvents = normalizedEvents.map((event: any, index: number) => ({
-        id: event._id || `event-${index}`, // Use actual _id or fallback to unique string
+        id: event._id || `event-${index}`, // Ensure unique ID using _id or fallback
         title: event.title || 'Untitled Event',
         time: `${new Date(event.startsAt).toTimeString().slice(0, 5)}-${new Date(event.endsAt).toTimeString().slice(0, 5)}`,
         color: getRandomColor(event.title + event.startsAt), // Use random color based on event title and time
@@ -231,6 +231,8 @@ export default function ExploreScreen() {
               setConfirmationMessage('Your booking is confirmed!');
               setIsConfirmationVisible(true);
               showSuccess('Event booked successfully!');
+              // Refresh events to reflect the booking
+              await fetchEvents();
               if (event.startsAt && event.type !== 'personal') {
                 try {
                   const eventDate = new Date(event.startsAt);
@@ -283,6 +285,7 @@ export default function ExploreScreen() {
                 byUserId: user._id as string,
               });
               showSuccess('Booking cancelled successfully!');
+              // Refresh events to reflect the cancellation
               await fetchEvents();
             } catch (err: any) {
               showError(err.message || 'Failed to cancel booking');

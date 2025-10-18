@@ -1,6 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-// use centralized notification helper instead of direct expo-notifications scheduling
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -376,7 +375,7 @@ const HomeScreen = () => {
 
     const allItems = [
       ...currentDayEvents.map((e, idx) => ({
-        id: `${e.id}-event-${idx}`,
+        id: String(e.id),
         originalId: String(e.id),
         fullEvent: e,
         title: e.title,
@@ -385,22 +384,28 @@ const HomeScreen = () => {
         startHour: new Date(e.startsAt).getHours(),
         type: e.type || 'event',
       })),
-      ...currentDayBookings.map((b, idx) => ({
-        id: `${b._id}-booking-${idx}`,
-        originalId: String(b.eventId?._id || b._id),
-        title: `📅 ${b.eventId?.title || 'No Title'}`,
-        time: `${toHHmm(b.eventId?.startsAt)} - ${toHHmm(b.eventId?.endsAt)}`,
-        color: getRandomColor((b.eventId?.title || '') + (b.eventId?.startsAt || '') + 'booking'),
-        startHour: b.eventId?.startsAt ? new Date(b.eventId.startsAt).getHours() : -1,
-        type: 'booking',
-        booking: b,
-      })),
+      ...currentDayBookings.map((b, idx) => {
+        const eventId = b.eventId?._id || b._id;
+        return {
+          id: `booking-${String(eventId)}`,
+          originalId: String(eventId),
+          title: `📅 ${b.eventId?.title || 'No Title'}`,
+          time: `${toHHmm(b.eventId?.startsAt)} - ${toHHmm(b.eventId?.endsAt)}`,
+          color: getRandomColor((b.eventId?.title || '') + (b.eventId?.startsAt || '') + 'booking'),
+          startHour: b.eventId?.startsAt ? new Date(b.eventId.startsAt).getHours() : -1,
+          type: 'booking',
+          booking: b,
+        };
+      }),
     ];
 
-    // Deduplicate based on title and startHour to group items with the same name at the same time
+    // Deduplicate based on a unique id, prioritizing bookings over events
     const uniqueItems = allItems.reduce((acc, item) => {
-      const key = `${item.title}-${item.startHour}`; // Use title and hour as the deduplication key
+      const key = item.id; // Use a unique id as the deduplication key
       if (!acc[key]) {
+        acc[key] = item;
+      } else if (item.type === 'booking' && acc[key].type !== 'booking') {
+        // Replace event with booking if booking exists for the same id
         acc[key] = item;
       }
       return acc;
@@ -454,9 +459,9 @@ const HomeScreen = () => {
 
       await apiService.createPersonalEvent(token, payload);
       showSuccess('Personal event created');
-      setIsModalVisible(false);
+      setIsBookingSuccess(true); // Trigger success modal only for creation
       setBookingSuccessMsg('Your event was created successfully!');
-      setIsBookingSuccess(true);
+      setIsModalVisible(false);
       await fetchEvents();
     } catch (err: any) {
       showError(err.message || 'Failed to create event');
@@ -490,7 +495,10 @@ const HomeScreen = () => {
                 byUserId: user._id as string,
               });
               showSuccess('Booking cancelled successfully!');
+              // Refresh events and bookings to ensure the canceled item is removed
               await fetchEvents();
+              // Update bookings state to remove the canceled booking
+              setBookings(prevBookings => prevBookings.filter(b => b._id !== booking._id));
             } catch (err: any) {
               showError(err.message || 'Failed to cancel booking');
             } finally {
@@ -836,14 +844,23 @@ const HomeScreen = () => {
         visible={isBookingSuccess}
         transparent
         animationType="fade"
-        onRequestClose={() => setIsBookingSuccess(false)}
+        onRequestClose={() => {
+          setIsBookingSuccess(false); // Reset state when modal is closed
+          setBookingSuccessMsg('');
+        }}
       >
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.4)' }}>
           <View style={{ backgroundColor: 'white', padding: 24, borderRadius: 12, alignItems: 'center', minWidth: 250 }}>
             <Ionicons name="checkmark-circle" size={48} color="#4CAF50" style={{ marginBottom: 12 }} />
             <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 8 }}>Success</Text>
             <Text style={{ fontSize: 16, color: '#333', marginBottom: 16, textAlign: 'center' }}>{bookingSuccessMsg}</Text>
-            <TouchableOpacity onPress={() => setIsBookingSuccess(false)} style={{ backgroundColor: '#4CAF50', paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8 }}>
+            <TouchableOpacity
+              onPress={() => {
+                setIsBookingSuccess(false); // Reset state on OK press
+                setBookingSuccessMsg('');
+              }}
+              style={{ backgroundColor: '#4CAF50', paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8 }}
+            >
               <Text style={{ color: 'white', fontWeight: '600', fontSize: 16 }}>OK</Text>
             </TouchableOpacity>
           </View>
