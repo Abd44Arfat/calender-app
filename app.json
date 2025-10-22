@@ -16,7 +16,7 @@
     "ios": {
       "bundleIdentifier": "com.quackplan.quackplan",
       "supportsTablet": true,
-      "buildNumber": "2",
+      "buildNumber": "3",
       "infoPlist": {
         "NSCameraUsageDescription": "We use the camera for profile photos and scanning features.",
         "NSPhotoLibraryUsageDescription": "We need access to your photos to let you upload images.",
@@ -60,13 +60,11 @@
     "runtimeVersion": {
       "policy": "appVersion"
     },
-    "updates": {
-      "url": "https://u.expo.dev/bf93f7e4-641d-4882-be34-13d0edc1207e"
-    },
     "extra": {
       "eas": {
-        "projectId": "bf93f7e4-641d-4882-be34-13d0edc1207e"
+        "projectId": "2a4351bf-eaf4-436f-b44e-7076cc45005b"
       }
-    }
+    },
+    "owner": "abdo0992"
   }
 }
