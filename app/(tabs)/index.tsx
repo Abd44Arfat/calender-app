@@ -1204,7 +1204,7 @@ const styles = StyleSheet.create({
   emptySlot: { height: 60 },
   fab: {
     position: 'absolute',
-    bottom: 100,
+    bottom: 120,
     right: 20,
     width: 56,
     height: 56,

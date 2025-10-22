@@ -437,8 +437,8 @@ export default function ExploreScreen() {
                         { backgroundColor: event.color }
                       ]}
                     >
-                      <Text style={styles.eventText} numberOfLines={1}>{event.title}</Text>
-                    </View>
+<Text style={styles.eventText} numberOfLines={2}>{event.title}</Text>     
+               </View>
                   ))}
                 </TouchableOpacity>
               );
@@ -446,8 +446,10 @@ export default function ExploreScreen() {
           </View>
         </View>
 
-        {/* Floating Action Button for Vendors */}
-        {user?.userType === 'vendor' && (
+       
+      </ScrollView>
+ {/* Floating Action Button for Vendors */}
+ {user?.userType === 'vendor' && (
           <TouchableOpacity 
             style={styles.fab} 
             onPress={() => setIsCreateModalVisible(true)}
@@ -455,8 +457,6 @@ export default function ExploreScreen() {
             <Ionicons name="add" size={24} color="white" />
           </TouchableOpacity>
         )}
-      </ScrollView>
-
       {/* Events Modal */}
       <Modal
         animationType="slide"
@@ -718,6 +718,7 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+    paddingBottom: 200,
   },
   monthHeader: {
     flexDirection: 'row',
@@ -740,7 +741,7 @@ const styles = StyleSheet.create({
     color: '#000',
   },
   calendarContainer: {
-    paddingHorizontal: 5,
+    paddingHorizontal: 0,
     paddingVertical: 5,
   },
   dayHeaders: {
@@ -761,16 +762,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   dayCell: {
-    width: '13.5%',
-    minHeight: 80,
-    marginVertical: 2,
-    marginHorizontal: 0.5,
-    borderRadius: 4,
+    flex: 1,                  // 👈 PERFECT WIDTH (NO GAPS!)
+    minHeight: 120,
+    minWidth:80,
+    marginVertical: 5,        // 👈 TINY VERTICAL SPACE
+    marginHorizontal: 5,      // 👈 ZERO HORIZONTAL SPACE
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: '#E0E0E0',
     justifyContent: 'flex-start',
     alignItems: 'flex-start',
-    padding: 5,
+    padding: 4,               // 👈 TIGHTER PADDING
     overflow: 'hidden',
   },
   selectedDayCell: {
@@ -785,7 +787,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 5,
+    marginBottom: 10,
   },
   selectedDayNumber: {
     color: '#EF4444',
@@ -795,16 +797,21 @@ const styles = StyleSheet.create({
   },
   eventIndicator: {
     width: '100%',
-    paddingHorizontal: 2,
-    paddingVertical: 1,
-    borderRadius: 3,
-    marginBottom: 2,
+    paddingHorizontal: 6,     // 👈 FROM 4 → 6 (WIDER!)
+    paddingVertical: 4,       // 👈 FROM 3 → 4 (TALLER!)
+    borderRadius: 4,          // 👈 FROM 3 → 4 (ROUNDED!)
+    marginBottom: 2,          // 👈 FROM 1 → 2 (SPACING!)
     alignSelf: 'flex-start',
+    justifyContent: 'center', // 👈 CENTER VERTICALLY!
+    alignItems: 'center',     // 👈 CENTER HORIZONTALLY!
   },
   eventText: {
-    fontSize: 9,
+   
+    fontSize: 9.5,        // 👈 PERFECT SIZE
+  lineHeight: 11,       // 👈 TIGHT LINES
     color: 'white',
-    fontWeight: '500',
+    fontWeight: '600',
+    textAlign: 'center',
   },
   eventsModalOverlay: {
     flex: 1,
@@ -928,7 +935,7 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: 100,
+    bottom: 120,
     right: 20,
     width: 56,
     height: 56,

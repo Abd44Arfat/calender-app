@@ -1,8 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AuthWrapper } from '../../components/AuthWrapper';
 
 export default function TabLayout() {
+  const insets = useSafeAreaInsets();
+
   return (
     <AuthWrapper>
       <Tabs
@@ -15,8 +18,9 @@ export default function TabLayout() {
             borderTopWidth: 1,
             borderTopColor: '#E0E0E0',
             paddingTop: 8,
-            paddingBottom: 8,
-            height: 80,
+            paddingBottom: 8 + insets.bottom, // 👈 SAFE AREA SPACING
+            height: 80 + insets.bottom,       // 👈 TOTAL HEIGHT WITH SAFE AREA
+            position: 'absolute',             // 👈 ENSURES PROPER POSITIONING
           },
           tabBarLabelStyle: {
             fontSize: 12,

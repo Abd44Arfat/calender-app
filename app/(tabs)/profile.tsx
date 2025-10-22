@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TextInputProps, TouchableOpacity, View } from 'react-native';
 import { Snackbar } from '../../components/Snackbar';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSnackbar } from '../../hooks/useSnackbar';
@@ -389,27 +389,28 @@ export default function ProfileScreen() {
             <Text style={styles.modalTitle}>Change Password</Text>
             <TextInput
               placeholder="Current Password"
+               placeholderTextColor="#9ca3af"
               value={currentPassword}
               onChangeText={setCurrentPassword}
               style={styles.input}
               secureTextEntry
-                placeholderTextColor="#9ca3af"
+                
             />
             <TextInput
               placeholder="New Password"
+               placeholderTextColor="#9ca3af"
               value={newPassword}
               onChangeText={setNewPassword}
               style={styles.input}
               secureTextEntry
-                placeholderTextColor="#9ca3af"
             />
             <TextInput
               placeholder="Confirm New Password"
+               placeholderTextColor="#9ca3af"
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               style={styles.input}
               secureTextEntry
-                placeholderTextColor="#9ca3af"
             />
             <View style={styles.modalButtons}>
               <TouchableOpacity 
@@ -616,15 +617,19 @@ const styles = StyleSheet.create({
     color: '#111827',
     textAlign: 'center',
   },
-  input: {
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-    color: '#111827',
-    fontSize: 16,
-  },
+  input: StyleSheet.flatten([
+    {
+      borderWidth: 1,
+      borderColor: '#E5E7EB',
+      borderRadius: 8,
+      padding: 12,
+      marginBottom: 12,
+      color: '#111827',
+      fontSize: 16,
+    },
+    { placeholderTextColor: '#9CA3AF' } as TextInputProps['style']  
+  ]),
+  
   modalButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
