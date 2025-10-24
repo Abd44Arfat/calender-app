@@ -399,15 +399,20 @@ const HomeScreen = () => {
       }),
     ];
 
-    // Deduplicate based on a unique id, prioritizing bookings over events
+    // Improved deduplication logic: prioritize bookings over events for the same event
     const uniqueItems = allItems.reduce((acc, item) => {
-      const key = item.id; // Use a unique id as the deduplication key
+      // Use originalId as the key for deduplication since it represents the actual event ID
+      const key = item.originalId;
+      
       if (!acc[key]) {
+        // No existing item for this event ID, add it
         acc[key] = item;
       } else if (item.type === 'booking' && acc[key].type !== 'booking') {
-        // Replace event with booking if booking exists for the same id
+        // Replace event with booking if booking exists for the same event ID
         acc[key] = item;
       }
+      // If both are bookings or both are events, keep the first one (shouldn't happen normally)
+      
       return acc;
     }, {} as { [key: string]: any });
 
