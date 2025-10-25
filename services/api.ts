@@ -268,59 +268,54 @@ class ApiService {
     });
   }
 
-  async uploadProfileImage(token: string, imageUri: string): Promise<{ message: string; profilePicture: string }> {
-    const formData = new FormData();
+  async uploadProfileImage(
+  token: string,
+  imageData: string | FormData
+): Promise<{ message: string; profilePicture: string }> {
+  const url = `${this.baseUrl}/api/auth/profile/picture`;
+
+  let formData: FormData;
+  if (typeof imageData === 'string') {
+    formData = new FormData();
     formData.append('picture', {
-      uri: imageUri,
+      uri: imageData,
       type: 'image/jpeg',
       name: 'profile.jpg',
     } as any);
-
-    const url = `${this.baseUrl}/api/auth/profile/picture`;
-    
-    try {
-      console.log('📸 Uploading profile image:', imageUri);
-      
-      const response = await fetch(url, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          // Don't set Content-Type for FormData, let the browser set it with boundary
-        },
-        body: formData,
-      });
-
-      console.log('📡 Upload Response Status:', response.status, response.statusText);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Upload Error:', {
-          status: response.status,
-          statusText: response.statusText,
-          errorText: errorText
-        });
-        throw {
-          response: {
-            status: response.status,
-            statusText: response.statusText,
-            data: { message: errorText },
-          },
-        };
-      }
-
-      const data = await response.json();
-      console.log('✅ Upload Success:', data);
-      return data;
-    } catch (error: any) {
-      console.error('💥 Upload Request Failed:', {
-        url,
-        error: error.message,
-        stack: error.stack
-      });
-      throw error;
-    }
+  } else {
+    formData = imageData;
   }
 
+  try {
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        // DO NOT set Content-Type — fetch adds boundary
+      },
+      body: formData,
+    });
+
+    let data: any;
+    try {
+      data = await response.json();
+    } catch {
+      data = { message: await response.text() };
+    }
+
+    if (!response.ok) {
+      throw new Error(data.message || `Upload failed: ${response.status}`);
+    }
+
+    return {
+      message: data.message || 'Success',
+      profilePicture: data.profilePicture || '',
+    };
+  } catch (error: any) {
+    console.error('API Upload Error:', error);
+    throw error;
+  }
+}
   // ================= Events =================
   async listEvents(params?: {
     vendorId?: string;

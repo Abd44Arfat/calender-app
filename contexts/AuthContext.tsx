@@ -38,7 +38,11 @@ interface AuthContextType {
   resetPassword?: (payload: { email: string; otp: string; newPassword: string }) => Promise<any>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
-  uploadProfileImage: (imageUri: string) => Promise<void>;
+  
+  // FIXED: Accept string | FormData, return response
+  uploadProfileImage: (
+    imageData: string | FormData
+  ) => Promise<{ message: string; profilePicture: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -182,33 +186,52 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const uploadProfileImage = async (imageUri: string) => {
-    if (!token) throw new Error('No authentication token');
-    
-    try {
-      console.log('📸 Uploading profile image...', imageUri);
-      const response = await apiService.uploadProfileImage(token, imageUri);
-      console.log('✅ Profile image uploaded:', response);
-      
-      // Update user data with new profile picture
-      if (user) {
-        const updatedUser = {
-          ...user,
-          profile: {
-            ...user.profile,
-            profilePicture: response.profilePicture,
-          },
-        };
-        setUser(updatedUser);
-        await AsyncStorage.setItem('user_data', JSON.stringify(updatedUser));
-        console.log('💾 Updated user with new profile picture:', response.profilePicture);
-      }
-    } catch (error: any) {
-      console.error('💥 Profile image upload error:', error);
-      throw error;
-    }
-  };
+  // REPLACE the old uploadProfileImage with this:
+const uploadProfileImage = async (imageData: string | FormData) => {
+  if (!token) throw new Error('Authentication token missing');
 
+  try {
+    console.log('Uploading profile image...', typeof imageData === 'string' ? imageData : '[FormData]');
+
+    // Build FormData if input is URI string
+    let formData: FormData;
+    if (typeof imageData === 'string') {
+      formData = new FormData();
+      formData.append('image', {
+        uri: imageData,
+        type: 'image/jpeg',
+        name: 'profile.jpg',
+      } as any);
+    } else {
+      formData = imageData;
+    }
+
+    // Call API service (supports FormData)
+    const response = await apiService.uploadProfileImage(token, formData);
+
+    console.log('Upload success:', response);
+
+    // Update user state + AsyncStorage
+    if (user && response.profilePicture) {
+      const updatedUser = {
+        ...user,
+        profile: {
+          ...user.profile,
+          profilePicture: response.profilePicture,
+        },
+      };
+
+      setUser(updatedUser);
+      await AsyncStorage.setItem('user_data', JSON.stringify(updatedUser));
+      console.log('User updated with new profile picture');
+    }
+
+    return response;
+  } catch (error: any) {
+    console.error('Upload failed:', error);
+    throw new Error(error.message || 'Failed to upload image');
+  }
+};
   const logout = async () => {
     try {
       setUser(null);

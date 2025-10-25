@@ -2,7 +2,21 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TextInputProps, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Linking,
+  Modal,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TextInputProps,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { Snackbar } from '../../components/Snackbar';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSnackbar } from '../../hooks/useSnackbar';
@@ -25,127 +39,124 @@ export default function ProfileScreen() {
     refreshProfile = async () => {};
     uploadProfileImage = async () => {};
   }
-  
+
   const { snackbar, showSuccess, showError, hideSnackbar } = useSnackbar();
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [isPasswordModalVisible, setIsPasswordModalVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  
+
   // Profile edit form state
   const [editLocation, setEditLocation] = useState('');
   const [editRating, setEditRating] = useState('');
   const [editFullName, setEditFullName] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editAcademyName, setEditAcademyName] = useState('');
-  
+
   // Password change form state
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  // Helper function to get full image URL
+  // Helper: Construct full image URL
   const getImageUrl = (imagePath: string | undefined) => {
     if (!imagePath) return null;
-    // If it's already a full URL, return as is
     if (imagePath.startsWith('http')) return imagePath;
-    // Otherwise, construct the full URL
-    const fullUrl = `https://quackplan2.ahmed-abd-elmohsen.tech${imagePath}`;
-    console.log('🖼️ Constructed image URL:', fullUrl);
-    return fullUrl;
+    return `https://quackplan2.ahmed-abd-elmohsen.tech${imagePath}`;
   };
 
-
-
   useEffect(() => {
-    // Refresh profile data when component mounts
     refreshProfile().catch(console.error);
   }, []);
 
-  // Debug user data changes
   useEffect(() => {
-    console.log('👤 User data updated:', {
+    console.log('User data updated:', {
       hasUser: !!user,
       profilePicture: user?.profile?.profilePicture,
       fullName: user?.profile?.fullName,
-      email: user?.email
+      email: user?.email,
     });
   }, [user]);
 
-  const pickImage = async () => {
-    try {
-      // Request permission
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      
-      if (permissionResult.granted === false) {
-        showError('Permission to access camera roll is required!');
-        return;
-      }
-
-      // Launch image picker
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        await uploadProfilePicture(result.assets[0].uri);
-      }
-    } catch (error: any) {
-      console.error('Image picker error:', error);
-      showError('Failed to pick image. Please try again.');
+  // FIXED: Image Picker for Real Devices
+const pickImage = async () => {
+  try {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert(
+        'Permission Required',
+        'Please allow photo access in Settings to update your profile picture.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Open Settings', onPress: () => Linking.openSettings() },
+        ]
+      );
+      return;
     }
-  };
 
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images, // CORRECT
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+
+    if (!result.canceled && result.assets?.[0]) {
+      await uploadProfilePicture(result.assets[0].uri);
+    }
+  } catch (error: any) {
+    console.error('Image picker error:', error);
+    showError('Failed to select image. Please try again.');
+  }
+};
+  // FIXED: Upload with FormData + Timeout
   const uploadProfilePicture = async (imageUri: string) => {
-    try {
-      setIsUploadingImage(true);
-      console.log('📸 Starting upload for:', imageUri);
-      const result = await uploadProfileImage(imageUri);
-      console.log('✅ Upload result:', result);
-      
-      // Force refresh profile data to ensure UI updates
-      await refreshProfile();
-      
-      showSuccess('Profile picture updated successfully!');
-    } catch (error: any) {
-      console.error('Upload error:', error);
-      showError(error.message || 'Failed to upload image. Please try again.');
-    } finally {
-      setIsUploadingImage(false);
-    }
-  };
+  if (!imageUri) return;
+
+  try {
+    setIsUploadingImage(true);
+    console.log('Uploading image:', imageUri);
+
+    const formData = new FormData();
+    formData.append('picture', {  // ← CHANGED FROM 'image' TO 'picture'
+      uri: imageUri,
+      type: 'image/jpeg',
+      name: 'profile.jpg',
+    } as any);
+
+    const result = await uploadProfileImage(formData);
+    console.log('Upload successful:', result);
+
+    await refreshProfile();
+    showSuccess('Profile picture updated successfully!');
+  } catch (error: any) {
+    console.error('Upload failed:', error);
+    showError('Upload failed. Please try again.');
+  } finally {
+    setIsUploadingImage(false);
+  }
+};
 
   const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
+    Alert.alert('Logout', 'Are you sure you want to logout?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Logout',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await logout();
+            showSuccess('Logged out successfully');
+            router.replace('/login');
+          } catch (error) {
+            showError('Failed to logout. Please try again.');
+          }
         },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await logout();
-              showSuccess('Logged out successfully');
-              router.replace('/login');
-            } catch (error) {
-              showError('Failed to logout. Please try again.');
-            }
-          },
-        },
-      ]
-    );
+      },
+    ]);
   };
 
   const openEditModal = () => {
-    // Populate form with current user data
     setEditLocation(user?.profile?.location || '');
     setEditRating(user?.profile?.rating?.toString() || '');
     setEditFullName(user?.profile?.fullName || '');
@@ -156,7 +167,7 @@ export default function ProfileScreen() {
 
   const updateProfile = async () => {
     if (!user) return;
-    
+
     try {
       setIsLoading(true);
       const updateData = {
@@ -166,7 +177,7 @@ export default function ProfileScreen() {
           fullName: editFullName.trim() || undefined,
           phone: editPhone.trim() || undefined,
           academyName: editAcademyName.trim() || undefined,
-        }
+        },
       };
 
       await apiService.updateProfile(token || '', updateData);
@@ -182,7 +193,7 @@ export default function ProfileScreen() {
 
   const changePassword = async () => {
     if (!user) return;
-    
+
     if (newPassword !== confirmPassword) {
       showError('New passwords do not match');
       return;
@@ -212,28 +223,15 @@ export default function ProfileScreen() {
   };
 
   const handleMenuAction = (action: string) => {
-    switch (action) {
-      case 'edit':
-        openEditModal();
-        break;
-      case 'changePassword':
-        setIsPasswordModalVisible(true);
-        break;
-      case 'privacy':
-        router.push('/privacy');
-        break;
-      case 'help':
-        router.push('/help');
-        break;
-      case 'about':
-        router.push('/about');
-        break;
-      case 'logout':
-        handleLogout();
-        break;
-      default:
-        break;
-    }
+    const actions: Record<string, () => void> = {
+      edit: openEditModal,
+      changePassword: () => setIsPasswordModalVisible(true),
+      privacy: () => router.push('/privacy'),
+      help: () => router.push('/help'),
+      about: () => router.push('/about'),
+      logout: handleLogout,
+    };
+    actions[action]?.();
   };
 
   const menuItems = [
@@ -255,14 +253,14 @@ export default function ProfileScreen() {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Profile Section */}
         <View style={styles.profileSection}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.profileImageContainer}
             onPress={pickImage}
             disabled={isUploadingImage}
           >
             {getImageUrl(user?.profile?.profilePicture) ? (
-              <Image 
-                source={{ uri: getImageUrl(user!.profile.profilePicture)! }} 
+              <Image
+                source={{ uri: getImageUrl(user!.profile.profilePicture)! }}
                 style={styles.profileImage}
               />
             ) : (
@@ -279,13 +277,13 @@ export default function ProfileScreen() {
               <Ionicons name="camera" size={16} color="#fff" />
             </View>
           </TouchableOpacity>
+
           <Text style={styles.profileName}>{user?.profile?.fullName || 'User'}</Text>
           <Text style={styles.profileEmail}>{user?.email || 'user@email.com'}</Text>
           <Text style={styles.profileBio}>
-            {user?.userType === 'vendor' 
+            {user?.userType === 'vendor'
               ? `Fitness Academy Owner - ${user?.profile?.academyName || 'Academy'}`
-              : ''
-            }
+              : ''}
           </Text>
           {user?.profile?.rating && user.profile.rating > 0 && (
             <View style={styles.ratingContainer}>
@@ -295,22 +293,16 @@ export default function ProfileScreen() {
           )}
         </View>
 
-       
-
         {/* Menu Section */}
         <View style={styles.menuSection}>
           {menuItems.map((item, index) => (
-            <TouchableOpacity 
-              key={index} 
+            <TouchableOpacity
+              key={index}
               style={styles.menuItem}
               onPress={() => handleMenuAction(item.action)}
             >
               <View style={styles.menuItemLeft}>
-                <Ionicons 
-                  name={item.icon as any} 
-                  size={24} 
-                  color={item.color || '#666'} 
-                />
+                <Ionicons name={item.icon as any} size={24} color={item.color || '#666'} />
                 <Text style={[styles.menuItemText, item.color && { color: item.color }]}>
                   {item.title}
                 </Text>
@@ -336,21 +328,21 @@ export default function ProfileScreen() {
               value={editFullName}
               onChangeText={setEditFullName}
               style={styles.input}
-                placeholderTextColor="#9ca3af"
+              placeholderTextColor="#9ca3af"
             />
             <TextInput
               placeholder="Phone"
               value={editPhone}
               onChangeText={setEditPhone}
               style={styles.input}
-                placeholderTextColor="#9ca3af"
+              placeholderTextColor="#9ca3af"
             />
             <TextInput
               placeholder="Location"
               value={editLocation}
               onChangeText={setEditLocation}
               style={styles.input}
-                placeholderTextColor="#9ca3af"
+              placeholderTextColor="#9ca3af"
             />
             {user?.userType === 'vendor' && (
               <TextInput
@@ -358,24 +350,26 @@ export default function ProfileScreen() {
                 value={editAcademyName}
                 onChangeText={setEditAcademyName}
                 style={styles.input}
-                  placeholderTextColor="#9ca3af"
+                placeholderTextColor="#9ca3af"
               />
             )}
-          
-          
             <View style={styles.modalButtons}>
-              <TouchableOpacity 
-                onPress={() => setIsEditModalVisible(false)} 
+              <TouchableOpacity
+                onPress={() => setIsEditModalVisible(false)}
                 style={[styles.modalButton, styles.cancelButton]}
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
-                onPress={updateProfile} 
+              <TouchableOpacity
+                onPress={updateProfile}
                 style={[styles.modalButton, styles.saveButton]}
                 disabled={isLoading}
               >
-                {isLoading ? <ActivityIndicator color="white" /> : <Text style={styles.saveButtonText}>Save</Text>}
+                {isLoading ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text style={styles.saveButtonText}>Save</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -389,42 +383,45 @@ export default function ProfileScreen() {
             <Text style={styles.modalTitle}>Change Password</Text>
             <TextInput
               placeholder="Current Password"
-               placeholderTextColor="#9ca3af"
               value={currentPassword}
               onChangeText={setCurrentPassword}
               style={styles.input}
               secureTextEntry
-                
+              placeholderTextColor="#9ca3af"
             />
             <TextInput
               placeholder="New Password"
-               placeholderTextColor="#9ca3af"
               value={newPassword}
               onChangeText={setNewPassword}
               style={styles.input}
               secureTextEntry
+              placeholderTextColor="#9ca3af"
             />
             <TextInput
               placeholder="Confirm New Password"
-               placeholderTextColor="#9ca3af"
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               style={styles.input}
               secureTextEntry
+              placeholderTextColor="#9ca3af"
             />
             <View style={styles.modalButtons}>
-              <TouchableOpacity 
-                onPress={() => setIsPasswordModalVisible(false)} 
+              <TouchableOpacity
+                onPress={() => setIsPasswordModalVisible(false)}
                 style={[styles.modalButton, styles.cancelButton]}
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
-                onPress={changePassword} 
+              <TouchableOpacity
+                onPress={changePassword}
                 style={[styles.modalButton, styles.saveButton]}
                 disabled={isLoading}
               >
-                {isLoading ? <ActivityIndicator color="white" /> : <Text style={styles.saveButtonText}>Change</Text>}
+                {isLoading ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text style={styles.saveButtonText}>Change</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -442,10 +439,7 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: 'white',
-  },
+  container: { flex: 1, backgroundColor: 'white' },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -455,26 +449,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
   },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#000',
-  },
-  editButton: {
-    padding: 8,
-  },
-  content: {
-    flex: 1,
-  },
-  profileSection: {
-    alignItems: 'center',
-    paddingVertical: 30,
-    paddingHorizontal: 20,
-  },
-  profileImageContainer: {
-    position: 'relative',
-    marginBottom: 16,
-  },
+  headerTitle: { fontSize: 24, fontWeight: 'bold', color: '#000' },
+  content: { flex: 1 },
+  profileSection: { alignItems: 'center', paddingVertical: 30, paddingHorizontal: 20 },
+  profileImageContainer: { position: 'relative', marginBottom: 16 },
   profileImage: {
     width: 100,
     height: 100,
@@ -507,69 +485,12 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: 'white',
   },
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  ratingText: {
-    marginLeft: 4,
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFD700',
-  },
-  profileName: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#000',
-    marginBottom: 4,
-  },
-  profileEmail: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 8,
-  },
-  profileBio: {
-    fontSize: 14,
-    color: '#999',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  statsSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#FEF2F2',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#000',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#666',
-  },
-  menuSection: {
-    paddingVertical: 20,
-  },
+  ratingContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
+  ratingText: { marginLeft: 4, fontSize: 14, fontWeight: '600', color: '#FFD700' },
+  profileName: { fontSize: 24, fontWeight: 'bold', color: '#000', marginBottom: 4 },
+  profileEmail: { fontSize: 16, color: '#666', marginBottom: 8 },
+  profileBio: { fontSize: 14, color: '#999', textAlign: 'center', lineHeight: 20 },
+  menuSection: { paddingVertical: 20 },
   menuItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -579,23 +500,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
   },
-  menuItemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  menuItemText: {
-    fontSize: 16,
-    color: '#000',
-    marginLeft: 12,
-  },
-  versionSection: {
-    alignItems: 'center',
-    paddingVertical: 30,
-  },
-  versionText: {
-    fontSize: 14,
-    color: '#999',
-  },
+  menuItemLeft: { flexDirection: 'row', alignItems: 'center' },
+  menuItemText: { fontSize: 16, color: '#000', marginLeft: 12 },
+  versionSection: { alignItems: 'center', paddingVertical: 30 },
+  versionText: { fontSize: 14, color: '#999' },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
@@ -627,9 +535,8 @@ const styles = StyleSheet.create({
       color: '#111827',
       fontSize: 16,
     },
-    { placeholderTextColor: '#9CA3AF' } as TextInputProps['style']  
+    { placeholderTextColor: '#9CA3AF' } as TextInputProps['style'],
   ]),
-  
   modalButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -647,17 +554,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#D1D5DB',
   },
-  saveButton: {
-    backgroundColor: '#EF4444',
-  },
-  cancelButtonText: {
-    color: '#374151',
-    fontWeight: '600',
-    fontSize: 16,
-  },
-  saveButtonText: {
-    color: 'white',
-    fontWeight: '600',
-    fontSize: 16,
-  },
-}); 
+  saveButton: { backgroundColor: '#EF4444' },
+  cancelButtonText: { color: '#374151', fontWeight: '600', fontSize: 16 },
+  saveButtonText: { color: 'white', fontWeight: '600', fontSize: 16 },
+});
