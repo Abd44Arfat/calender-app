@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSnackbar } from '../../hooks/useSnackbar';
 import { apiService } from '../../services/api';
@@ -30,6 +31,7 @@ export default function ExploreScreen() {
   const user = auth?.user ?? null;
   const token = auth?.token ?? null;
   
+  const insets = useSafeAreaInsets();
   const { snackbar, showError, showSuccess } = useSnackbar();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -689,7 +691,7 @@ export default function ExploreScreen() {
         <View
           style={{
             position: 'absolute',
-            bottom: 20,
+            top: insets.top + 10,
             left: 16,
             right: 16,
             backgroundColor: snackbar.type === 'error' ? '#EF4444' : '#10B981',

@@ -16,7 +16,7 @@
     "ios": {
       "bundleIdentifier": "com.quackplan.quackplan",
       "supportsTablet": true,
-      "buildNumber": "5",
+      "buildNumber": "6",
       "infoPlist": {
         "NSCameraUsageDescription": "We use the camera for profile photos and scanning features.",
         "NSPhotoLibraryUsageDescription": "We need access to your photos to let you upload images.",

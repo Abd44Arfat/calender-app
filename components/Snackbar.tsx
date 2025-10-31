@@ -1,13 +1,14 @@
+import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  Animated,
-  TouchableOpacity,
-  Dimensions,
+    Animated,
+    Dimensions,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface SnackbarProps {
   visible: boolean;
@@ -24,9 +25,10 @@ export const Snackbar: React.FC<SnackbarProps> = ({
   message,
   type,
   onHide,
-  duration = 4000,
+  duration = 6000,
 }) => {
-  const translateY = new Animated.Value(100);
+  const insets = useSafeAreaInsets();
+  const translateY = new Animated.Value(-100);
 
   useEffect(() => {
     if (visible) {
@@ -49,7 +51,7 @@ export const Snackbar: React.FC<SnackbarProps> = ({
 
   const hideSnackbar = () => {
     Animated.timing(translateY, {
-      toValue: 100,
+      toValue: -100,
       duration: 300,
       useNativeDriver: true,
     }).start(() => {
@@ -92,6 +94,7 @@ export const Snackbar: React.FC<SnackbarProps> = ({
         {
           transform: [{ translateY }],
           backgroundColor: getBackgroundColor(),
+          top: insets.top + 10,
         },
       ]}
     >
@@ -116,7 +119,6 @@ export const Snackbar: React.FC<SnackbarProps> = ({
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: 50,
     left: 16,
     right: 16,
     borderRadius: 8,

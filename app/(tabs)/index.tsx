@@ -2,19 +2,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  Modal,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Image,
+    Modal,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import EventCard from '../../components/EventCard';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSnackbar } from '../../hooks/useSnackbar';
@@ -48,6 +48,7 @@ const HomeScreen = () => {
   }
 
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const { snackbar, showError, showSuccess } = useSnackbar();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -951,7 +952,7 @@ const HomeScreen = () => {
         <View
           style={{
             position: 'absolute',
-            bottom: 20,
+            top: insets.top + 10,
             left: 16,
             right: 16,
             backgroundColor: snackbar.type === 'error' ? '#EF4444' : '#10B981',
