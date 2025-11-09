@@ -3,17 +3,17 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    Modal,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  Modal,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import EventCard from '../../components/EventCard';
@@ -773,18 +773,20 @@ const HomeScreen = () => {
                             onPress={() => {
                               if (ev.fullEvent) {
                                 const e = ev.fullEvent;
+                                const isPersonalEvent = !!(e.isPersonal || e.type === 'personal');
                                 const normalized = {
                                   id: e.id || e._id,
                                   title: e.title || 'Untitled',
                                   startsAt: e.startsAt,
                                   endsAt: e.endsAt,
                                   description: e.description || e.notes || '',
+                                  notes: e.notes || '',
                                   location: e.location || '',
                                   priceCents: e.priceCents || e.costCents || null,
                                   type: e.type || 'event',
-                                  isPersonal: !!e.isPersonal,
+                                  isPersonal: isPersonalEvent,
                                 } as any;
-                                console.debug('Opening event modal for', normalized);
+                                console.debug('Opening event modal for', normalized, 'isPersonal:', isPersonalEvent);
                                 setSelectedEvent(normalized);
                                 modalOpeningRef.current = true;
                                 setTimeout(() => {
@@ -1131,7 +1133,35 @@ const HomeScreen = () => {
                   <Text style={[styles.eventTypeText, { color: (selectedEvent as any).isPersonal ? '#60A5FA' : '#10B981' }]}>{(selectedEvent as any).isPersonal ? 'Personal Event' : ((selectedEvent as any).type === 'booking' ? 'Booking' : 'Personal')}</Text>
                 </View>
 
-                <TouchableOpacity style={[styles.closeModalButton, { marginTop: 18 }]} onPress={() => setIsEventDetailsVisible(false)}>
+               
+
+                {/* Edit/Delete buttons for personal events - ALWAYS SHOW FOR TESTING */}
+                {!(selectedEvent as any).bookingData && (
+                  <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
+                    <TouchableOpacity
+                      style={styles.actionButton}
+                      onPress={() => {
+                        setIsEventDetailsVisible(false);
+                        setTimeout(() => openEditPersonalEventModal(selectedEvent), 300);
+                      }}
+                    >
+                      <Ionicons name="create-outline" size={20} color="#FFFFFF" />
+                      <Text style={styles.actionButtonText}>Edit</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.actionButton, { backgroundColor: '#EF4444' }]}
+                      onPress={() => {
+                        setIsEventDetailsVisible(false);
+                        setTimeout(() => deletePersonalEvent((selectedEvent as any).id.toString()), 100);
+                      }}
+                    >
+                      <Ionicons name="trash-outline" size={20} color="#FFFFFF" />
+                      <Text style={styles.actionButtonText}>Delete</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                <TouchableOpacity style={[styles.closeModalButton, { marginTop: 12 }]} onPress={() => setIsEventDetailsVisible(false)}>
                   <Text style={styles.closeModalButtonText}>Close</Text>
                 </TouchableOpacity>
               </>
@@ -1234,22 +1264,27 @@ const HomeScreen = () => {
                 </View>
 
                 {/* Edit/Delete buttons for personal events */}
-                {(selectedEvent as any).isPersonal && (
+                {((selectedEvent as any).isPersonal || (selectedEvent as any).type === 'personal') && (
                   <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
                     <TouchableOpacity
-                      style={[styles.closeModalButton, { flex: 1, backgroundColor: '#3B82F6', borderWidth: 0 }]}
+                      style={styles.actionButton}
                       onPress={() => {
                         setIsEventDetailsVisible(false);
                         setTimeout(() => openEditPersonalEventModal(selectedEvent), 300);
                       }}
                     >
-                      <Text style={[styles.closeModalButtonText, { color: '#FFFFFF' }]}>Edit</Text>
+                      <Ionicons name="create-outline" size={20} color="#FFFFFF" />
+                      <Text style={styles.actionButtonText}>Edit</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                      style={[styles.closeModalButton, { flex: 1, backgroundColor: '#EF4444', borderWidth: 0 }]}
-                      onPress={() => deletePersonalEvent((selectedEvent as any).id.toString())}
+                      style={[styles.actionButton, { backgroundColor: '#EF4444' }]}
+                      onPress={() => {
+                        setIsEventDetailsVisible(false);
+                        setTimeout(() => deletePersonalEvent((selectedEvent as any).id.toString()), 100);
+                      }}
                     >
-                      <Text style={[styles.closeModalButtonText, { color: '#FFFFFF' }]}>Delete</Text>
+                      <Ionicons name="trash-outline" size={20} color="#FFFFFF" />
+                      <Text style={styles.actionButtonText}>Delete</Text>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -1755,6 +1790,27 @@ const styles = StyleSheet.create({
   },
   picker: {
     width: '100%',
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#4CAF50',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  actionButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
   },
 });
 

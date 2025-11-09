@@ -2,8 +2,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useRef, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import OTPTextInput from 'react-native-otp-textinput';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Snackbar } from '../components/Snackbar';
 import { useAuth } from '../contexts/AuthContext';
@@ -14,16 +13,50 @@ export default function VerifyEmailScreen() {
   const { email } = useLocalSearchParams<{ email?: string }>();
   const { snackbar, showError, showSuccess, hideSnackbar } = useSnackbar();
 
-  const [otp, setOtp] = useState('');
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const otpInputRef = useRef<OTPTextInput>(null);
+  const inputRefs = useRef<(TextInput | null)[]>([]);
+
+  const handleOtpChange = (text: string, index: number) => {
+    // Handle paste
+    if (text.length > 1) {
+      const pastedCode = text.slice(0, 6).split('');
+      const newOtp = [...otp];
+      pastedCode.forEach((char, i) => {
+        if (index + i < 6) {
+          newOtp[index + i] = char;
+        }
+      });
+      setOtp(newOtp);
+      // Focus last filled input
+      const lastFilledIndex = Math.min(index + pastedCode.length - 1, 5);
+      inputRefs.current[lastFilledIndex]?.focus();
+      return;
+    }
+
+    // Handle single character
+    const newOtp = [...otp];
+    newOtp[index] = text;
+    setOtp(newOtp);
+
+    // Auto focus next input
+    if (text && index < 5) {
+      inputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleKeyPress = (e: any, index: number) => {
+    if (e.nativeEvent.key === 'Backspace' && !otp[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    }
+  };
 
   const handleVerify = async () => {
-    const cleanOtp = otp.trim();
+    const cleanOtp = otp.join('').trim();
     const cleanEmail = email?.trim().toLowerCase() || '';
 
     if (!cleanEmail) return showError('Missing email — please register again.');
-    if (cleanOtp.length < 4) return showError('Please enter the full OTP.');
+    if (cleanOtp.length < 6) return showError('Please enter the full 6-digit code.');
 
     try {
       setIsSubmitting(true);
@@ -48,7 +81,8 @@ export default function VerifyEmailScreen() {
 
     try {
       await resendOtp({ email: cleanEmail });
-      otpInputRef.current?.clear();
+      setOtp(['', '', '', '', '', '']);
+      inputRefs.current[0]?.focus();
       showSuccess('Verification code resent!');
     } catch (err: any) {
       console.error('❌ Resend error:', err?.response?.data);
@@ -70,17 +104,25 @@ export default function VerifyEmailScreen() {
         <Text style={styles.subtitle}>We sent a verification code to</Text>
         <Text style={styles.emailText}>{email || 'No email found'}</Text>
 
-        <OTPTextInput
-          ref={otpInputRef}
-          handleTextChange={setOtp}
-          inputCount={6}
-          keyboardType="number-pad"
-          tintColor="#ef4444"
-          offTintColor="#e5e7eb"
-          containerStyle={styles.otpContainer}
-          textInputStyle={styles.otpBox}
-          autoFocusOnLoad={false}
-        />
+        <View style={styles.otpContainer}>
+          {otp.map((digit, index) => (
+            <TextInput
+              key={index}
+              ref={(ref) => (inputRefs.current[index] = ref)}
+              style={[
+                styles.otpBox,
+                digit ? styles.otpBoxFilled : null
+              ]}
+              value={digit}
+              onChangeText={(text) => handleOtpChange(text, index)}
+              onKeyPress={(e) => handleKeyPress(e, index)}
+              keyboardType="number-pad"
+              maxLength={1}
+              selectTextOnFocus
+              autoFocus={index === 0}
+            />
+          ))}
+        </View>
 
         <TouchableOpacity style={styles.button} onPress={handleVerify} disabled={isSubmitting}>
           <Text style={styles.buttonText}>{isSubmitting ? 'Verifying...' : 'Verify'}</Text>
@@ -118,15 +160,27 @@ const styles = StyleSheet.create({
   title: { fontSize: 24, fontWeight: '700', marginBottom: 8 },
   subtitle: { fontSize: 14, color: '#6b7280', marginBottom: 10 },
   emailText: { fontSize: 16, fontWeight: '600', marginBottom: 20 },
-  otpContainer: { marginBottom: 20 },
+  otpContainer: { 
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    gap: 8,
+  },
   otpBox: {
-    borderRadius: 8,
-    borderWidth: 1,
+    flex: 1,
+    height: 56,
+    borderRadius: 12,
+    borderWidth: 2,
     borderColor: '#e5e7eb',
     backgroundColor: '#fff',
     color: '#111827',
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 24,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  otpBoxFilled: {
+    borderColor: '#ef4444',
+    backgroundColor: '#fef2f2',
   },
   button: {
     backgroundColor: '#ef4444',
