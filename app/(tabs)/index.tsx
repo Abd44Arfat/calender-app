@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -65,6 +66,13 @@ const HomeScreen = () => {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [isEventDetailsVisible, setIsEventDetailsVisible] = useState<boolean>(false);
   const modalOpeningRef = useRef(false);
+  const [showPersonalStartTimePicker, setShowPersonalStartTimePicker] = useState(false);
+  const [showPersonalEndTimePicker, setShowPersonalEndTimePicker] = useState(false);
+  const [showPersonalStartDatePicker, setShowPersonalStartDatePicker] = useState(false);
+  const [showPersonalEndDatePicker, setShowPersonalEndDatePicker] = useState(false);
+  const [personalEventStartDate, setPersonalEventStartDate] = useState(new Date());
+  const [personalEventEndDate, setPersonalEventEndDate] = useState(new Date());
+  const [is24HourFormat, setIs24HourFormat] = useState(true);
 
   const days = useMemo(() => {
     const formatter = new Intl.DateTimeFormat('en', { weekday: 'short' });
@@ -429,7 +437,21 @@ const HomeScreen = () => {
     setNewStartTime(now.toTimeString().slice(0, 5));
     setNewEndTime(end.toTimeString().slice(0, 5));
     setNewTitle('');
+    setPersonalEventStartDate(selectedDate);
+    setPersonalEventEndDate(selectedDate);
     setIsModalVisible(true);
+  };
+
+  const formatTimeDisplay = (timeStr: string) => {
+    if (!timeStr) return '';
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    if (is24HourFormat) {
+      return timeStr;
+    } else {
+      const period = hours >= 12 ? 'PM' : 'AM';
+      const displayHours = hours % 12 || 12;
+      return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
+    }
   };
 
   const submitPersonalEvent = async () => {
@@ -450,9 +472,9 @@ const HomeScreen = () => {
         setIsLoading(false);
         return;
       }
-      const start = new Date(selectedDate);
+      const start = new Date(personalEventStartDate);
       start.setHours(startParsed.h, startParsed.m, 0, 0);
-      const end = new Date(selectedDate);
+      const end = new Date(personalEventEndDate);
       end.setHours(endParsed.h, endParsed.m, 0, 0);
 
       const payload = {
@@ -731,48 +753,163 @@ const HomeScreen = () => {
       {/* Create Personal Event Modal */}
       <Modal visible={isModalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Create Personal Event</Text>
-            <TextInput
-              placeholder="Title"
-              value={newTitle}
-              onChangeText={setNewTitle}
-              style={styles.input}
-              placeholderTextColor="#9ca3af"
-            />
-            <View style={{ flexDirection: 'row', gap: 8 }}>
+          <ScrollView contentContainerStyle={{ justifyContent: 'center', alignItems: 'center', padding: 20, flexGrow: 1 }}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>Create Personal Event</Text>
+              
+              {/* Time Format Toggle */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <Text style={{ fontSize: 14, color: '#666' }}>Time Format:</Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TouchableOpacity
+                    style={[styles.formatButton, is24HourFormat && styles.formatButtonActive]}
+                    onPress={() => setIs24HourFormat(true)}
+                  >
+                    <Text style={[styles.formatButtonText, is24HourFormat && styles.formatButtonTextActive]}>24h</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.formatButton, !is24HourFormat && styles.formatButtonActive]}
+                    onPress={() => setIs24HourFormat(false)}
+                  >
+                    <Text style={[styles.formatButtonText, !is24HourFormat && styles.formatButtonTextActive]}>12h</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
               <TextInput
-                placeholder="Start (HH:mm)"
-                value={newStartTime}
-                onChangeText={setNewStartTime}
-                style={[styles.input, { flex: 1 }]}
+                placeholder="Title"
+                value={newTitle}
+                onChangeText={setNewTitle}
+                style={styles.input}
                 placeholderTextColor="#9ca3af"
               />
+              
+              {/* Start Date & Time */}
+              <Text style={{ fontSize: 14, fontWeight: '600', color: '#111827', marginTop: 8, marginBottom: 4 }}>Start Date & Time</Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <TouchableOpacity
+                  style={[styles.input, { flex: 1, justifyContent: 'center' }]}
+                  onPress={() => setShowPersonalStartDatePicker(true)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={{ color: '#111827' }}>
+                    {personalEventStartDate.toLocaleDateString()}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.input, { flex: 1, justifyContent: 'center' }]}
+                  onPress={() => setShowPersonalStartTimePicker(true)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={{ color: newStartTime ? '#111827' : '#888' }}>
+                    {newStartTime ? formatTimeDisplay(newStartTime) : 'Start Time'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              
+              {showPersonalStartDatePicker && (
+                <DateTimePicker
+                  value={personalEventStartDate}
+                  mode="date"
+                  display="default"
+                  onChange={(event, selectedDate) => {
+                    setShowPersonalStartDatePicker(false);
+                    if (selectedDate) {
+                      setPersonalEventStartDate(selectedDate);
+                    }
+                  }}
+                />
+              )}
+              
+              {showPersonalStartTimePicker && (
+                <DateTimePicker
+                  value={newStartTime ? new Date(`2000-01-01T${newStartTime}:00`) : new Date()}
+                  mode="time"
+                  is24Hour={is24HourFormat}
+                  display="default"
+                  onChange={(event, selectedDate) => {
+                    setShowPersonalStartTimePicker(false);
+                    if (selectedDate) {
+                      const hours = selectedDate.getHours().toString().padStart(2, '0');
+                      const minutes = selectedDate.getMinutes().toString().padStart(2, '0');
+                      setNewStartTime(`${hours}:${minutes}`);
+                    }
+                  }}
+                />
+              )}
+
+              {/* End Date & Time */}
+              <Text style={{ fontSize: 14, fontWeight: '600', color: '#111827', marginTop: 8, marginBottom: 4 }}>End Date & Time</Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <TouchableOpacity
+                  style={[styles.input, { flex: 1, justifyContent: 'center' }]}
+                  onPress={() => setShowPersonalEndDatePicker(true)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={{ color: '#111827' }}>
+                    {personalEventEndDate.toLocaleDateString()}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.input, { flex: 1, justifyContent: 'center' }]}
+                  onPress={() => setShowPersonalEndTimePicker(true)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={{ color: newEndTime ? '#111827' : '#888' }}>
+                    {newEndTime ? formatTimeDisplay(newEndTime) : 'End Time'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              
+              {showPersonalEndDatePicker && (
+                <DateTimePicker
+                  value={personalEventEndDate}
+                  mode="date"
+                  display="default"
+                  onChange={(event, selectedDate) => {
+                    setShowPersonalEndDatePicker(false);
+                    if (selectedDate) {
+                      setPersonalEventEndDate(selectedDate);
+                    }
+                  }}
+                />
+              )}
+              
+              {showPersonalEndTimePicker && (
+                <DateTimePicker
+                  value={newEndTime ? new Date(`2000-01-01T${newEndTime}:00`) : new Date()}
+                  mode="time"
+                  is24Hour={is24HourFormat}
+                  display="default"
+                  onChange={(event, selectedDate) => {
+                    setShowPersonalEndTimePicker(false);
+                    if (selectedDate) {
+                      const hours = selectedDate.getHours().toString().padStart(2, '0');
+                      const minutes = selectedDate.getMinutes().toString().padStart(2, '0');
+                      setNewEndTime(`${hours}:${minutes}`);
+                    }
+                  }}
+                />
+              )}
+
               <TextInput
-                placeholder="End (HH:mm)"
-                value={newEndTime}
-                onChangeText={setNewEndTime}
-                style={[styles.input, { flex: 1 }]}
+                placeholder="Notes (optional)"
+                value={newNotes}
+                onChangeText={setNewNotes}
+                style={styles.input}
+                multiline
                 placeholderTextColor="#9ca3af"
               />
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 12 }}>
+                <TouchableOpacity onPress={() => setIsModalVisible(false)} style={[styles.modalBtn, { backgroundColor: '#9ca3af' }]}>
+                  <Text style={styles.modalBtnText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={submitPersonalEvent} style={styles.modalBtn} disabled={isLoading}>
+                  {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalBtnText}>Create</Text>}
+                </TouchableOpacity>
+              </View>
             </View>
-            <TextInput
-              placeholder="Notes (optional)"
-              value={newNotes}
-              onChangeText={setNewNotes}
-              style={styles.input}
-              multiline
-              placeholderTextColor="#9ca3af"
-            />
-            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 12 }}>
-              <TouchableOpacity onPress={() => setIsModalVisible(false)} style={[styles.modalBtn, { backgroundColor: '#9ca3af' }]}>
-                <Text style={styles.modalBtnText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={submitPersonalEvent} style={styles.modalBtn} disabled={isLoading}>
-                {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalBtnText}>Create</Text>}
-              </TouchableOpacity>
-            </View>
-          </View>
+          </ScrollView>
         </View>
       </Modal>
 
@@ -1255,6 +1392,26 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 12,
     fontWeight: '600',
+  },
+  formatButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    backgroundColor: '#F9FAFB',
+  },
+  formatButtonActive: {
+    backgroundColor: '#EF4444',
+    borderColor: '#EF4444',
+  },
+  formatButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  formatButtonTextActive: {
+    color: '#FFFFFF',
   },
 });
 

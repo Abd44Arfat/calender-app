@@ -424,6 +424,28 @@ class ApiService {
     });
   }
 
+  // ================= Event Update (Vendor) =================
+  async updateEvent(token: string, eventId: string, body: CreateEventRequest): Promise<any> {
+    return this.request<any>(`/api/events/${eventId}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+  }
+
+  // ================= Event Delete (Vendor) =================
+  async deleteEvent(token: string, eventId: string): Promise<any> {
+    return this.request<any>(`/api/events/${eventId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+  }
+
   // ================= Profile Management =================
   async updateProfile(token: string, body: UpdateProfileRequest): Promise<any> {
     return this.request<any>('/api/auth/profile', {
