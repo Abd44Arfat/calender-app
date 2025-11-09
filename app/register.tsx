@@ -2,14 +2,14 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Snackbar } from '../components/Snackbar';
@@ -115,22 +115,26 @@ export default function RegisterScreen() {
       const apiData = error.response?.data;
 
       if (apiData?.details?.length) {
-        // لو في تفاصيل أخطاء
+        // If there are field-specific errors
         const apiErrors: Record<string, string> = {};
         apiData.details.forEach((err: any) => {
           apiErrors[err.field] = err.message;
         });
         setErrors(apiErrors);
-        showError(apiData.details.map((d: any) => d.message).join('\n'));
+        // Show first error in snackbar
+        showError(apiData.details[0].message);
       } else if (apiData?.error) {
-        // لو في رسالة error مباشرة
+        // Direct error message
         showError(apiData.error);
       } else if (apiData?.message) {
-        // لو في رسالة message
+        // Message field
         showError(apiData.message);
+      } else if (error.message) {
+        // Error object message
+        showError(error.message);
       } else {
-        // fallback
-        showError(error.message || 'Registration failed. Please try again.');
+        // Fallback
+        showError('Registration failed. Please try again.');
       }
     }
   };

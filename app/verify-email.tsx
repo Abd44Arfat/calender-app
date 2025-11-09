@@ -79,6 +79,7 @@ export default function VerifyEmailScreen() {
           offTintColor="#e5e7eb"
           containerStyle={styles.otpContainer}
           textInputStyle={styles.otpBox}
+          autoFocusOnLoad={false}
         />
 
         <TouchableOpacity style={styles.button} onPress={handleVerify} disabled={isSubmitting}>

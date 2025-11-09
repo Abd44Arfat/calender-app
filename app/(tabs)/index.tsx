@@ -73,6 +73,9 @@ const HomeScreen = () => {
   const [personalEventStartDate, setPersonalEventStartDate] = useState(new Date());
   const [personalEventEndDate, setPersonalEventEndDate] = useState(new Date());
   const [is24HourFormat, setIs24HourFormat] = useState(true);
+  const [isEditingPersonalEvent, setIsEditingPersonalEvent] = useState(false);
+  const [editingPersonalEventId, setEditingPersonalEventId] = useState<string | null>(null);
+  const [tempHidePersonalModal, setTempHidePersonalModal] = useState(false);
 
   const days = useMemo(() => {
     const formatter = new Intl.DateTimeFormat('en', { weekday: 'short' });
@@ -437,9 +440,74 @@ const HomeScreen = () => {
     setNewStartTime(now.toTimeString().slice(0, 5));
     setNewEndTime(end.toTimeString().slice(0, 5));
     setNewTitle('');
+    setNewNotes('');
     setPersonalEventStartDate(selectedDate);
     setPersonalEventEndDate(selectedDate);
+    setIsEditingPersonalEvent(false);
+    setEditingPersonalEventId(null);
     setIsModalVisible(true);
+  };
+
+  const openEditPersonalEventModal = (event: Event) => {
+    setIsEditingPersonalEvent(true);
+    setEditingPersonalEventId(event.id.toString());
+    setNewTitle(event.title);
+    setNewNotes((event as any).notes || '');
+    
+    if (event.startsAt) {
+      const startDate = new Date(event.startsAt);
+      setPersonalEventStartDate(startDate);
+      const hours = startDate.getHours().toString().padStart(2, '0');
+      const minutes = startDate.getMinutes().toString().padStart(2, '0');
+      setNewStartTime(`${hours}:${minutes}`);
+    }
+    
+    if (event.endsAt) {
+      const endDate = new Date(event.endsAt);
+      setPersonalEventEndDate(endDate);
+      const hours = endDate.getHours().toString().padStart(2, '0');
+      const minutes = endDate.getMinutes().toString().padStart(2, '0');
+      setNewEndTime(`${hours}:${minutes}`);
+    }
+    
+    setIsModalVisible(true);
+  };
+
+  const deletePersonalEvent = async (eventId: string) => {
+    if (!token || !user?._id) {
+      showError('You must be logged in to delete events');
+      return;
+    }
+
+    Alert.alert(
+      'Delete Event',
+      'Are you sure you want to delete this personal event?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setIsLoading(true);
+              await apiService.deletePersonalEvent(token, eventId);
+              showSuccess('Event deleted successfully!');
+              setIsEventDetailsVisible(false);
+              await fetchEvents();
+            } catch (err: any) {
+              console.error('Personal event delete error:', err);
+              const errorMessage = err?.response?.data?.error || 
+                                  err?.response?.data?.message || 
+                                  err?.message || 
+                                  'Failed to delete event';
+              showError(errorMessage);
+            } finally {
+              setIsLoading(false);
+            }
+          }
+        }
+      ]
+    );
   };
 
   const formatTimeDisplay = (timeStr: string) => {
@@ -477,22 +545,36 @@ const HomeScreen = () => {
       const end = new Date(personalEventEndDate);
       end.setHours(endParsed.h, endParsed.m, 0, 0);
 
-      const payload = {
-        userId: user._id as string,
-        title: newTitle.trim(),
-        startsAt: start.toISOString(),
-        endsAt: end.toISOString(),
-        notes: newNotes?.trim() || undefined,
-      };
-
-      await apiService.createPersonalEvent(token, payload);
-      showSuccess('Personal event created');
-      setIsBookingSuccess(true); // Trigger success modal only for creation
-      setBookingSuccessMsg('Your event was created successfully!');
+      if (isEditingPersonalEvent && editingPersonalEventId) {
+        const updatePayload = {
+          title: newTitle.trim(),
+          startsAt: start.toISOString(),
+          endsAt: end.toISOString(),
+          notes: newNotes?.trim() || undefined,
+        };
+        await apiService.updatePersonalEvent(token, editingPersonalEventId, updatePayload);
+        showSuccess('Personal event updated successfully!');
+      } else {
+        const payload = {
+          userId: user._id as string,
+          title: newTitle.trim(),
+          startsAt: start.toISOString(),
+          endsAt: end.toISOString(),
+          notes: newNotes?.trim() || undefined,
+        };
+        await apiService.createPersonalEvent(token, payload);
+        showSuccess('Personal event created successfully!');
+      }
+      
       setIsModalVisible(false);
       await fetchEvents();
     } catch (err: any) {
-      showError(err.message || 'Failed to create event');
+      console.error('Personal event save error:', err);
+      const errorMessage = err?.response?.data?.error || 
+                          err?.response?.data?.message || 
+                          err?.message || 
+                          'Failed to save event';
+      showError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -750,17 +832,31 @@ const HomeScreen = () => {
         <Ionicons name="add" size={24} color="white" />
       </TouchableOpacity>
 
-      {/* Create Personal Event Modal */}
-      <Modal visible={isModalVisible} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <ScrollView contentContainerStyle={{ justifyContent: 'center', alignItems: 'center', padding: 20, flexGrow: 1 }}>
-            <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>Create Personal Event</Text>
-              
+      {/* Create/Edit Personal Event Modal - Modern Design */}
+      <Modal 
+        visible={isModalVisible} 
+        transparent 
+        animationType="slide"
+        presentationStyle="overFullScreen"
+      >
+        <View style={styles.modernModalOverlay}>
+          <View style={styles.modernModalContainer}>
+            {/* Header */}
+            <View style={styles.modernModalHeader}>
+              <Text style={styles.modernModalTitle}>
+                {isEditingPersonalEvent ? 'Edit Personal Event' : 'Create Personal Event'}
+              </Text>
+              <TouchableOpacity onPress={() => setIsModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Scrollable Content */}
+            <ScrollView style={styles.modernModalContent} showsVerticalScrollIndicator={false}>
               {/* Time Format Toggle */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <Text style={{ fontSize: 14, color: '#666' }}>Time Format:</Text>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={styles.formatToggleContainer}>
+                <Text style={styles.formatLabel}>Time Format</Text>
+                <View style={styles.formatButtonGroup}>
                   <TouchableOpacity
                     style={[styles.formatButton, is24HourFormat && styles.formatButtonActive]}
                     onPress={() => setIs24HourFormat(true)}
@@ -776,140 +872,202 @@ const HomeScreen = () => {
                 </View>
               </View>
 
-              <TextInput
-                placeholder="Title"
-                value={newTitle}
-                onChangeText={setNewTitle}
-                style={styles.input}
-                placeholderTextColor="#9ca3af"
-              />
-              
-              {/* Start Date & Time */}
-              <Text style={{ fontSize: 14, fontWeight: '600', color: '#111827', marginTop: 8, marginBottom: 4 }}>Start Date & Time</Text>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <TouchableOpacity
-                  style={[styles.input, { flex: 1, justifyContent: 'center' }]}
-                  onPress={() => setShowPersonalStartDatePicker(true)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={{ color: '#111827' }}>
-                    {personalEventStartDate.toLocaleDateString()}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.input, { flex: 1, justifyContent: 'center' }]}
-                  onPress={() => setShowPersonalStartTimePicker(true)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={{ color: newStartTime ? '#111827' : '#888' }}>
-                    {newStartTime ? formatTimeDisplay(newStartTime) : 'Start Time'}
-                  </Text>
-                </TouchableOpacity>
+              {/* Event Title */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Event Title *</Text>
+                <TextInput
+                  placeholder="Enter event title"
+                  value={newTitle}
+                  onChangeText={setNewTitle}
+                  style={styles.modernInput}
+                  placeholderTextColor="#9CA3AF"
+                />
               </View>
-              
-              {showPersonalStartDatePicker && (
-                <DateTimePicker
-                  value={personalEventStartDate}
-                  mode="date"
-                  display="default"
-                  onChange={(event, selectedDate) => {
-                    setShowPersonalStartDatePicker(false);
-                    if (selectedDate) {
-                      setPersonalEventStartDate(selectedDate);
-                    }
-                  }}
-                />
-              )}
-              
-              {showPersonalStartTimePicker && (
-                <DateTimePicker
-                  value={newStartTime ? new Date(`2000-01-01T${newStartTime}:00`) : new Date()}
-                  mode="time"
-                  is24Hour={is24HourFormat}
-                  display="default"
-                  onChange={(event, selectedDate) => {
-                    setShowPersonalStartTimePicker(false);
-                    if (selectedDate) {
-                      const hours = selectedDate.getHours().toString().padStart(2, '0');
-                      const minutes = selectedDate.getMinutes().toString().padStart(2, '0');
-                      setNewStartTime(`${hours}:${minutes}`);
-                    }
-                  }}
-                />
-              )}
+
+              {/* Start Date & Time */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Start Date & Time *</Text>
+                <View style={styles.dateTimeRow}>
+                  <TouchableOpacity
+                    style={[styles.modernInput, styles.dateTimeInput]}
+                    onPress={() => setShowPersonalStartDatePicker(true)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="calendar-outline" size={18} color="#6B7280" style={{ marginRight: 8 }} />
+                    <Text style={styles.dateTimeText}>{personalEventStartDate.toLocaleDateString()}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modernInput, styles.dateTimeInput]}
+                    onPress={() => setShowPersonalStartTimePicker(true)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="time-outline" size={18} color="#6B7280" style={{ marginRight: 8 }} />
+                    <Text style={styles.dateTimeText}>
+                      {newStartTime ? formatTimeDisplay(newStartTime) : 'Time'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
 
               {/* End Date & Time */}
-              <Text style={{ fontSize: 14, fontWeight: '600', color: '#111827', marginTop: 8, marginBottom: 4 }}>End Date & Time</Text>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <TouchableOpacity
-                  style={[styles.input, { flex: 1, justifyContent: 'center' }]}
-                  onPress={() => setShowPersonalEndDatePicker(true)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={{ color: '#111827' }}>
-                    {personalEventEndDate.toLocaleDateString()}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.input, { flex: 1, justifyContent: 'center' }]}
-                  onPress={() => setShowPersonalEndTimePicker(true)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={{ color: newEndTime ? '#111827' : '#888' }}>
-                    {newEndTime ? formatTimeDisplay(newEndTime) : 'End Time'}
-                  </Text>
-                </TouchableOpacity>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>End Date & Time *</Text>
+                <View style={styles.dateTimeRow}>
+                  <TouchableOpacity
+                    style={[styles.modernInput, styles.dateTimeInput]}
+                    onPress={() => setShowPersonalEndDatePicker(true)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="calendar-outline" size={18} color="#6B7280" style={{ marginRight: 8 }} />
+                    <Text style={styles.dateTimeText}>{personalEventEndDate.toLocaleDateString()}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modernInput, styles.dateTimeInput]}
+                    onPress={() => setShowPersonalEndTimePicker(true)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="time-outline" size={18} color="#6B7280" style={{ marginRight: 8 }} />
+                    <Text style={styles.dateTimeText}>
+                      {newEndTime ? formatTimeDisplay(newEndTime) : 'Time'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-              
-              {showPersonalEndDatePicker && (
-                <DateTimePicker
-                  value={personalEventEndDate}
-                  mode="date"
-                  display="default"
-                  onChange={(event, selectedDate) => {
-                    setShowPersonalEndDatePicker(false);
-                    if (selectedDate) {
-                      setPersonalEventEndDate(selectedDate);
-                    }
-                  }}
-                />
-              )}
-              
-              {showPersonalEndTimePicker && (
-                <DateTimePicker
-                  value={newEndTime ? new Date(`2000-01-01T${newEndTime}:00`) : new Date()}
-                  mode="time"
-                  is24Hour={is24HourFormat}
-                  display="default"
-                  onChange={(event, selectedDate) => {
-                    setShowPersonalEndTimePicker(false);
-                    if (selectedDate) {
-                      const hours = selectedDate.getHours().toString().padStart(2, '0');
-                      const minutes = selectedDate.getMinutes().toString().padStart(2, '0');
-                      setNewEndTime(`${hours}:${minutes}`);
-                    }
-                  }}
-                />
-              )}
 
-              <TextInput
-                placeholder="Notes (optional)"
-                value={newNotes}
-                onChangeText={setNewNotes}
-                style={styles.input}
-                multiline
-                placeholderTextColor="#9ca3af"
-              />
-              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 12 }}>
-                <TouchableOpacity onPress={() => setIsModalVisible(false)} style={[styles.modalBtn, { backgroundColor: '#9ca3af' }]}>
-                  <Text style={styles.modalBtnText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={submitPersonalEvent} style={styles.modalBtn} disabled={isLoading}>
-                  {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalBtnText}>Create</Text>}
-                </TouchableOpacity>
+              {/* Notes */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Notes</Text>
+                <TextInput
+                  placeholder="Add notes (optional)"
+                  value={newNotes}
+                  onChangeText={setNewNotes}
+                  style={[styles.modernInput, styles.textArea]}
+                  multiline
+                  numberOfLines={3}
+                  placeholderTextColor="#9CA3AF"
+                />
               </View>
+            </ScrollView>
+
+            {/* Footer Actions */}
+            <View style={styles.modernModalFooter}>
+              <TouchableOpacity
+                onPress={() => setIsModalVisible(false)}
+                style={styles.cancelBtn}
+              >
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={submitPersonalEvent}
+                style={styles.saveBtn}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.saveBtnText}>
+                    {isEditingPersonalEvent ? 'Update Event' : 'Create Event'}
+                  </Text>
+                )}
+              </TouchableOpacity>
             </View>
-          </ScrollView>
+
+            {/* Date/Time Pickers - INSIDE the modal container */}
+            {showPersonalStartDatePicker && (
+              <View style={styles.pickerOverlay}>
+                <View style={styles.pickerContainer}>
+                  <View style={styles.pickerHeader}>
+                    <TouchableOpacity onPress={() => setShowPersonalStartDatePicker(false)}>
+                      <Text style={styles.pickerDone}>Done</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <DateTimePicker
+                    value={personalEventStartDate}
+                    mode="date"
+                    display="spinner"
+                    onChange={(event, selectedDate) => {
+                      if (selectedDate) {
+                        setPersonalEventStartDate(selectedDate);
+                      }
+                    }}
+                    style={styles.picker}
+                  />
+                </View>
+              </View>
+            )}
+            {showPersonalStartTimePicker && (
+              <View style={styles.pickerOverlay}>
+                <View style={styles.pickerContainer}>
+                  <View style={styles.pickerHeader}>
+                    <TouchableOpacity onPress={() => setShowPersonalStartTimePicker(false)}>
+                      <Text style={styles.pickerDone}>Done</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <DateTimePicker
+                    value={newStartTime ? new Date(`2000-01-01T${newStartTime}:00`) : new Date()}
+                    mode="time"
+                    is24Hour={is24HourFormat}
+                    display="spinner"
+                    onChange={(event, selectedDate) => {
+                      if (selectedDate) {
+                        const hours = selectedDate.getHours().toString().padStart(2, '0');
+                        const minutes = selectedDate.getMinutes().toString().padStart(2, '0');
+                        setNewStartTime(`${hours}:${minutes}`);
+                      }
+                    }}
+                    style={styles.picker}
+                  />
+                </View>
+              </View>
+            )}
+            {showPersonalEndDatePicker && (
+              <View style={styles.pickerOverlay}>
+                <View style={styles.pickerContainer}>
+                  <View style={styles.pickerHeader}>
+                    <TouchableOpacity onPress={() => setShowPersonalEndDatePicker(false)}>
+                      <Text style={styles.pickerDone}>Done</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <DateTimePicker
+                    value={personalEventEndDate}
+                    mode="date"
+                    display="spinner"
+                    onChange={(event, selectedDate) => {
+                      if (selectedDate) {
+                        setPersonalEventEndDate(selectedDate);
+                      }
+                    }}
+                    style={styles.picker}
+                  />
+                </View>
+              </View>
+            )}
+            {showPersonalEndTimePicker && (
+              <View style={styles.pickerOverlay}>
+                <View style={styles.pickerContainer}>
+                  <View style={styles.pickerHeader}>
+                    <TouchableOpacity onPress={() => setShowPersonalEndTimePicker(false)}>
+                      <Text style={styles.pickerDone}>Done</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <DateTimePicker
+                    value={newEndTime ? new Date(`2000-01-01T${newEndTime}:00`) : new Date()}
+                    mode="time"
+                    is24Hour={is24HourFormat}
+                    display="spinner"
+                    onChange={(event, selectedDate) => {
+                      if (selectedDate) {
+                        const hours = selectedDate.getHours().toString().padStart(2, '0');
+                        const minutes = selectedDate.getMinutes().toString().padStart(2, '0');
+                        setNewEndTime(`${hours}:${minutes}`);
+                      }
+                    }}
+                    style={styles.picker}
+                  />
+                </View>
+              </View>
+            )}
+          </View>
         </View>
       </Modal>
 
@@ -1075,7 +1233,28 @@ const HomeScreen = () => {
                   <Text style={[styles.eventTypeText, { color: (selectedEvent as any).isPersonal ? '#60A5FA' : '#10B981' }]}>{(selectedEvent as any).isPersonal ? 'Personal Event' : 'Public Event'}</Text>
                 </View>
 
-                <TouchableOpacity style={[styles.closeModalButton, { marginTop: 18 }]} onPress={() => setIsEventDetailsVisible(false)}>
+                {/* Edit/Delete buttons for personal events */}
+                {(selectedEvent as any).isPersonal && (
+                  <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
+                    <TouchableOpacity
+                      style={[styles.closeModalButton, { flex: 1, backgroundColor: '#3B82F6', borderWidth: 0 }]}
+                      onPress={() => {
+                        setIsEventDetailsVisible(false);
+                        setTimeout(() => openEditPersonalEventModal(selectedEvent), 300);
+                      }}
+                    >
+                      <Text style={[styles.closeModalButtonText, { color: '#FFFFFF' }]}>Edit</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.closeModalButton, { flex: 1, backgroundColor: '#EF4444', borderWidth: 0 }]}
+                      onPress={() => deletePersonalEvent((selectedEvent as any).id.toString())}
+                    >
+                      <Text style={[styles.closeModalButtonText, { color: '#FFFFFF' }]}>Delete</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                <TouchableOpacity style={[styles.closeModalButton, { marginTop: 12 }]} onPress={() => setIsEventDetailsVisible(false)}>
                   <Text style={styles.closeModalButtonText}>Close</Text>
                 </TouchableOpacity>
               </ScrollView>
@@ -1084,7 +1263,7 @@ const HomeScreen = () => {
         </TouchableOpacity>
       </Modal>
 
-      {/* Snackbar */}
+      {/* Snackbar - Always on top */}
       {snackbar.visible && (
         <View
           style={{
@@ -1093,11 +1272,17 @@ const HomeScreen = () => {
             left: 16,
             right: 16,
             backgroundColor: snackbar.type === 'error' ? '#EF4444' : '#10B981',
-            padding: 12,
-            borderRadius: 8,
+            padding: 16,
+            borderRadius: 12,
+            zIndex: 9999,
+            elevation: 9999,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3,
+            shadowRadius: 8,
           }}
         >
-          <Text style={{ color: 'white', textAlign: 'center' }}>{snackbar.message}</Text>
+          <Text style={{ color: 'white', textAlign: 'center', fontSize: 15, fontWeight: '600' }}>{snackbar.message}</Text>
         </View>
       )}
     </SafeAreaView>
@@ -1412,6 +1597,164 @@ const styles = StyleSheet.create({
   },
   formatButtonTextActive: {
     color: '#FFFFFF',
+  },
+  // Modern Modal Styles
+  modernModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'flex-end',
+  },
+  modernModalContainer: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '90%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  modernModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  modernModalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  modernModalContent: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    maxHeight: '70%',
+  },
+  modernModalFooter: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    backgroundColor: '#FAFAFA',
+  },
+  inputGroup: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  modernInput: {
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: '#111827',
+  },
+  textArea: {
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  dateTimeRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  dateTimeInput: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dateTimeText: {
+    fontSize: 15,
+    color: '#111827',
+  },
+  formatToggleContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+  },
+  formatLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  formatButtonGroup: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  cancelBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelBtnText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  saveBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#EF4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveBtnText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  pickerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10000,
+  },
+  pickerContainer: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    width: '90%',
+    maxWidth: 400,
+    padding: 16,
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginBottom: 8,
+  },
+  pickerDone: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#EF4444',
+  },
+  picker: {
+    width: '100%',
   },
 });
 

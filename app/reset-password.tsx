@@ -62,6 +62,7 @@ export default function ResetPasswordOtpScreen() {
           offTintColor="#e5e7eb"
           containerStyle={styles.otpContainer}
           textInputStyle={styles.otpBox}
+          autoFocusOnLoad={false}
         />
 
         <TouchableOpacity

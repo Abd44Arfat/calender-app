@@ -381,6 +381,31 @@ class ApiService {
     });
   }
 
+  async updatePersonalEvent(token: string, eventId: string, body: {
+    title?: string;
+    startsAt?: string;
+    endsAt?: string;
+    notes?: string;
+  }): Promise<any> {
+    return this.request<any>(`/api/personal-events/${eventId}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+  }
+
+  async deletePersonalEvent(token: string, eventId: string): Promise<any> {
+    return this.request<any>(`/api/personal-events/${eventId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+  }
+
   // ================= Bookings =================
   async listBookings(token: string, params?: {
     status?: string;

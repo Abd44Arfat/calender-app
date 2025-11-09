@@ -2,13 +2,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  KeyboardAvoidingView,
-  Platform,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    KeyboardAvoidingView,
+    Platform,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Snackbar } from '../components/Snackbar';
@@ -62,9 +62,21 @@ export default function LoginScreen() {
       console.error('💥 Login form error:', {
         message: error.message,
         stack: error.stack,
-        formData: formData
+        formData: formData,
+        response: error.response?.data,
       });
-      showError(error.message || 'Login failed. Please check your credentials.');
+      
+      // Handle different error types
+      const apiData = error.response?.data;
+      if (apiData?.error) {
+        showError(apiData.error);
+      } else if (apiData?.message) {
+        showError(apiData.message);
+      } else if (error.message) {
+        showError(error.message);
+      } else {
+        showError('Login failed. Please check your credentials.');
+      }
     }
   };
 
