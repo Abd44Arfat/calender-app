@@ -59,7 +59,7 @@ export default function PrivacyScreen() {
           <Text style={styles.sectionTitle}>Contact Us</Text>
           <Text style={styles.text}>
             If you have any questions about this Privacy Policy, please contact us at 
-            privacy@calendarapp.com
+            contact.quackplan@gmail.com
           </Text>
         </View>
 

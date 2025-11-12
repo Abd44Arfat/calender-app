@@ -3,19 +3,19 @@ import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  Linking,
-  Modal,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TextInputProps,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Image,
+    Linking,
+    Modal,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TextInputProps,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { Snackbar } from '../../components/Snackbar';
 import { useAuth } from '../../contexts/AuthContext';
@@ -229,6 +229,7 @@ const pickImage = async () => {
       privacy: () => router.push('/privacy'),
       help: () => router.push('/help'),
       about: () => router.push('/about'),
+      contact: () => Linking.openURL('mailto:contact.quackplan@gmail.com'),
       logout: handleLogout,
     };
     actions[action]?.();
@@ -240,6 +241,7 @@ const pickImage = async () => {
     { title: 'Privacy', icon: 'shield-outline', action: 'privacy' },
     { title: 'Help & Support', icon: 'help-circle-outline', action: 'help' },
     { title: 'About', icon: 'information-circle-outline', action: 'about' },
+    { title: 'Contact Us', icon: 'mail-outline', action: 'contact', subtitle: 'contact.quackplan@gmail.com' },
     { title: 'Logout', icon: 'log-out-outline', action: 'logout', color: '#EF4444' },
   ];
 
@@ -303,9 +305,14 @@ const pickImage = async () => {
             >
               <View style={styles.menuItemLeft}>
                 <Ionicons name={item.icon as any} size={24} color={item.color || '#666'} />
-                <Text style={[styles.menuItemText, item.color && { color: item.color }]}>
-                  {item.title}
-                </Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.menuItemText, item.color && { color: item.color }]}>
+                    {item.title}
+                  </Text>
+                  {item.subtitle && (
+                    <Text style={styles.menuItemSubtitle}>{item.subtitle}</Text>
+                  )}
+                </View>
               </View>
               <Ionicons name="chevron-forward" size={20} color="#CCC" />
             </TouchableOpacity>
@@ -500,8 +507,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
   },
-  menuItemLeft: { flexDirection: 'row', alignItems: 'center' },
+  menuItemLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   menuItemText: { fontSize: 16, color: '#000', marginLeft: 12 },
+  menuItemSubtitle: { fontSize: 12, color: '#666', marginLeft: 12, marginTop: 2 },
   versionSection: { alignItems: 'center', paddingVertical: 30 },
   versionText: { fontSize: 14, color: '#999' },
   modalOverlay: {

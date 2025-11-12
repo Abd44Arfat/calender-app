@@ -5,32 +5,7 @@ import React from 'react';
 import { Linking, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function AboutScreen() {
-  const teamMembers = [
-    {
-      name: "John Doe",
-      role: "Lead Developer",
-      email: "john@calendarapp.com"
-    },
-    {
-      name: "Jane Smith",
-      role: "UI/UX Designer",
-      email: "jane@calendarapp.com"
-    },
-    {
-      name: "Mike Johnson",
-      role: "Backend Developer",
-      email: "mike@calendarapp.com"
-    }
-  ];
 
-  const features = [
-    "Event Booking & Management",
-    "Personal Calendar Integration",
-    "Vendor Event Creation",
-    "Real-time Notifications",
-    "Profile Management",
-    "Secure Authentication"
-  ];
 
   return (
     <SafeAreaView style={styles.container}>
@@ -47,65 +22,67 @@ export default function AboutScreen() {
           <View style={styles.logoContainer}>
             <Ionicons name="calendar" size={48} color="#EF4444" />
           </View>
-          <Text style={styles.appName}>Calendar App</Text>
+          <Text style={styles.appName}>QuackPlan</Text>
           <Text style={styles.appVersion}>Version 1.0.0</Text>
         </View>
 
         {/* App Description */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>About This App</Text>
+          <Text style={styles.sectionTitle}>About QuackPlan</Text>
           <Text style={styles.description}>
-            Calendar App is a comprehensive event management platform that connects customers 
-            with vendors for seamless event booking and management. Whether you're looking 
-            to book fitness classes, workshops, or any other events, we've got you covered.
+            QuackPlan is an intuitive booking and scheduling platform designed to streamline interactions between customers and vendors. We understand the complexities of managing appointments, resources, and client communication, which is why we built a robust solution that simplifies the entire process.
           </Text>
         </View>
 
-        {/* Features */}
+        {/* What We Offer */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Key Features</Text>
-          {features.map((feature, index) => (
-            <View key={index} style={styles.featureItem}>
-              <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-              <Text style={styles.featureText}>{feature}</Text>
+          <Text style={styles.sectionTitle}>What We Offer</Text>
+          <View style={styles.featureItem}>
+            <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={styles.featureTitle}>Effortless Scheduling</Text>
+              <Text style={styles.featureDescription}>
+                Customers can easily view real-time availability and book appointments 24/7, reducing back-and-forth communication.
+              </Text>
             </View>
-          ))}
+          </View>
+          <View style={styles.featureItem}>
+            <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={styles.featureTitle}>Vendor Management</Text>
+              <Text style={styles.featureDescription}>
+                Vendors gain access to powerful tools for managing their calendars, services, pricing, and client information.
+              </Text>
+            </View>
+          </View>
+          <View style={styles.featureItem}>
+            <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={styles.featureTitle}>Automated Communication</Text>
+              <Text style={styles.featureDescription}>
+                We handle the busy work with automated appointment confirmations, reminders, and follow-ups, ensuring everyone stays informed.
+              </Text>
+            </View>
+          </View>
         </View>
 
-        {/* Team Section */}
+        {/* Mission */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Our Team</Text>
-          {teamMembers.map((member, index) => (
-            <View key={index} style={styles.teamMember}>
-              <View style={styles.memberAvatar}>
-                <Text style={styles.memberInitial}>{member.name.charAt(0)}</Text>
-              </View>
-              <View style={styles.memberInfo}>
-                <Text style={styles.memberName}>{member.name}</Text>
-                <Text style={styles.memberRole}>{member.role}</Text>
-                <TouchableOpacity onPress={() => Linking.openURL(`mailto:${member.email}`)}>
-                  <Text style={styles.memberEmail}>{member.email}</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))}
+          <Text style={styles.description}>
+            At QuackPlan, we're dedicated to helping businesses grow by turning time management into a competitive advantage. Discover the smarter way to book and be booked.
+          </Text>
         </View>
 
         {/* Contact Info */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Contact Information</Text>
-          <View style={styles.contactItem}>
+          <Text style={styles.sectionTitle}>Contact Us</Text>
+          <TouchableOpacity 
+            style={styles.contactItem}
+            onPress={() => Linking.openURL('mailto:contact.quackplan@gmail.com')}
+          >
             <Ionicons name="mail-outline" size={20} color="#6B7280" />
-            <Text style={styles.contactText}>info@calendarapp.com</Text>
-          </View>
-          <View style={styles.contactItem}>
-            <Ionicons name="call-outline" size={20} color="#6B7280" />
-            <Text style={styles.contactText}>+1 (555) 123-4567</Text>
-          </View>
-          <View style={styles.contactItem}>
-            <Ionicons name="location-outline" size={20} color="#6B7280" />
-            <Text style={styles.contactText}>123 Main St, City, State 12345</Text>
-          </View>
+            <Text style={styles.contactText}>contact.quackplan@gmail.com</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Legal */}
@@ -115,19 +92,16 @@ export default function AboutScreen() {
             <Text style={styles.legalText}>Privacy Policy</Text>
             <Ionicons name="chevron-forward" size={16} color="#6B7280" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.legalItem}>
-            <Text style={styles.legalText}>Terms of Service</Text>
-            <Ionicons name="chevron-forward" size={16} color="#6B7280" />
-          </TouchableOpacity>
+         
         </View>
 
         {/* Footer */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            © 2024 Calendar App. All rights reserved.
+            © 2024 QuackPlan. All rights reserved.
           </Text>
           <Text style={styles.footerText}>
-            Made with ❤️ for better event management
+            Made with ❤️ for smarter scheduling
           </Text>
         </View>
       </ScrollView>
@@ -204,53 +178,19 @@ const styles = StyleSheet.create({
   },
   featureItem: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  featureText: {
-    fontSize: 16,
-    color: '#111827',
-    marginLeft: 12,
-  },
-  teamMember: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
   },
-  memberAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#EF4444',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-  },
-  memberInitial: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: 'white',
-  },
-  memberInfo: {
-    flex: 1,
-  },
-  memberName: {
+  featureTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: '#111827',
     marginBottom: 4,
   },
-  memberRole: {
+  featureDescription: {
     fontSize: 14,
+    lineHeight: 20,
     color: '#6B7280',
-    marginBottom: 4,
-  },
-  memberEmail: {
-    fontSize: 14,
-    color: '#EF4444',
   },
   contactItem: {
     flexDirection: 'row',

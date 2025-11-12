@@ -31,21 +31,9 @@ export default function HelpScreen() {
   const contactMethods = [
     {
       title: "Email Support",
-      subtitle: "Get help via email",
+      subtitle: "contact.quackplan@gmail.com",
       icon: "mail-outline",
-      action: () => Linking.openURL("mailto:support@calendarapp.com")
-    },
-    {
-      title: "Live Chat",
-      subtitle: "Chat with our support team",
-      icon: "chatbubble-outline",
-      action: () => console.log("Open live chat")
-    },
-    {
-      title: "Phone Support",
-      subtitle: "Call us directly",
-      icon: "call-outline",
-      action: () => Linking.openURL("tel:+1234567890")
+      action: () => Linking.openURL("mailto:contact.quackplan@gmail.com")
     }
   ];
 
