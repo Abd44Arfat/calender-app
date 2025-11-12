@@ -864,6 +864,7 @@ export default function ExploreScreen() {
               <View style={styles.pickerOverlay}>
                 <View style={styles.pickerContainer}>
                   <View style={styles.pickerHeader}>
+                    <Text style={styles.pickerTitle}>Select Start Date</Text>
                     <TouchableOpacity onPress={() => setShowStartDatePicker(false)}>
                       <Text style={styles.pickerDone}>Done</Text>
                     </TouchableOpacity>
@@ -877,6 +878,7 @@ export default function ExploreScreen() {
                         setNewEventStartDate(selectedDate);
                       }
                     }}
+                    textColor="#000000"
                     style={styles.picker}
                   />
                 </View>
@@ -886,6 +888,7 @@ export default function ExploreScreen() {
               <View style={styles.pickerOverlay}>
                 <View style={styles.pickerContainer}>
                   <View style={styles.pickerHeader}>
+                    <Text style={styles.pickerTitle}>Select Start Time</Text>
                     <TouchableOpacity onPress={() => setShowStartTimePicker(false)}>
                       <Text style={styles.pickerDone}>Done</Text>
                     </TouchableOpacity>
@@ -902,6 +905,7 @@ export default function ExploreScreen() {
                         setNewEventStartTime(`${hours}:${minutes}`);
                       }
                     }}
+                    textColor="#000000"
                     style={styles.picker}
                   />
                 </View>
@@ -911,6 +915,7 @@ export default function ExploreScreen() {
               <View style={styles.pickerOverlay}>
                 <View style={styles.pickerContainer}>
                   <View style={styles.pickerHeader}>
+                    <Text style={styles.pickerTitle}>Select End Date</Text>
                     <TouchableOpacity onPress={() => setShowEndDatePicker(false)}>
                       <Text style={styles.pickerDone}>Done</Text>
                     </TouchableOpacity>
@@ -924,6 +929,7 @@ export default function ExploreScreen() {
                         setNewEventEndDate(selectedDate);
                       }
                     }}
+                    textColor="#000000"
                     style={styles.picker}
                   />
                 </View>
@@ -933,6 +939,7 @@ export default function ExploreScreen() {
               <View style={styles.pickerOverlay}>
                 <View style={styles.pickerContainer}>
                   <View style={styles.pickerHeader}>
+                    <Text style={styles.pickerTitle}>Select End Time</Text>
                     <TouchableOpacity onPress={() => setShowEndTimePicker(false)}>
                       <Text style={styles.pickerDone}>Done</Text>
                     </TouchableOpacity>
@@ -949,6 +956,7 @@ export default function ExploreScreen() {
                         setNewEventEndTime(`${hours}:${minutes}`);
                       }
                     }}
+                    textColor="#000000"
                     style={styles.picker}
                   />
                 </View>
@@ -1500,8 +1508,17 @@ const styles = StyleSheet.create({
   },
   pickerHeader: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginBottom: 8,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  pickerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
   },
   pickerDone: {
     fontSize: 16,

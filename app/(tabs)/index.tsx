@@ -979,6 +979,7 @@ const HomeScreen = () => {
               <View style={styles.pickerOverlay}>
                 <View style={styles.pickerContainer}>
                   <View style={styles.pickerHeader}>
+                    <Text style={styles.pickerTitle}>Select Start Date</Text>
                     <TouchableOpacity onPress={() => setShowPersonalStartDatePicker(false)}>
                       <Text style={styles.pickerDone}>Done</Text>
                     </TouchableOpacity>
@@ -992,6 +993,7 @@ const HomeScreen = () => {
                         setPersonalEventStartDate(selectedDate);
                       }
                     }}
+                    textColor="#000000"
                     style={styles.picker}
                   />
                 </View>
@@ -1001,6 +1003,7 @@ const HomeScreen = () => {
               <View style={styles.pickerOverlay}>
                 <View style={styles.pickerContainer}>
                   <View style={styles.pickerHeader}>
+                    <Text style={styles.pickerTitle}>Select Start Time</Text>
                     <TouchableOpacity onPress={() => setShowPersonalStartTimePicker(false)}>
                       <Text style={styles.pickerDone}>Done</Text>
                     </TouchableOpacity>
@@ -1017,6 +1020,7 @@ const HomeScreen = () => {
                         setNewStartTime(`${hours}:${minutes}`);
                       }
                     }}
+                    textColor="#000000"
                     style={styles.picker}
                   />
                 </View>
@@ -1026,6 +1030,7 @@ const HomeScreen = () => {
               <View style={styles.pickerOverlay}>
                 <View style={styles.pickerContainer}>
                   <View style={styles.pickerHeader}>
+                    <Text style={styles.pickerTitle}>Select End Date</Text>
                     <TouchableOpacity onPress={() => setShowPersonalEndDatePicker(false)}>
                       <Text style={styles.pickerDone}>Done</Text>
                     </TouchableOpacity>
@@ -1039,6 +1044,7 @@ const HomeScreen = () => {
                         setPersonalEventEndDate(selectedDate);
                       }
                     }}
+                    textColor="#000000"
                     style={styles.picker}
                   />
                 </View>
@@ -1048,6 +1054,7 @@ const HomeScreen = () => {
               <View style={styles.pickerOverlay}>
                 <View style={styles.pickerContainer}>
                   <View style={styles.pickerHeader}>
+                    <Text style={styles.pickerTitle}>Select End Time</Text>
                     <TouchableOpacity onPress={() => setShowPersonalEndTimePicker(false)}>
                       <Text style={styles.pickerDone}>Done</Text>
                     </TouchableOpacity>
@@ -1064,6 +1071,7 @@ const HomeScreen = () => {
                         setNewEndTime(`${hours}:${minutes}`);
                       }
                     }}
+                    textColor="#000000"
                     style={styles.picker}
                   />
                 </View>
@@ -1780,8 +1788,17 @@ const styles = StyleSheet.create({
   },
   pickerHeader: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginBottom: 8,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  pickerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
   },
   pickerDone: {
     fontSize: 16,
