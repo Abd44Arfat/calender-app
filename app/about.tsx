@@ -98,7 +98,7 @@ export default function AboutScreen() {
         {/* Footer */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            © 2024 QuackPlan. All rights reserved.
+            © 2025 QuackPlan. All rights reserved.
           </Text>
           <Text style={styles.footerText}>
             Made with ❤️ for smarter scheduling

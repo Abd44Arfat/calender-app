@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -6,13 +7,14 @@ import {
     Alert,
     Image,
     Modal,
+    Platform,
     ScrollView,
     StatusBar,
     StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
-    View,
+    View
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import EventCard from '../../components/EventCard';
@@ -36,6 +38,11 @@ interface Event {
 }
 
 const HomeScreen = () => {
+  // All hooks must be called at the top level
+  const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
+  const { snackbar, showError, showSuccess } = useSnackbar();
+  
   let user, token;
   try {
     const auth = useAuth();
@@ -46,10 +53,6 @@ const HomeScreen = () => {
     user = null;
     token = null;
   }
-
-  const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
-  const { snackbar, showError, showSuccess } = useSnackbar();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [events, setEvents] = useState<Event[]>([]);
@@ -65,6 +68,15 @@ const HomeScreen = () => {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [isEventDetailsVisible, setIsEventDetailsVisible] = useState<boolean>(false);
   const modalOpeningRef = useRef(false);
+  const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
+  const [showStartTimePicker, setShowStartTimePicker] = useState<boolean>(false);
+  const [showEndTimePicker, setShowEndTimePicker] = useState<boolean>(false);
+  const [eventDate, setEventDate] = useState<Date>(new Date());
+  const [startTime, setStartTime] = useState<Date>(new Date());
+  const [endTime, setEndTime] = useState<Date>(new Date());
+  const [use24HourFormat, setUse24HourFormat] = useState<boolean>(true);
+  const [isEditMode, setIsEditMode] = useState<boolean>(false);
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
 
   const days = useMemo(() => {
     const formatter = new Intl.DateTimeFormat('en', { weekday: 'short' });
@@ -236,6 +248,7 @@ const HomeScreen = () => {
         (e: any, idx: number) => {
           const isPersonal = !!(e.isPersonal || e.type === 'personal');
           return ({
+            ...e, // Preserve all original fields
             id: e._id || e.id || `event-${Date.now()}-${idx}`,
             title: e.title || 'Untitled',
             startsAt: e.startsAt,
@@ -426,10 +439,76 @@ const HomeScreen = () => {
     now.setHours(now.getHours() + 1);
     const end = new Date(now);
     end.setHours(end.getHours() + 1);
+    
+    setIsEditMode(false);
+    setEditingEventId(null);
+    setEventDate(selectedDate);
+    setStartTime(now);
+    setEndTime(end);
     setNewStartTime(now.toTimeString().slice(0, 5));
     setNewEndTime(end.toTimeString().slice(0, 5));
     setNewTitle('');
+    setNewNotes('');
     setIsModalVisible(true);
+  };
+
+  const openEditModal = (event: any) => {
+    setIsEditMode(true);
+    setEditingEventId(event.id);
+    setNewTitle(event.title || '');
+    setNewNotes(event.description || event.notes || '');
+    
+    const startDate = new Date(event.startsAt);
+    const endDate = new Date(event.endsAt);
+    
+    setEventDate(startDate);
+    setStartTime(startDate);
+    setEndTime(endDate);
+    setIsModalVisible(true);
+  };
+
+  const deletePersonalEvent = async (eventId: string) => {
+    if (!token) {
+      showError('You must be logged in');
+      return;
+    }
+
+    Alert.alert(
+      'Delete Event',
+      'Are you sure you want to delete this event?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setIsLoading(true);
+              await apiService.deletePersonalEvent(token, eventId);
+              showSuccess('Event deleted successfully');
+              setIsEventDetailsVisible(false);
+              await fetchEvents();
+            } catch (err: any) {
+              showError(err.message || 'Failed to delete event');
+            } finally {
+              setIsLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const formatTimeDisplay = (date: Date) => {
+    if (use24HourFormat) {
+      return date.toTimeString().slice(0, 5);
+    } else {
+      return date.toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        hour12: true 
+      });
+    }
   };
 
   const submitPersonalEvent = async () => {
@@ -443,17 +522,20 @@ const HomeScreen = () => {
     }
     try {
       setIsLoading(true);
-      const startParsed = parseTime(newStartTime);
-      const endParsed = parseTime(newEndTime);
-      if (!startParsed || !endParsed) {
-        showError('Time must be in HH:mm or h:mm am/pm');
+      
+      // Use the date and time from pickers
+      const start = new Date(eventDate);
+      start.setHours(startTime.getHours(), startTime.getMinutes(), 0, 0);
+      
+      const end = new Date(eventDate);
+      end.setHours(endTime.getHours(), endTime.getMinutes(), 0, 0);
+
+      // Validate end time is after start time
+      if (end <= start) {
+        showError('End time must be after start time');
         setIsLoading(false);
         return;
       }
-      const start = new Date(selectedDate);
-      start.setHours(startParsed.h, startParsed.m, 0, 0);
-      const end = new Date(selectedDate);
-      end.setHours(endParsed.h, endParsed.m, 0, 0);
 
       const payload = {
         userId: user._id as string,
@@ -463,14 +545,23 @@ const HomeScreen = () => {
         notes: newNotes?.trim() || undefined,
       };
 
-      await apiService.createPersonalEvent(token, payload);
-      showSuccess('Personal event created');
-      setIsBookingSuccess(true); // Trigger success modal only for creation
-      setBookingSuccessMsg('Your event was created successfully!');
+      if (isEditMode && editingEventId) {
+        // Update existing event
+        await apiService.updatePersonalEvent(token, editingEventId, payload);
+        showSuccess('Personal event updated');
+        setBookingSuccessMsg('Your event was updated successfully!');
+      } else {
+        // Create new event
+        await apiService.createPersonalEvent(token, payload);
+        showSuccess('Personal event created');
+        setBookingSuccessMsg('Your event was created successfully!');
+      }
+      
+      setIsBookingSuccess(true);
       setIsModalVisible(false);
       await fetchEvents();
     } catch (err: any) {
-      showError(err.message || 'Failed to create event');
+      showError(err.message || 'Failed to save event');
     } finally {
       setIsLoading(false);
     }
@@ -675,12 +766,13 @@ const HomeScreen = () => {
                                   startsAt: e.startsAt,
                                   endsAt: e.endsAt,
                                   description: e.description || e.notes || '',
+                                  notes: e.notes || e.description || '',
                                   location: e.location || '',
                                   priceCents: e.priceCents || e.costCents || null,
                                   type: e.type || 'event',
                                   isPersonal: !!e.isPersonal,
                                 } as any;
-                                console.debug('Opening event modal for', normalized);
+                                console.log('🔍 Opening event modal - isPersonal:', normalized.isPersonal, 'type:', normalized.type, 'full event:', e);
                                 setSelectedEvent(normalized);
                                 modalOpeningRef.current = true;
                                 setTimeout(() => {
@@ -728,50 +820,181 @@ const HomeScreen = () => {
         <Ionicons name="add" size={24} color="white" />
       </TouchableOpacity>
 
-      {/* Create Personal Event Modal */}
+      {/* Create/Edit Personal Event Modal */}
       <Modal visible={isModalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Create Personal Event</Text>
-            <TextInput
-              placeholder="Title"
-              value={newTitle}
-              onChangeText={setNewTitle}
-              style={styles.input}
-              placeholderTextColor="#9ca3af"
-            />
-            <View style={{ flexDirection: 'row', gap: 8 }}>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.modalTitle}>
+                {isEditMode ? 'Edit Personal Event' : 'Create Personal Event'}
+              </Text>
+              
+              {/* Title Input */}
               <TextInput
-                placeholder="Start (HH:mm)"
-                value={newStartTime}
-                onChangeText={setNewStartTime}
-                style={[styles.input, { flex: 1 }]}
+                placeholder="Title"
+                value={newTitle}
+                onChangeText={setNewTitle}
+                style={styles.input}
                 placeholderTextColor="#9ca3af"
               />
+
+              {/* Time Format Toggle */}
+              <View style={styles.timeFormatContainer}>
+                <Text style={styles.timeFormatLabel}>Time Format:</Text>
+                <View style={styles.timeFormatToggle}>
+                  <TouchableOpacity
+                    style={[
+                      styles.timeFormatButton,
+                      use24HourFormat && styles.timeFormatButtonActive
+                    ]}
+                    onPress={() => setUse24HourFormat(true)}
+                  >
+                    <Text style={[
+                      styles.timeFormatButtonText,
+                      use24HourFormat && styles.timeFormatButtonTextActive
+                    ]}>24h</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.timeFormatButton,
+                      !use24HourFormat && styles.timeFormatButtonActive
+                    ]}
+                    onPress={() => setUse24HourFormat(false)}
+                  >
+                    <Text style={[
+                      styles.timeFormatButtonText,
+                      !use24HourFormat && styles.timeFormatButtonTextActive
+                    ]}>12h</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Date Picker */}
+              <TouchableOpacity
+                style={styles.pickerButton}
+                onPress={() => {
+                  setShowStartTimePicker(false);
+                  setShowEndTimePicker(false);
+                  setShowDatePicker(true);
+                }}
+              >
+                <Ionicons name="calendar-outline" size={20} color="#666" />
+                <Text style={styles.pickerButtonText}>
+                  {eventDate.toLocaleDateString('en-US', { 
+                    weekday: 'short',
+                    month: 'short', 
+                    day: 'numeric',
+                    year: 'numeric'
+                  })}
+                </Text>
+              </TouchableOpacity>
+
+              {showDatePicker && (
+                <DateTimePicker
+                  value={eventDate}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={(event, selectedDate) => {
+                    setShowDatePicker(false);
+                    if (selectedDate) {
+                      setEventDate(selectedDate);
+                    }
+                  }}
+                />
+              )}
+
+              {/* Time Pickers */}
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                <TouchableOpacity
+                  style={[styles.pickerButton, { flex: 1 }]}
+                  onPress={() => {
+                    setShowDatePicker(false);
+                    setShowEndTimePicker(false);
+                    setShowStartTimePicker(true);
+                  }}
+                >
+                  <Ionicons name="time-outline" size={20} color="#666" />
+                  <Text style={styles.pickerButtonText}>
+                    {formatTimeDisplay(startTime)}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.pickerButton, { flex: 1 }]}
+                  onPress={() => {
+                    setShowDatePicker(false);
+                    setShowStartTimePicker(false);
+                    setShowEndTimePicker(true);
+                  }}
+                >
+                  <Ionicons name="time-outline" size={20} color="#666" />
+                  <Text style={styles.pickerButtonText}>
+                    {formatTimeDisplay(endTime)}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {showStartTimePicker && (
+                <DateTimePicker
+                  value={startTime}
+                  mode="time"
+                  is24Hour={use24HourFormat}
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={(event, selectedTime) => {
+                    setShowStartTimePicker(false);
+                    if (selectedTime) {
+                      setStartTime(selectedTime);
+                    }
+                  }}
+                />
+              )}
+
+              {showEndTimePicker && (
+                <DateTimePicker
+                  value={endTime}
+                  mode="time"
+                  is24Hour={use24HourFormat}
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={(event, selectedTime) => {
+                    setShowEndTimePicker(false);
+                    if (selectedTime) {
+                      setEndTime(selectedTime);
+                    }
+                  }}
+                />
+              )}
+
+              {/* Notes Input */}
               <TextInput
-                placeholder="End (HH:mm)"
-                value={newEndTime}
-                onChangeText={setNewEndTime}
-                style={[styles.input, { flex: 1 }]}
+                placeholder="Notes (optional)"
+                value={newNotes}
+                onChangeText={setNewNotes}
+                style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
+                multiline
                 placeholderTextColor="#9ca3af"
               />
-            </View>
-            <TextInput
-              placeholder="Notes (optional)"
-              value={newNotes}
-              onChangeText={setNewNotes}
-              style={styles.input}
-              multiline
-              placeholderTextColor="#9ca3af"
-            />
-            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 12 }}>
-              <TouchableOpacity onPress={() => setIsModalVisible(false)} style={[styles.modalBtn, { backgroundColor: '#9ca3af' }]}>
-                <Text style={styles.modalBtnText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={submitPersonalEvent} style={styles.modalBtn} disabled={isLoading}>
-                {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalBtnText}>Create</Text>}
-              </TouchableOpacity>
-            </View>
+
+              {/* Action Buttons */}
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 12 }}>
+                <TouchableOpacity 
+                  onPress={() => setIsModalVisible(false)} 
+                  style={[styles.modalBtn, { backgroundColor: '#9ca3af' }]}
+                >
+                  <Text style={styles.modalBtnText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  onPress={submitPersonalEvent} 
+                  style={styles.modalBtn} 
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.modalBtnText}>{isEditMode ? 'Update' : 'Create'}</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -797,7 +1020,7 @@ const HomeScreen = () => {
             onPress={(e) => e.stopPropagation()}
           >
             {selectedEvent && (
-              <>
+              <ScrollView showsVerticalScrollIndicator={false} style={{ width: '100%' }}>
                 <Text style={styles.centeredModalTitle}>{(selectedEvent as any).title}</Text>
 
                 <View style={styles.eventDetailItem}>
@@ -833,13 +1056,45 @@ const HomeScreen = () => {
                 ) : null}
 
                 <View style={[styles.eventTypePill, { alignSelf: 'center', marginTop: 8 }]}> 
-                  <Text style={[styles.eventTypeText, { color: (selectedEvent as any).isPersonal ? '#60A5FA' : '#10B981' }]}>{(selectedEvent as any).isPersonal ? 'Personal Event' : ((selectedEvent as any).type === 'booking' ? 'Booking' : 'Personal')}</Text>
+                  <Text style={[styles.eventTypeText, { color: (selectedEvent as any).isPersonal || (selectedEvent as any).type === 'personal' ? '#60A5FA' : '#10B981' }]}>
+                    {(selectedEvent as any).isPersonal || (selectedEvent as any).type === 'personal' ? 'Personal Event' : ((selectedEvent as any).type === 'booking' ? 'Booking' : 'Public Event')}
+                  </Text>
                 </View>
 
-                <TouchableOpacity style={[styles.closeModalButton, { marginTop: 18 }]} onPress={() => setIsEventDetailsVisible(false)}>
+                {/* Edit/Delete buttons for personal events */}
+                {((selectedEvent as any).isPersonal || (selectedEvent as any).type === 'personal') && (
+                  <View style={{ flexDirection: 'row', gap: 12, marginTop: 18, width: '100%' }}>
+                    <TouchableOpacity 
+                      style={[styles.closeModalButton, { flex: 1, backgroundColor: '#3B82F6', borderWidth: 0 }]} 
+                      onPress={() => {
+                        setIsEventDetailsVisible(false);
+                        openEditModal(selectedEvent);
+                      }}
+                    >
+                      <Ionicons name="create-outline" size={18} color="white" style={{ marginRight: 6 }} />
+                      <Text style={[styles.closeModalButtonText, { color: 'white' }]}>Edit</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={[styles.closeModalButton, { flex: 1, backgroundColor: '#EF4444', borderWidth: 0 }]} 
+                      onPress={() => deletePersonalEvent((selectedEvent as any).id)}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? (
+                        <ActivityIndicator size="small" color="white" />
+                      ) : (
+                        <>
+                          <Ionicons name="trash-outline" size={18} color="white" style={{ marginRight: 6 }} />
+                          <Text style={[styles.closeModalButtonText, { color: 'white' }]}>Delete</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                <TouchableOpacity style={[styles.closeModalButton, { marginTop: 12 }]} onPress={() => setIsEventDetailsVisible(false)}>
                   <Text style={styles.closeModalButtonText}>Close</Text>
                 </TouchableOpacity>
-              </>
+              </ScrollView>
             )}
           </TouchableOpacity>
         </TouchableOpacity>
@@ -935,10 +1190,42 @@ const HomeScreen = () => {
                 )}
 
                 <View style={[styles.eventTypePill, { alignSelf: 'center', marginTop: 12 }]}> 
-                  <Text style={[styles.eventTypeText, { color: (selectedEvent as any).isPersonal ? '#60A5FA' : '#10B981' }]}>{(selectedEvent as any).isPersonal ? 'Personal Event' : 'Public Event'}</Text>
+                  <Text style={[styles.eventTypeText, { color: (selectedEvent as any).isPersonal || (selectedEvent as any).type === 'personal' ? '#60A5FA' : '#10B981' }]}>
+                    {(selectedEvent as any).isPersonal || (selectedEvent as any).type === 'personal' ? 'Personal Event' : 'Public Event'}
+                  </Text>
                 </View>
 
-                <TouchableOpacity style={[styles.closeModalButton, { marginTop: 18 }]} onPress={() => setIsEventDetailsVisible(false)}>
+                {/* Edit/Delete buttons for personal events */}
+                {((selectedEvent as any).isPersonal || (selectedEvent as any).type === 'personal') && (
+                  <View style={{ flexDirection: 'row', gap: 12, marginTop: 18, width: '100%' }}>
+                    <TouchableOpacity 
+                      style={[styles.closeModalButton, { flex: 1, backgroundColor: '#3B82F6', borderWidth: 0 }]} 
+                      onPress={() => {
+                        setIsEventDetailsVisible(false);
+                        openEditModal(selectedEvent);
+                      }}
+                    >
+                      <Ionicons name="create-outline" size={18} color="white" style={{ marginRight: 6 }} />
+                      <Text style={[styles.closeModalButtonText, { color: 'white' }]}>Edit</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={[styles.closeModalButton, { flex: 1, backgroundColor: '#EF4444', borderWidth: 0 }]} 
+                      onPress={() => deletePersonalEvent((selectedEvent as any).id)}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? (
+                        <ActivityIndicator size="small" color="white" />
+                      ) : (
+                        <>
+                          <Ionicons name="trash-outline" size={18} color="white" style={{ marginRight: 6 }} />
+                          <Text style={[styles.closeModalButtonText, { color: 'white' }]}>Delete</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                <TouchableOpacity style={[styles.closeModalButton, { marginTop: 12 }]} onPress={() => setIsEventDetailsVisible(false)}>
                   <Text style={styles.closeModalButtonText}>Close</Text>
                 </TouchableOpacity>
               </ScrollView>
@@ -1049,11 +1336,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   closeModalButton: {
+    flexDirection: 'row',
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 8,
     width: '100%',
     alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#D1D5DB',
   },
@@ -1231,7 +1520,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
   },
-  modalCard: { width: '100%', backgroundColor: 'white', borderRadius: 12, padding: 16 },
+  modalCard: { 
+    width: '100%', 
+    backgroundColor: 'white', 
+    borderRadius: 12, 
+    padding: 16,
+    maxHeight: '85%',
+  },
   modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 12, color: '#111827' },
   input: {
     borderWidth: 1,
@@ -1240,6 +1535,57 @@ const styles = StyleSheet.create({
     padding: 10,
     marginTop: 8,
     color: '#111827',
+  },
+  timeFormatContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  timeFormatLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  timeFormatToggle: {
+    flexDirection: 'row',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 8,
+    padding: 2,
+  },
+  timeFormatButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  timeFormatButtonActive: {
+    backgroundColor: '#EF4444',
+  },
+  timeFormatButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+  },
+  timeFormatButtonTextActive: {
+    color: 'white',
+  },
+  pickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 8,
+    backgroundColor: 'white',
+  },
+  pickerButtonText: {
+    fontSize: 16,
+    color: '#000000',
+    fontWeight: '500',
+    flex: 1,
   },
   modalBtn: { backgroundColor: '#EF4444', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8 },
   modalBtnText: { color: 'white', fontWeight: '600' },

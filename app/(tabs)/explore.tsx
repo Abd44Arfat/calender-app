@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSnackbar } from '../../hooks/useSnackbar';
@@ -48,9 +48,16 @@ export default function ExploreScreen() {
   const [newEventEndTime, setNewEventEndTime] = useState('');
   const [showStartTimePicker, setShowStartTimePicker] = useState(false);
   const [showEndTimePicker, setShowEndTimePicker] = useState(false);
+  const [showEventDatePicker, setShowEventDatePicker] = useState(false);
+  const [eventCreationDate, setEventCreationDate] = useState(new Date());
+  const [startTimeDate, setStartTimeDate] = useState(new Date());
+  const [endTimeDate, setEndTimeDate] = useState(new Date());
+  const [use24HourFormatVendor, setUse24HourFormatVendor] = useState(true);
   const [newEventCapacity, setNewEventCapacity] = useState('');
   const [newEventPrice, setNewEventPrice] = useState('');
   const [newEventTags, setNewEventTags] = useState('');
+  const [isEditingEvent, setIsEditingEvent] = useState(false);
+  const [editingVendorEventId, setEditingVendorEventId] = useState<string | null>(null);
 
   // Fetch events from API
   const fetchEvents = async () => {
@@ -300,31 +307,96 @@ export default function ExploreScreen() {
     );
   };
 
+  const formatVendorTimeDisplay = (date: Date) => {
+    if (use24HourFormatVendor) {
+      return date.toTimeString().slice(0, 5);
+    } else {
+      return date.toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        hour12: true 
+      });
+    }
+  };
+
+  const openEditEventModal = (event: Event) => {
+    setIsEditingEvent(true);
+    setEditingVendorEventId(String(event.id));
+    setNewEventTitle(event.title || '');
+    setNewEventDescription(event.description || '');
+    setNewEventLocation(event.location || '');
+    setNewEventCapacity(event.capacity?.toString() || '');
+    setNewEventPrice(event.priceCents ? (event.priceCents / 100).toString() : '');
+    
+    const startDate = new Date(event.startsAt!);
+    const endDate = new Date(event.endsAt!);
+    
+    setEventCreationDate(startDate);
+    setStartTimeDate(startDate);
+    setEndTimeDate(endDate);
+    setIsEventsModalVisible(false);
+    setIsCreateModalVisible(true);
+  };
+
+  const deleteVendorEvent = async (eventId: string) => {
+    if (!token || user?.userType !== 'vendor') {
+      showError('Only vendors can delete events');
+      return;
+    }
+
+    Alert.alert(
+      'Delete Event',
+      'Are you sure you want to delete this event? All bookings will be cancelled.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setIsLoading(true);
+              await apiService.deleteEvent(token, eventId);
+              showSuccess('Event deleted successfully');
+              setIsEventsModalVisible(false);
+              await fetchEvents();
+            } catch (err: any) {
+              showError(err.message || 'Failed to delete event');
+            } finally {
+              setIsLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const createEvent = async () => {
     if (!token || user?.userType !== 'vendor') {
       showError('Only vendors can create events');
       return;
     }
 
+    if (!newEventTitle.trim()) {
+      showError('Event title is required');
+      return;
+    }
+
     try {
       setIsLoading(true);
 
-      // Parse time strings
-      const parseTime = (timeStr: string) => {
-        const time = timeStr.trim();
-        const [hours, minutes] = time.split(':').map(Number);
-        return { hours, minutes };
-      };
-
-      const startTime = parseTime(newEventStartTime);
-      const endTime = parseTime(newEventEndTime);
-
-      // Create start and end dates
-      const startDate = new Date(selectedDate);
-      startDate.setHours(startTime.hours, startTime.minutes, 0, 0);
+      // Use the date and time from pickers
+      const startDate = new Date(eventCreationDate);
+      startDate.setHours(startTimeDate.getHours(), startTimeDate.getMinutes(), 0, 0);
       
-      const endDate = new Date(selectedDate);
-      endDate.setHours(endTime.hours, endTime.minutes, 0, 0);
+      const endDate = new Date(eventCreationDate);
+      endDate.setHours(endTimeDate.getHours(), endTimeDate.getMinutes(), 0, 0);
+
+      // Validate end time is after start time
+      if (endDate <= startDate) {
+        showError('End time must be after start time');
+        setIsLoading(false);
+        return;
+      }
 
       const eventData = {
         title: newEventTitle.trim(),
@@ -339,9 +411,19 @@ export default function ExploreScreen() {
         tags: newEventTags.split(',').map(tag => tag.trim()).filter(tag => tag),
       };
 
-      await apiService.createEvent(token, eventData);
-      showSuccess('Event created successfully!');
+      if (isEditingEvent && editingVendorEventId) {
+        // Update existing event
+        await apiService.updateEvent(token, editingVendorEventId, eventData);
+        showSuccess('Event updated successfully!');
+      } else {
+        // Create new event
+        await apiService.createEvent(token, eventData);
+        showSuccess('Event created successfully!');
+      }
+      
       setIsCreateModalVisible(false);
+      setIsEditingEvent(false);
+      setEditingVendorEventId(null);
       
       // Reset form
       setNewEventTitle('');
@@ -473,7 +555,23 @@ export default function ExploreScreen() {
  {user?.userType === 'vendor' && (
           <TouchableOpacity 
             style={styles.fab} 
-            onPress={() => setIsCreateModalVisible(true)}
+            onPress={() => {
+              setIsEditingEvent(false);
+              setEditingVendorEventId(null);
+              setNewEventTitle('');
+              setNewEventDescription('');
+              setNewEventLocation('');
+              setNewEventCapacity('');
+              setNewEventPrice('');
+              setNewEventTags('');
+              const now = new Date();
+              setEventCreationDate(selectedDate);
+              setStartTimeDate(now);
+              const end = new Date(now);
+              end.setHours(end.getHours() + 1);
+              setEndTimeDate(end);
+              setIsCreateModalVisible(true);
+            }}
           >
             <Ionicons name="add" size={24} color="white" />
           </TouchableOpacity>
@@ -549,9 +647,27 @@ export default function ExploreScreen() {
                               )}
                             </TouchableOpacity>
                           )}
-                          <TouchableOpacity style={styles.eventAction}>
-                            <Ionicons name="ellipsis-vertical" size={16} color="#666" />
-                          </TouchableOpacity>
+                          {user?.userType === 'vendor' && (
+                            <>
+                              <TouchableOpacity 
+                                style={[styles.bookButton, { backgroundColor: '#3B82F6', marginRight: 4 }]}
+                                onPress={() => openEditEventModal(event)}
+                              >
+                                <Ionicons name="create-outline" size={16} color="white" />
+                              </TouchableOpacity>
+                              <TouchableOpacity 
+                                style={[styles.bookButton, { backgroundColor: '#EF4444' }]}
+                                onPress={() => deleteVendorEvent(String(event.id))}
+                                disabled={isLoading}
+                              >
+                                {isLoading ? (
+                                  <ActivityIndicator size="small" color="white" />
+                                ) : (
+                                  <Ionicons name="trash-outline" size={16} color="white" />
+                                )}
+                              </TouchableOpacity>
+                            </>
+                          )}
                         </View>
                       </View>
                     );
@@ -573,113 +689,205 @@ export default function ExploreScreen() {
       <Modal visible={isCreateModalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Create Event</Text>
-            <TextInput
-              placeholder="Event Title"
-              value={newEventTitle}
-              onChangeText={setNewEventTitle}
-              style={styles.input}
-            />
-            <TextInput
-              placeholder="Description"
-              value={newEventDescription}
-              onChangeText={setNewEventDescription}
-              style={styles.input}
-              multiline
-            />
-            <TextInput
-              placeholder="Location"
-              value={newEventLocation}
-              onChangeText={setNewEventLocation}
-              style={styles.input}
-            />
-            <View style={{ flexDirection: 'row', gap: 8 }}>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.modalTitle}>
+                {isEditingEvent ? 'Edit Event' : 'Create Event'}
+              </Text>
+              
+              {/* Title Input */}
+              <TextInput
+                placeholder="Event Title"
+                value={newEventTitle}
+                onChangeText={setNewEventTitle}
+                style={styles.input}
+              />
+
+              {/* Description Input */}
+              <TextInput
+                placeholder="Description"
+                value={newEventDescription}
+                onChangeText={setNewEventDescription}
+                style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
+                multiline
+              />
+
+              {/* Location Input */}
+              <TextInput
+                placeholder="Location"
+                value={newEventLocation}
+                onChangeText={setNewEventLocation}
+                style={styles.input}
+              />
+
+              {/* Time Format Toggle */}
+              <View style={styles.timeFormatContainer}>
+                <Text style={styles.timeFormatLabel}>Time Format:</Text>
+                <View style={styles.timeFormatToggle}>
+                  <TouchableOpacity
+                    style={[
+                      styles.timeFormatButton,
+                      use24HourFormatVendor && styles.timeFormatButtonActive
+                    ]}
+                    onPress={() => setUse24HourFormatVendor(true)}
+                  >
+                    <Text style={[
+                      styles.timeFormatButtonText,
+                      use24HourFormatVendor && styles.timeFormatButtonTextActive
+                    ]}>24h</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.timeFormatButton,
+                      !use24HourFormatVendor && styles.timeFormatButtonActive
+                    ]}
+                    onPress={() => setUse24HourFormatVendor(false)}
+                  >
+                    <Text style={[
+                      styles.timeFormatButtonText,
+                      !use24HourFormatVendor && styles.timeFormatButtonTextActive
+                    ]}>12h</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Date Picker */}
               <TouchableOpacity
-                style={[styles.input, { flex: 1, justifyContent: 'center' }]}
-                onPress={() => setShowStartTimePicker(true)}
-                activeOpacity={0.8}
-              >
-                <Text style={{ color: newEventStartTime ? '#111827' : '#888' }}>
-                  {newEventStartTime ? newEventStartTime : 'Start Time (HH:mm)'}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.input, { flex: 1, justifyContent: 'center' }]}
-                onPress={() => setShowEndTimePicker(true)}
-                activeOpacity={0.8}
-              >
-                <Text style={{ color: newEventEndTime ? '#111827' : '#888' }}>
-                  {newEventEndTime ? newEventEndTime : 'End Time (HH:mm)'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-            {showStartTimePicker && (
-              <DateTimePicker
-                value={newEventStartTime ? new Date(`2000-01-01T${newEventStartTime}:00`) : new Date()}
-                mode="time"
-                display="default"
-                onChange={(event, selectedDate) => {
+                style={styles.pickerButton}
+                onPress={() => {
                   setShowStartTimePicker(false);
-                  if (selectedDate) {
-                    const hours = selectedDate.getHours().toString().padStart(2, '0');
-                    const minutes = selectedDate.getMinutes().toString().padStart(2, '0');
-                    setNewEventStartTime(`${hours}:${minutes}`);
-                  }
-                }}
-              />
-            )}
-            {showEndTimePicker && (
-              <DateTimePicker
-                value={newEventEndTime ? new Date(`2000-01-01T${newEventEndTime}:00`) : new Date()}
-                mode="time"
-                display="default"
-                onChange={(event, selectedDate) => {
                   setShowEndTimePicker(false);
-                  if (selectedDate) {
-                    const hours = selectedDate.getHours().toString().padStart(2, '0');
-                    const minutes = selectedDate.getMinutes().toString().padStart(2, '0');
-                    setNewEventEndTime(`${hours}:${minutes}`);
-                  }
+                  setShowEventDatePicker(true);
                 }}
-              />
-            )}
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <TextInput
-                placeholder="Capacity"
-                value={newEventCapacity}
-                onChangeText={setNewEventCapacity}
-                style={[styles.input, { flex: 1 }]}
-                keyboardType="numeric"
-              />
-              <TextInput
-                placeholder="Price ($)"
-                value={newEventPrice}
-                onChangeText={setNewEventPrice}
-                style={[styles.input, { flex: 1 }]}
-                keyboardType="numeric"
-              />
-            </View>
-            <TextInput
-              placeholder="Tags (comma separated)"
-              value={newEventTags}
-              onChangeText={setNewEventTags}
-              style={styles.input}
-            />
-            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 12 }}>
-              <TouchableOpacity 
-                onPress={() => setIsCreateModalVisible(false)} 
-                style={[styles.modalBtn, { backgroundColor: '#9ca3af' }]}
               >
-                <Text style={styles.modalBtnText}>Cancel</Text>
+                <Ionicons name="calendar-outline" size={20} color="#666" />
+                <Text style={styles.pickerButtonText}>
+                  {eventCreationDate.toLocaleDateString('en-US', { 
+                    weekday: 'short',
+                    month: 'short', 
+                    day: 'numeric',
+                    year: 'numeric'
+                  })}
+                </Text>
               </TouchableOpacity>
-              <TouchableOpacity 
-                onPress={createEvent} 
-                style={styles.modalBtn} 
-                disabled={isLoading}
-              >
-                {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalBtnText}>Create</Text>}
-              </TouchableOpacity>
-            </View>
+
+              {showEventDatePicker && (
+                <DateTimePicker
+                  value={eventCreationDate}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={(event, selectedDate) => {
+                    setShowEventDatePicker(false);
+                    if (selectedDate) {
+                      setEventCreationDate(selectedDate);
+                    }
+                  }}
+                />
+              )}
+
+              {/* Time Pickers */}
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                <TouchableOpacity
+                  style={[styles.pickerButton, { flex: 1 }]}
+                  onPress={() => {
+                    setShowEventDatePicker(false);
+                    setShowEndTimePicker(false);
+                    setShowStartTimePicker(true);
+                  }}
+                >
+                  <Ionicons name="time-outline" size={20} color="#666" />
+                  <Text style={styles.pickerButtonText}>
+                    {formatVendorTimeDisplay(startTimeDate)}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.pickerButton, { flex: 1 }]}
+                  onPress={() => {
+                    setShowEventDatePicker(false);
+                    setShowStartTimePicker(false);
+                    setShowEndTimePicker(true);
+                  }}
+                >
+                  <Ionicons name="time-outline" size={20} color="#666" />
+                  <Text style={styles.pickerButtonText}>
+                    {formatVendorTimeDisplay(endTimeDate)}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {showStartTimePicker && (
+                <DateTimePicker
+                  value={startTimeDate}
+                  mode="time"
+                  is24Hour={use24HourFormatVendor}
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={(event, selectedTime) => {
+                    setShowStartTimePicker(false);
+                    if (selectedTime) {
+                      setStartTimeDate(selectedTime);
+                    }
+                  }}
+                />
+              )}
+
+              {showEndTimePicker && (
+                <DateTimePicker
+                  value={endTimeDate}
+                  mode="time"
+                  is24Hour={use24HourFormatVendor}
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={(event, selectedTime) => {
+                    setShowEndTimePicker(false);
+                    if (selectedTime) {
+                      setEndTimeDate(selectedTime);
+                    }
+                  }}
+                />
+              )}
+
+              {/* Capacity and Price */}
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <TextInput
+                  placeholder="Capacity"
+                  value={newEventCapacity}
+                  onChangeText={setNewEventCapacity}
+                  style={[styles.input, { flex: 1 }]}
+                  keyboardType="numeric"
+                />
+                <TextInput
+                  placeholder="Price ($)"
+                  value={newEventPrice}
+                  onChangeText={setNewEventPrice}
+                  style={[styles.input, { flex: 1 }]}
+                  keyboardType="numeric"
+                />
+              </View>
+
+              {/* Tags Input */}
+              <TextInput
+                placeholder="Tags (comma separated)"
+                value={newEventTags}
+                onChangeText={setNewEventTags}
+                style={styles.input}
+              />
+
+              {/* Action Buttons */}
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 12 }}>
+                <TouchableOpacity 
+                  onPress={() => setIsCreateModalVisible(false)} 
+                  style={[styles.modalBtn, { backgroundColor: '#9ca3af' }]}
+                >
+                  <Text style={styles.modalBtnText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  onPress={createEvent} 
+                  style={styles.modalBtn} 
+                  disabled={isLoading}
+                >
+                  {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalBtnText}>{isEditingEvent ? 'Update' : 'Create'}</Text>}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -1006,7 +1214,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'white', 
     borderRadius: 12, 
     padding: 16,
-    maxHeight: '80%',
+    maxHeight: '85%',
   },
   modalTitle: { 
     fontSize: 18, 
@@ -1021,6 +1229,57 @@ const styles = StyleSheet.create({
     padding: 10,
     marginTop: 8,
     color: '#111827',
+  },
+  timeFormatContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  timeFormatLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  timeFormatToggle: {
+    flexDirection: 'row',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 8,
+    padding: 2,
+  },
+  timeFormatButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  timeFormatButtonActive: {
+    backgroundColor: '#4CAF50',
+  },
+  timeFormatButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+  },
+  timeFormatButtonTextActive: {
+    color: 'white',
+  },
+  pickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 8,
+    backgroundColor: 'white',
+  },
+  pickerButtonText: {
+    fontSize: 16,
+    color: '#000000',
+    fontWeight: '500',
+    flex: 1,
   },
   modalBtn: { 
     backgroundColor: '#4CAF50', 
