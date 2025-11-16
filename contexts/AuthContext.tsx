@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 import { apiService, LoginRequest, RegisterRequest } from '../services/api';
 
 interface User {
@@ -68,16 +69,64 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     loadStoredAuth();
+    
+    // Check token expiry every minute
+    const intervalId = setInterval(async () => {
+      const tokenExpiry = await AsyncStorage.getItem('token_expiry');
+      if (tokenExpiry) {
+        const expiryTime = parseInt(tokenExpiry, 10);
+        const currentTime = Date.now();
+        
+        if (currentTime >= expiryTime) {
+          console.log('🔒 Token expired, auto-logging out...');
+          await logout();
+        }
+      }
+    }, 60000); // Check every minute
+    
+    // Check token expiry when app comes to foreground
+    const handleAppStateChange = async (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active') {
+        const tokenExpiry = await AsyncStorage.getItem('token_expiry');
+        if (tokenExpiry) {
+          const expiryTime = parseInt(tokenExpiry, 10);
+          const currentTime = Date.now();
+          
+          if (currentTime >= expiryTime) {
+            console.log('🔒 Token expired on app resume, auto-logging out...');
+            await logout();
+          }
+        }
+      }
+    };
+    
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    
+    return () => {
+      clearInterval(intervalId);
+      subscription.remove();
+    };
   }, []);
 
   const loadStoredAuth = async () => {
     try {
       const storedToken = await AsyncStorage.getItem('auth_token');
       const storedUser = await AsyncStorage.getItem('user_data');
+      const tokenExpiry = await AsyncStorage.getItem('token_expiry');
       
-      if (storedToken && storedUser) {
-        setToken(storedToken);
-        setUser(JSON.parse(storedUser));
+      if (storedToken && storedUser && tokenExpiry) {
+        const expiryTime = parseInt(tokenExpiry, 10);
+        const currentTime = Date.now();
+        
+        // Check if token has expired
+        if (currentTime >= expiryTime) {
+          console.log('🔒 Token expired, logging out...');
+          await logout();
+        } else {
+          setToken(storedToken);
+          setUser(JSON.parse(storedUser));
+          console.log('✅ Token valid, expires in:', Math.floor((expiryTime - currentTime) / 1000 / 60 / 60), 'hours');
+        }
       }
     } catch (error) {
       console.error('Error loading stored auth:', error);
@@ -99,10 +148,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setToken(response.token);
         setUser(response.user);
         
+        // Calculate token expiry time (7 days from now)
+        const expiryTime = Date.now() + (7 * 24 * 60 * 60 * 1000); // 7 days in milliseconds
+        
         // Store in AsyncStorage
         await AsyncStorage.setItem('auth_token', response.token);
         await AsyncStorage.setItem('user_data', JSON.stringify(response.user));
-        console.log('💾 User data stored successfully');
+        await AsyncStorage.setItem('token_expiry', expiryTime.toString());
+        console.log('💾 User data stored successfully, token expires:', new Date(expiryTime).toISOString());
       } else {
         console.error('❌ Login failed - missing token or user data:', response);
         throw new Error(response.message || 'Login failed - missing token or user data');
@@ -147,8 +200,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (response.token && response.user) {
         setToken(response.token);
         setUser(response.user);
+        
+        // Calculate token expiry time (7 days from now)
+        const expiryTime = Date.now() + (7 * 24 * 60 * 60 * 1000);
+        
         await AsyncStorage.setItem('auth_token', response.token);
         await AsyncStorage.setItem('user_data', JSON.stringify(response.user));
+        await AsyncStorage.setItem('token_expiry', expiryTime.toString());
       }
       return response;
     } catch (e) {
@@ -238,6 +296,8 @@ const uploadProfileImage = async (imageData: string | FormData) => {
       setToken(null);
       await AsyncStorage.removeItem('auth_token');
       await AsyncStorage.removeItem('user_data');
+      await AsyncStorage.removeItem('token_expiry');
+      console.log('🔓 Logged out successfully');
     } catch (error) {
       console.error('Error during logout:', error);
     }

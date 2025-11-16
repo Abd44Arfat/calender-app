@@ -1,21 +1,22 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    Linking,
-    Modal,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TextInputProps,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  Linking,
+  Modal,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TextInputProps,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { Snackbar } from '../../components/Snackbar';
 import { useAuth } from '../../contexts/AuthContext';
@@ -45,6 +46,7 @@ export default function ProfileScreen() {
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [isPasswordModalVisible, setIsPasswordModalVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [sessionExpiryDays, setSessionExpiryDays] = useState<number | null>(null);
 
   // Profile edit form state
   const [editLocation, setEditLocation] = useState('');
@@ -67,6 +69,23 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     refreshProfile().catch(console.error);
+    
+    // Calculate session expiry
+    const checkSessionExpiry = async () => {
+      try {
+        const tokenExpiry = await AsyncStorage.getItem('token_expiry');
+        if (tokenExpiry) {
+          const expiryTime = parseInt(tokenExpiry, 10);
+          const currentTime = Date.now();
+          const daysRemaining = Math.ceil((expiryTime - currentTime) / (1000 * 60 * 60 * 24));
+          setSessionExpiryDays(daysRemaining > 0 ? daysRemaining : 0);
+        }
+      } catch (error) {
+        console.error('Error checking session expiry:', error);
+      }
+    };
+    
+    checkSessionExpiry();
   }, []);
 
   useEffect(() => {
@@ -284,7 +303,7 @@ const pickImage = async () => {
           <Text style={styles.profileEmail}>{user?.email || 'user@email.com'}</Text>
           <Text style={styles.profileBio}>
             {user?.userType === 'vendor'
-              ? `Fitness Academy Owner - ${user?.profile?.academyName || 'Academy'}`
+              ? `Owner - ${user?.profile?.academyName || 'Academy'}`
               : ''}
           </Text>
           {user?.profile?.rating && user.profile.rating > 0 && (
@@ -293,6 +312,8 @@ const pickImage = async () => {
               <Text style={styles.ratingText}>{user.profile.rating.toFixed(1)}</Text>
             </View>
           )}
+          
+   
         </View>
 
         {/* Menu Section */}
@@ -494,6 +515,24 @@ const styles = StyleSheet.create({
   },
   ratingContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
   ratingText: { marginLeft: 4, fontSize: 14, fontWeight: '600', color: '#FFD700' },
+  sessionExpiryContainer: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+  },
+  sessionExpiryText: { 
+    marginLeft: 6, 
+    fontSize: 12, 
+    color: '#666' 
+  },
+  sessionExpiryWarning: {
+    color: '#EF4444',
+    fontWeight: '600',
+  },
   profileName: { fontSize: 24, fontWeight: 'bold', color: '#000', marginBottom: 4 },
   profileEmail: { fontSize: 16, color: '#666', marginBottom: 8 },
   profileBio: { fontSize: 14, color: '#999', textAlign: 'center', lineHeight: 20 },

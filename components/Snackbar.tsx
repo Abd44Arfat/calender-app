@@ -121,16 +121,16 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 16,
     right: 16,
-    borderRadius: 12,
-    elevation: 9999,
+    borderRadius: 8,
+    elevation: 8,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 2,
     },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    zIndex: 9999,
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    zIndex: 1000,
   },
   content: {
     flexDirection: 'row',
@@ -143,8 +143,8 @@ const styles = StyleSheet.create({
   message: {
     flex: 1,
     color: 'white',
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '500',
   },
   closeButton: {
     marginLeft: 12,

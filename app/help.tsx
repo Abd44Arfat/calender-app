@@ -84,7 +84,7 @@ export default function HelpScreen() {
           </View>
           <View style={styles.infoItem}>
             <Text style={styles.infoLabel}>Build</Text>
-            <Text style={styles.infoValue}>2024.1</Text>
+            <Text style={styles.infoValue}>2025.1</Text>
           </View>
         </View>
       </ScrollView>
