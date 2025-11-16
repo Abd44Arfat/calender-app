@@ -1057,7 +1057,7 @@ const HomeScreen = () => {
 
                 <View style={[styles.eventTypePill, { alignSelf: 'center', marginTop: 8 }]}> 
                   <Text style={[styles.eventTypeText, { color: (selectedEvent as any).isPersonal || (selectedEvent as any).type === 'personal' ? '#60A5FA' : '#10B981' }]}>
-                    {(selectedEvent as any).isPersonal || (selectedEvent as any).type === 'personal' ? 'Personal Event' : ((selectedEvent as any).type === 'booking' ? 'Booking' : 'Public Event')}
+                    {(selectedEvent as any).isPersonal || (selectedEvent as any).type === 'personal' ? 'Personal Event' : ((selectedEvent as any).type === 'booking' ? 'Booking' : 'Personal Event')}
                   </Text>
                 </View>
 
@@ -1173,10 +1173,7 @@ const HomeScreen = () => {
                   <Text style={styles.eventDetailText}>{formatDateForModal((selectedEvent as any).startsAt)}</Text>
                 </View>
 
-                <View style={styles.eventDetailItem}>
-                  <Ionicons name="location-outline" size={20} color="#666" style={styles.detailIcon} />
-                  <Text style={styles.eventDetailText}>{(selectedEvent as any).location || 'No location'}</Text>
-                </View>
+              
 
                 {(selectedEvent as any).description ? (
                   <View style={[styles.eventDetailItem, { alignItems: 'flex-start' }]}>
@@ -1193,7 +1190,7 @@ const HomeScreen = () => {
 
                 <View style={[styles.eventTypePill, { alignSelf: 'center', marginTop: 12 }]}> 
                   <Text style={[styles.eventTypeText, { color: (selectedEvent as any).isPersonal || (selectedEvent as any).type === 'personal' ? '#60A5FA' : '#10B981' }]}>
-                    {(selectedEvent as any).isPersonal || (selectedEvent as any).type === 'personal' ? 'Personal Event' : 'Public Event'}
+                    {(selectedEvent as any).isPersonal || (selectedEvent as any).type === 'personal' ? 'Personal Event' : 'Personal Event'}
                   </Text>
                 </View>
 
