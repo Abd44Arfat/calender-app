@@ -1,7 +1,7 @@
 // app/verify-email.tsx
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import OTPInput from 'input-otp-native';
+import { OTPInput } from 'input-otp-native';
 import React, { useRef, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,7 +10,9 @@ import { useAuth } from '../contexts/AuthContext';
 import { useSnackbar } from '../hooks/useSnackbar';
 
 export default function VerifyEmailScreen() {
-  const { verifyEmail, resendOtp } = useAuth() as any;
+  const auth = useAuth();
+  const verifyEmail = auth?.verifyEmail;
+  const resendOtp = auth?.resendOtp;
   const { email } = useLocalSearchParams<{ email?: string }>();
   const { snackbar, showError, showSuccess, hideSnackbar } = useSnackbar();
 
@@ -29,11 +31,15 @@ export default function VerifyEmailScreen() {
       setIsSubmitting(true);
       console.log('📤 VERIFY PAYLOAD', { email: cleanEmail, otp: cleanOtp });
 
-      const res = await verifyEmail({ email: cleanEmail, otp: cleanOtp });
-      console.log('✅ VERIFY SUCCESS:', res);
+      if (verifyEmail) {
+        const res = await verifyEmail({ email: cleanEmail, otp: cleanOtp });
+        console.log('✅ VERIFY SUCCESS:', res);
 
-      showSuccess('Email verified! Redirecting...');
-      router.replace('/(tabs)');
+        showSuccess('Email verified! Redirecting...');
+        router.replace('/(tabs)');
+      } else {
+        showError('Verification function not available');
+      }
     } catch (err: any) {
       console.error('❌ API Error:', err?.response?.data);
       showError(err?.response?.data?.error || err?.response?.data?.message || 'Verification failed');
@@ -47,10 +53,14 @@ export default function VerifyEmailScreen() {
     if (!cleanEmail) return showError('Missing email');
 
     try {
-      await resendOtp({ email: cleanEmail });
-      otpInputRef.current?.clear();
-      setOtp('');
-      showSuccess('Verification code resent!');
+      if (resendOtp) {
+        await resendOtp({ email: cleanEmail });
+        otpInputRef.current?.clear();
+        setOtp('');
+        showSuccess('Verification code resent!');
+      } else {
+        showError('Resend function not available');
+      }
     } catch (err: any) {
       console.error('❌ Resend error:', err?.response?.data);
       showError(err?.response?.data?.message || err.message || 'Failed to resend OTP');

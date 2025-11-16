@@ -10,7 +10,8 @@ export default function ResetPasswordNewScreen() {
   const params = useLocalSearchParams();
   const email = (params as any)?.email || '';
   const otp = (params as any)?.otp || '';
-  const { resetPassword } = useAuth() as any;
+  const auth = useAuth();
+  const resetPassword = auth?.resetPassword;
   const { snackbar, showError, showSuccess, hideSnackbar } = useSnackbar();
 
   const [newPassword, setNewPassword] = useState('');
@@ -38,9 +39,13 @@ export default function ResetPasswordNewScreen() {
 
     try {
       setIsSubmitting(true);
-      await resetPassword({ email, otp, newPassword });
-      showSuccess('Password reset successful. Please login.');
-      router.replace('/login');
+      if (resetPassword) {
+        await resetPassword({ email, otp, newPassword });
+        showSuccess('Password reset successful. Please login.');
+        router.replace('/login');
+      } else {
+        showError('Reset password function not available');
+      }
     } catch (err: any) {
       showError(err?.response?.data?.message || err.message || 'Reset failed');
     } finally {

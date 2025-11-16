@@ -7,7 +7,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useSnackbar } from '../hooks/useSnackbar';
 
 export default function ForgotPasswordScreen() {
-  const { forgotPassword } = useAuth() as any;
+  const auth = useAuth();
+  const forgotPassword = auth?.forgotPassword;
   const { snackbar, showError, showSuccess, hideSnackbar } = useSnackbar();
 
   const [email, setEmail] = useState('');
@@ -16,9 +17,13 @@ export default function ForgotPasswordScreen() {
   const handleSubmit = async () => {
     try {
       setIsSubmitting(true);
-      await forgotPassword({ email });
-      showSuccess('If an account exists, a reset code has been sent');
-      router.push({ pathname: '/reset-password', params: { email } } as any);
+      if (forgotPassword) {
+        await forgotPassword({ email });
+        showSuccess('If an account exists, a reset code has been sent');
+        router.push({ pathname: '/reset-password', params: { email } } as any);
+      } else {
+        showError('Forgot password function not available');
+      }
     } catch (err: any) {
       showError(err?.response?.data?.message || err.message || 'Failed to request reset');
     } finally {
