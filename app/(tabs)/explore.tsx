@@ -607,67 +607,94 @@ export default function ExploreScreen() {
                   selectedDayEvents.map((event) => {
                     const isPastEvent = event.startsAt && new Date(event.startsAt).getTime() <= Date.now();
                     return (
-                      <View key={event.id} style={styles.eventCard}>
-                        <View style={[styles.eventColorDot, { backgroundColor: event.color }]} />
-                        <View style={styles.eventContent}>
-                          <Text style={styles.eventTime}>{event.time}</Text>
-                          <Text style={styles.eventTitle}>{event.title}</Text>
-                          {event.location && (
-                            <Text style={styles.eventLocation} numberOfLines={1}>
-                              📍 {event.location}
-                            </Text>
-                          )}
-                          {event.description && (
-                            <Text style={styles.eventSubtitle} numberOfLines={2}>
-                              {event.description}
-                            </Text>
-                          )}
-                          {event.priceCents && (
-                            <Text style={styles.eventPrice}>
-                              ${(event.priceCents / 100).toFixed(2)}
-                            </Text>
-                          )}
-                          {isPastEvent && (
-                            <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4 }}>
-                              Event has passed
-                            </Text>
-                          )}
-                        </View>
-                        <View style={styles.eventActions}>
-                          {user?.userType === 'customer' && !isPastEvent && (
-                            <TouchableOpacity
-                              style={styles.bookButton}
-                              onPress={() => bookEvent(event)}
-                              disabled={isLoading}
-                            >
-                              {isLoading ? (
-                                <ActivityIndicator size="small" color="white" />
-                              ) : (
-                                <Text style={styles.bookButtonText}>Book</Text>
+                      <View key={event.id} style={styles.professionalEventCard}>
+                        {/* Color accent bar on left */}
+                        <View style={[styles.eventAccentBar, { backgroundColor: event.color }]} />
+                        
+                        <View style={styles.eventCardContent}>
+                          {/* Header with time and status */}
+                          <View style={styles.eventCardHeader}>
+                            <View style={styles.timeChip}>
+                              <Ionicons name="time-outline" size={14} color="#666" />
+                              <Text style={styles.eventTimeText}>{event.time}</Text>
+                            </View>
+                            {isPastEvent && (
+                              <View style={styles.pastEventBadge}>
+                                <Text style={styles.pastEventText}>Past</Text>
+                              </View>
+                            )}
+                          </View>
+
+                          {/* Event title */}
+                          <Text style={styles.professionalEventTitle}>{event.title}</Text>
+
+                          {/* Event details */}
+                          <View style={styles.eventDetailsContainer}>
+                            {event.location && (
+                              <View style={styles.eventDetailRow}>
+                                <Ionicons name="location" size={16} color="#666" />
+                                <Text style={styles.eventDetailText} numberOfLines={1}>
+                                  {event.location}
+                                </Text>
+                              </View>
+                            )}
+                            {event.description && (
+                              <Text style={styles.eventDescription} numberOfLines={2}>
+                                {event.description}
+                              </Text>
+                            )}
+                          </View>
+
+                          {/* Footer with price and actions */}
+                          <View style={styles.eventCardFooter}>
+                            {event.priceCents != null && (
+                              <View style={styles.priceTag}>
+                                <Text style={styles.priceAmount}>
+                                  ${(event.priceCents / 100).toFixed(2)}
+                                </Text>
+                              </View>
+                            )}
+                            
+                            <View style={styles.eventCardActions}>
+                              {user?.userType === 'customer' && !isPastEvent && (
+                                <TouchableOpacity
+                                  style={styles.modernBookButton}
+                                  onPress={() => bookEvent(event)}
+                                  disabled={isLoading}
+                                >
+                                  {isLoading ? (
+                                    <ActivityIndicator size="small" color="white" />
+                                  ) : (
+                                    <>
+                                      <Ionicons name="calendar" size={16} color="white" />
+                                      <Text style={styles.modernBookButtonText}>Book Now</Text>
+                                    </>
+                                  )}
+                                </TouchableOpacity>
                               )}
-                            </TouchableOpacity>
-                          )}
-                          {user?.userType === 'vendor' && (
-                            <>
-                              <TouchableOpacity 
-                                style={[styles.bookButton, { backgroundColor: '#3B82F6', marginRight: 4 }]}
-                                onPress={() => openEditEventModal(event)}
-                              >
-                                <Ionicons name="create-outline" size={16} color="white" />
-                              </TouchableOpacity>
-                              <TouchableOpacity 
-                                style={[styles.bookButton, { backgroundColor: '#EF4444' }]}
-                                onPress={() => deleteVendorEvent(String(event.id))}
-                                disabled={isLoading}
-                              >
-                                {isLoading ? (
-                                  <ActivityIndicator size="small" color="white" />
-                                ) : (
-                                  <Ionicons name="trash-outline" size={16} color="white" />
-                                )}
-                              </TouchableOpacity>
-                            </>
-                          )}
+                              {user?.userType === 'vendor' && (
+                                <View style={styles.vendorActions}>
+                                  <TouchableOpacity 
+                                    style={styles.iconButton}
+                                    onPress={() => openEditEventModal(event)}
+                                  >
+                                    <Ionicons name="create-outline" size={18} color="#3B82F6" />
+                                  </TouchableOpacity>
+                                  <TouchableOpacity 
+                                    style={styles.iconButton}
+                                    onPress={() => deleteVendorEvent(String(event.id))}
+                                    disabled={isLoading}
+                                  >
+                                    {isLoading ? (
+                                      <ActivityIndicator size="small" color="#EF4444" />
+                                    ) : (
+                                      <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                                    )}
+                                  </TouchableOpacity>
+                                </View>
+                              )}
+                            </View>
+                          </View>
                         </View>
                       </View>
                     );
@@ -1039,14 +1066,16 @@ const styles = StyleSheet.create({
   dayNumber: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#000000',
     marginBottom: 10,
   },
   selectedDayNumber: {
     color: '#EF4444',
+    fontWeight: 'bold',
   },
   otherMonthDayNumber: {
-    color: '#AAA',
+    color: '#999999',
+    fontWeight: '500',
   },
   eventIndicator: {
     width: '100%',
@@ -1102,6 +1131,142 @@ const styles = StyleSheet.create({
   },
   upcomingEventsList: {
     gap: 15,
+  },
+  professionalEventCard: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    marginBottom: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: '#F0F0F0',
+  },
+  eventAccentBar: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 5,
+  },
+  eventCardContent: {
+    padding: 16,
+    paddingLeft: 20,
+  },
+  eventCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  timeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 4,
+  },
+  eventTimeText: {
+    fontSize: 13,
+    color: '#666',
+    fontWeight: '500',
+  },
+  pastEventBadge: {
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  pastEventText: {
+    fontSize: 11,
+    color: '#EF4444',
+    fontWeight: '600',
+  },
+  professionalEventTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 12,
+    lineHeight: 24,
+  },
+  eventDetailsContainer: {
+    marginBottom: 16,
+  },
+  eventDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  eventDetailText: {
+    fontSize: 14,
+    color: '#6B7280',
+    flex: 1,
+  },
+  eventDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+    lineHeight: 20,
+    marginTop: 4,
+  },
+  eventCardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  priceTag: {
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  priceAmount: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  eventCardActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  modernBookButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    gap: 6,
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  modernBookButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  vendorActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   eventCard: {
     flexDirection: 'row',
