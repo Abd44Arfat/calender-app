@@ -894,6 +894,7 @@ const HomeScreen = () => {
                   value={eventDate}
                   mode="date"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  textColor="#2196F3"
                   onChange={(event, selectedDate) => {
                     setShowDatePicker(false);
                     if (selectedDate) {
@@ -940,6 +941,7 @@ const HomeScreen = () => {
                   mode="time"
                   is24Hour={use24HourFormat}
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  textColor="#2196F3"
                   onChange={(event, selectedTime) => {
                     setShowStartTimePicker(false);
                     if (selectedTime) {
@@ -955,6 +957,7 @@ const HomeScreen = () => {
                   mode="time"
                   is24Hour={use24HourFormat}
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  textColor="#2196F3"
                   onChange={(event, selectedTime) => {
                     setShowEndTimePicker(false);
                     if (selectedTime) {

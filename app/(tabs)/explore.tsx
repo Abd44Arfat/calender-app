@@ -802,6 +802,7 @@ export default function ExploreScreen() {
                   value={eventCreationDate}
                   mode="date"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  textColor="#2196F3"
                   onChange={(event, selectedDate) => {
                     setShowEventDatePicker(false);
                     if (selectedDate) {
@@ -848,6 +849,7 @@ export default function ExploreScreen() {
                   mode="time"
                   is24Hour={use24HourFormatVendor}
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  textColor="#2196F3"
                   onChange={(event, selectedTime) => {
                     setShowStartTimePicker(false);
                     if (selectedTime) {
@@ -863,6 +865,7 @@ export default function ExploreScreen() {
                   mode="time"
                   is24Hour={use24HourFormatVendor}
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  textColor="#2196F3"
                   onChange={(event, selectedTime) => {
                     setShowEndTimePicker(false);
                     if (selectedTime) {
