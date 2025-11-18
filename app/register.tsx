@@ -23,6 +23,7 @@ export default function RegisterScreen() {
 
   // State for date picker
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [tempDate, setTempDate] = useState<Date>(new Date(2000, 0, 1));
 
   const [formData, setFormData] = useState<RegisterRequest>({
     email: '',
@@ -271,28 +272,16 @@ export default function RegisterScreen() {
               <Text style={styles.label}>Date of Birth</Text>
               <TouchableOpacity
                 style={[styles.input, { justifyContent: 'center' }, errors.dob && styles.inputError]}
-                onPress={() => setShowDatePicker(true)}
+                onPress={() => {
+                  setTempDate(formData.profile.dob ? new Date(formData.profile.dob) : new Date(2000, 0, 1));
+                  setShowDatePicker(true);
+                }}
                 activeOpacity={0.8}
               >
                 <Text style={{ color: formData.profile.dob ? '#111827' : '#888' }}>
                   {formData.profile.dob ? formData.profile.dob : 'Select your date of birth'}
                 </Text>
               </TouchableOpacity>
-              {showDatePicker && (
-                <DateTimePicker
-                  value={formData.profile.dob ? new Date(formData.profile.dob) : new Date(2000, 0, 1)}
-                  mode="date"
-                  display="default"
-                  maximumDate={new Date()}
-                  onChange={(event, selectedDate) => {
-                    setShowDatePicker(false);
-                    if (selectedDate) {
-                      const iso = selectedDate.toISOString().split('T')[0];
-                      updateFormData('profile.dob', iso);
-                    }
-                  }}
-                />
-              )}
               {errors.dob && <Text style={styles.errorText}>{errors.dob}</Text>}
             </View>
   // State for date picker
@@ -380,6 +369,52 @@ export default function RegisterScreen() {
         type={snackbar.type}
         onHide={hideSnackbar}
       />
+
+      {/* Date Picker Modal - Outside ScrollView to cover entire screen */}
+      {showDatePicker && (
+        <View style={styles.datePickerModal}>
+          <TouchableOpacity 
+            style={styles.datePickerOverlay}
+            activeOpacity={1}
+            onPress={() => setShowDatePicker(false)}
+          />
+          <View style={styles.datePickerContainer}>
+            <View style={styles.datePickerHeader}>
+              <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                <Text style={styles.datePickerButton}>Cancel</Text>
+              </TouchableOpacity>
+              <Text style={styles.datePickerTitle}>Select Date</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  const iso = tempDate.toISOString().split('T')[0];
+                  updateFormData('profile.dob', iso);
+                  setShowDatePicker(false);
+                }}
+              >
+                <Text style={[styles.datePickerButton, styles.datePickerDone]}>Done</Text>
+              </TouchableOpacity>
+            </View>
+            <DateTimePicker
+              value={tempDate}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              maximumDate={new Date()}
+              textColor="#000000"
+              onChange={(event, selectedDate) => {
+                if (selectedDate && Platform.OS === 'android') {
+                  // Android: apply immediately
+                  const iso = selectedDate.toISOString().split('T')[0];
+                  updateFormData('profile.dob', iso);
+                  setShowDatePicker(false);
+                } else if (selectedDate) {
+                  // iOS: just update temp date, don't close
+                  setTempDate(selectedDate);
+                }
+              }}
+            />
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -496,6 +531,60 @@ const styles = StyleSheet.create({
   loginLink: {
     fontSize: 16,
     color: '#ef4444',
+    fontWeight: '600',
+  },
+  datePickerModal: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  datePickerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  datePickerContainer: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    width: '90%',
+    maxWidth: 400,
+    paddingBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  datePickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  datePickerTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  datePickerButton: {
+    fontSize: 16,
+    color: '#6B7280',
+    fontWeight: '500',
+    minWidth: 60,
+  },
+  datePickerDone: {
+    color: '#EF4444',
     fontWeight: '600',
   },
 });
