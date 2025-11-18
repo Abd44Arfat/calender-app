@@ -23,6 +23,7 @@ export default function ForgotPasswordScreen() {
         router.push({ pathname: '/reset-password', params: { email } } as any);
       } else {
         showError('Forgot password function not available');
+      
       }
     } catch (err: any) {
       showError(err?.response?.data?.message || err.message || 'Failed to request reset');

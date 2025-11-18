@@ -350,6 +350,14 @@ const HomeScreen = () => {
     fetchEvents();
   }, [selectedDate, token]);
 
+  // Clear bookings when user changes or logs out
+  useEffect(() => {
+    if (!user || !token) {
+      setBookings([]);
+      setEvents([]);
+    }
+  }, [user, token]);
+
   useEffect(() => {
     if (selectedEvent) {
       console.debug('RENDER: selectedEvent changed ->', selectedEvent);
@@ -693,25 +701,9 @@ const HomeScreen = () => {
               <Text style={styles.sectionTitle}>My Bookings</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bookingsContainer}>
                 {bookings.slice(0, 5).map((booking) => (
-                  <TouchableOpacity
+                  <View
                     key={booking._id}
                     style={styles.bookingCard}
-                    onPress={() => {
-                      setSelectedEvent({
-                        id: booking.eventId?._id || booking._id,
-                        title: booking.eventId?.title || 'Untitled',
-                        startsAt: booking.eventId?.startsAt,
-                        endsAt: booking.eventId?.endsAt,
-                        type: 'booking',
-                        isPersonal: false,
-                        bookingData: booking,
-                      });
-                      modalOpeningRef.current = true;
-                      setTimeout(() => {
-                        setIsEventDetailsVisible(true);
-                        setTimeout(() => { modalOpeningRef.current = false; }, 200);
-                      }, 120);
-                    }}
                   >
                     <Text style={styles.bookingTitle} numberOfLines={1}>
                       {booking.eventId?.title || 'Untitled'}
@@ -731,12 +723,15 @@ const HomeScreen = () => {
                     )}
                     <TouchableOpacity
                       style={styles.cancelButton}
-                      onPress={() => cancelBooking(booking)}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        cancelBooking(booking);
+                      }}
                       disabled={isLoading}
                     >
                       <Text style={styles.cancelButtonText}>Cancel</Text>
                     </TouchableOpacity>
-                  </TouchableOpacity>
+                  </View>
                 ))}
               </ScrollView>
             </View>

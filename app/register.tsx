@@ -2,14 +2,14 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Snackbar } from '../components/Snackbar';
@@ -38,6 +38,7 @@ export default function RegisterScreen() {
     },
   });
 
+  const [specializationsText, setSpecializationsText] = useState<string>('');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const validateForm = () => {
@@ -332,12 +333,18 @@ export default function RegisterScreen() {
                   <TextInput
                     style={styles.input}
                     placeholder="e.g., fitness, yoga, pilates"
-                      placeholderTextColor="#9ca3af"
-                    value={formData.profile.specializations?.join(', ') || ''}
+                    placeholderTextColor="#9ca3af"
+                    value={specializationsText}
                     onChangeText={(text) => {
-                      const specializations = text.split(',').map(s => s.trim()).filter(s => s);
+                      setSpecializationsText(text);
+                    }}
+                    onBlur={() => {
+                      // Process specializations when user finishes typing
+                      const specializations = specializationsText
+                        .split(',')
+                        .map(s => s.trim())
+                        .filter(s => s);
                       updateFormData('profile.specializations', specializations);
-                      
                     }}
                     autoCapitalize="words"
                   />
