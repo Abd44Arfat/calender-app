@@ -249,9 +249,37 @@ const pickImage = async () => {
       help: () => router.push('/help'),
       about: () => router.push('/about'),
       contact: () => Linking.openURL('mailto:contact.quackplan@gmail.com'),
+      deleteAccount: handleDeleteAccount,
       logout: handleLogout,
     };
     actions[action]?.();
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'Are you sure you want to permanently delete your account? This action cannot be undone and all your data will be permanently removed.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setIsLoading(true);
+              await apiService.deleteAccount(token || '', user?._id || '');
+              showSuccess('Account deleted successfully');
+              await logout();
+              router.replace('/login');
+            } catch (error: any) {
+              showError(error.response?.data?.error || 'Failed to delete account. Please try again.');
+            } finally {
+              setIsLoading(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const menuItems = [
@@ -261,6 +289,7 @@ const pickImage = async () => {
     { title: 'Help & Support', icon: 'help-circle-outline', action: 'help' },
     { title: 'About', icon: 'information-circle-outline', action: 'about' },
     { title: 'Contact Us', icon: 'mail-outline', action: 'contact', subtitle: 'contact.quackplan@gmail.com' },
+    { title: 'Delete Account', icon: 'trash-outline', action: 'deleteAccount', color: '#EF4444' },
     { title: 'Logout', icon: 'log-out-outline', action: 'logout', color: '#EF4444' },
   ];
 
@@ -301,20 +330,77 @@ const pickImage = async () => {
 
           <Text style={styles.profileName}>{user?.profile?.fullName || 'User'}</Text>
           <Text style={styles.profileEmail}>{user?.email || 'user@email.com'}</Text>
-          <Text style={styles.profileBio}>
-            {user?.userType === 'vendor'
-              ? `Owner - ${user?.profile?.academyName || 'Academy'}`
-              : ''}
-          </Text>
+          {user?.profile?.phone && (
+            <View style={styles.phoneContainer}>
+              <Ionicons name="call-outline" size={14} color="#666" />
+              <Text style={styles.profilePhone}>{user.profile.phone}</Text>
+            </View>
+          )}
+         
           {user?.profile?.rating && user.profile.rating > 0 && (
             <View style={styles.ratingContainer}>
               <Ionicons name="star" size={16} color="#FFD700" />
               <Text style={styles.ratingText}>{user.profile.rating.toFixed(1)}</Text>
             </View>
           )}
-          
-   
         </View>
+
+        {/* Vendor Info Boxes */}
+        {user?.userType === 'vendor' && (
+          <View style={styles.infoBoxesContainer}>
+            {/* Academy Info Box */}
+            {user?.profile?.academyName && (
+              <View style={styles.infoBox}>
+                <View style={styles.infoBoxHeader}>
+                  <Ionicons name="business" size={20} color="#EF4444" />
+                  <Text style={styles.infoBoxTitle}>Academy</Text>
+                </View>
+                <Text style={styles.infoBoxContent}>{user.profile.academyName}</Text>
+              </View>
+            )}
+
+            {/* Location Info Box */}
+            {user?.profile?.location && (
+              <View style={styles.infoBox}>
+                <View style={styles.infoBoxHeader}>
+                  <Ionicons name="location" size={20} color="#EF4444" />
+                  <Text style={styles.infoBoxTitle}>Location</Text>
+                </View>
+                <Text style={styles.infoBoxContent}>{user.profile.location}</Text>
+              </View>
+            )}
+
+            {/* Specializations Box */}
+            {user?.profile?.specializations && user.profile.specializations.length > 0 && (
+              <View style={[styles.infoBox, styles.specializationsBox]}>
+                <View style={styles.infoBoxHeader}>
+                  <Ionicons name="fitness" size={20} color="#EF4444" />
+                  <Text style={styles.infoBoxTitle}>Specializations</Text>
+                </View>
+                <View style={styles.tagsContainer}>
+                  {user.profile.specializations.map((spec, index) => (
+                    <View key={index} style={styles.tag}>
+                      <Text style={styles.tagText}>{spec}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Customer Info Boxes */}
+        {user?.userType === 'customer' && user?.profile?.location && (
+          <View style={styles.infoBoxesContainer}>
+            <View style={styles.infoBox}>
+              <View style={styles.infoBoxHeader}>
+                <Ionicons name="location" size={20} color="#EF4444" />
+                <Text style={styles.infoBoxTitle}>Location</Text>
+              </View>
+              <Text style={styles.infoBoxContent}>{user.profile.location}</Text>
+            </View>
+          </View>
+        )}
 
         {/* Menu Section */}
         <View style={styles.menuSection}>
@@ -534,8 +620,77 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   profileName: { fontSize: 24, fontWeight: 'bold', color: '#000', marginBottom: 4 },
-  profileEmail: { fontSize: 16, color: '#666', marginBottom: 8 },
+  profileEmail: { fontSize: 16, color: '#666', marginBottom: 4 },
+  phoneContainer: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    marginBottom: 8,
+    gap: 6,
+  },
+  profilePhone: { fontSize: 14, color: '#666' },
   profileBio: { fontSize: 14, color: '#999', textAlign: 'center', lineHeight: 20 },
+  infoBoxesContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    gap: 12,
+  },
+  infoBox: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  specializationsBox: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
+  },
+  infoBoxHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+  },
+  infoBoxTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  infoBoxContent: {
+    fontSize: 16,
+    color: '#111827',
+    fontWeight: '500',
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4,
+  },
+  tag: {
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  tagText: {
+    color: 'white',
+    fontSize: 13,
+    fontWeight: '600',
+    textTransform: 'capitalize',
+  },
   menuSection: { paddingVertical: 20 },
   menuItem: {
     flexDirection: 'row',

@@ -90,6 +90,16 @@ export default function RegisterScreen() {
 
     // Clean up data before sending
     const submitData = { ...formData };
+    
+    // Process specializations from the text input
+    if (submitData.userType === 'vendor' && specializationsText.trim()) {
+      const specializations = specializationsText
+        .split(',')
+        .map(s => s.trim())
+        .filter(s => s);
+      submitData.profile.specializations = specializations;
+    }
+    
     if (submitData.userType === 'customer') {
       delete submitData.profile.academyName;
       delete submitData.profile.specializations;
@@ -400,7 +410,7 @@ export default function RegisterScreen() {
               display={Platform.OS === 'ios' ? 'spinner' : 'default'}
               maximumDate={new Date()}
               textColor="#000000"
-              onChange={(event, selectedDate) => {
+              onChange={(_, selectedDate) => {
                 if (selectedDate && Platform.OS === 'android') {
                   // Android: apply immediately
                   const iso = selectedDate.toISOString().split('T')[0];

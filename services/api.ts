@@ -495,6 +495,16 @@ class ApiService {
     });
   }
 
+  // ================= Account Deletion =================
+  async deleteAccount(token: string, userId: string): Promise<any> {
+    return this.request<any>(`/api/users/${userId}/permanent`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+  }
+
   // ================= Booking Management =================
   async cancelBooking(token: string, bookingId: string, body: CancelBookingRequest): Promise<any> {
     return this.request<any>(`/api/bookings/${bookingId}`, {
