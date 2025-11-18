@@ -49,10 +49,6 @@
         "color": "#ef4444"
       }
     },
-    "notification": {
-      "icon": "./assets/images/quackplanicon.png",
-      "color": "#ef4444"
-    },
     "plugins": [
       [
         "expo-notifications",
