@@ -4,7 +4,7 @@
     "slug": "quack-plan",
     "version": "1.0.0",
     "orientation": "portrait",
-    "entryPoint": "./app/index.js",
+
     "scheme": "quackplan",
     "icon": "./assets/images/quackplanicon.png",
     "userInterfaceStyle": "automatic",
@@ -13,6 +13,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "bundleIdentifier": "com.quackplan.quackplan",
       "supportsTablet": true,
