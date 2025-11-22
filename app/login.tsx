@@ -17,7 +17,7 @@ import { useSnackbar } from '../contexts/SnackbarContext';
 import { LoginRequest } from '../services/api';
 
 export default function LoginScreen() {
-  const { login, isLoading } = useAuth();
+  const { login, isLoading, token } = useAuth();
   const { snackbar, showSuccess, showError, hideSnackbar } = useSnackbar();
   
   const [formData, setFormData] = useState<LoginRequest>({
@@ -55,6 +55,25 @@ export default function LoginScreen() {
       console.log('🚀 Login form submitted:', formData);
       await login(formData);
       console.log('✅ Login successful, showing success message');
+      
+      // Register for push notifications after successful login
+      // Use setTimeout to ensure token is available in context
+      setTimeout(async () => {
+        try {
+          console.log('📱 Registering for push notifications...');
+          const pushToken = await registerForPushNotificationsAsync();
+          
+          if (pushToken && token) {
+            console.log('📤 Sending push token to backend...');
+            await apiService.updatePushToken(token, pushToken);
+            console.log('✅ Push token registered successfully');
+          }
+        } catch (pushError) {
+          console.warn('⚠️ Failed to register push notifications:', pushError);
+          // Don't block login if push notification registration fails
+        }
+      }, 1000);
+      
       showSuccess('Login successful! Welcome back!');
       // Navigate to home after successful login
       router.replace('/(tabs)');

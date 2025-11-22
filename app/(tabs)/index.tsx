@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
+import { router } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -37,21 +38,11 @@ interface Event {
 }
 
 const HomeScreen = () => {
-  // All hooks must be called at the top level
-  const navigation = useNavigation();
+  // All hooks MUST be called at the top level - never conditionally
+  const { user, token } = useAuth();
   const insets = useSafeAreaInsets();
   const { snackbar, showError, showSuccess } = useSnackbar();
   
-  let user, token;
-  try {
-    const auth = useAuth();
-    user = auth.user;
-    token = auth.token;
-  } catch (error) {
-    console.log('Auth context not available in HomeScreen');
-    user = null;
-    token = null;
-  }
   // Date restrictions - current year only
   const now = new Date();
   const minimumDate = new Date(now.getFullYear(), 0, 1); // January 1st of current year
@@ -616,7 +607,7 @@ const HomeScreen = () => {
             </View>
             <TouchableOpacity 
               style={styles.notificationIcon}
-              onPress={() => navigation.navigate('notifications' as never)}
+              onPress={() => router.push('/(tabs)/notifications')}
             >
               <Ionicons name="notifications-outline" size={24} color="#000" />
               {unreadCount > 0 && (

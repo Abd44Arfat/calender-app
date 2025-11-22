@@ -714,6 +714,18 @@ class ApiService {
       headers: { 'Authorization': `Bearer ${token}` },
     });
   }
+
+  // Push Notifications
+  async updatePushToken(token: string, pushToken: string) {
+    return this.request<{ message: string }>('/api/users/push-token', {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ pushToken }),
+    });
+  }
 }  
 
 export const apiService = new ApiService();

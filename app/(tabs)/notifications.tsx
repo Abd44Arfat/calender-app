@@ -1,17 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
   Image,
   RefreshControl,
-  SafeAreaView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Snackbar } from '../../components/Snackbar';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSnackbar } from '../../contexts/SnackbarContext';
@@ -36,6 +37,20 @@ export default function NotificationsScreen() {
       }
     }
   }, [token, user]);
+
+  // Refresh when screen comes into focus (after accepting/rejecting)
+  useFocusEffect(
+    useCallback(() => {
+      console.log('🔄 Notifications screen focused, refreshing...');
+      if (token) {
+        if (user?.userType === 'customer') {
+          loadAssignments(true);
+        } else if (user?.userType === 'vendor') {
+          loadVendorNotifications(true);
+        }
+      }
+    }, [token, user])
+  );
 
   const loadAssignments = async (isRefresh = false) => {
     if (!token) return;
@@ -250,7 +265,7 @@ export default function NotificationsScreen() {
 
   if (!user) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Notifications</Text>
         </View>
@@ -266,7 +281,7 @@ export default function NotificationsScreen() {
   // For vendors, show response notifications
   if (user?.userType === 'vendor') {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Notifications</Text>
           <TouchableOpacity onPress={() => loadVendorNotifications()}>
@@ -313,7 +328,7 @@ export default function NotificationsScreen() {
 
   // For customers, show event assignments
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Event Assignments</Text>
         <TouchableOpacity onPress={() => loadAssignments()}>
@@ -361,7 +376,7 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: 'white',
   },
   header: {
     flexDirection: 'row',
@@ -370,8 +385,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
   },
   headerTitle: {
     fontSize: 24,

@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { router } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { router, useLocalSearchParams } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
@@ -31,6 +32,7 @@ export default function ExploreScreen() {
   const { user, token } = useAuth();
   const insets = useSafeAreaInsets();
   const { snackbar, showError, showSuccess } = useSnackbar();
+  const params = useLocalSearchParams<{ editEventId?: string; editMode?: string }>();
   
   // Date restrictions - current year only
   const now = new Date();
@@ -177,7 +179,52 @@ export default function ExploreScreen() {
 
   useEffect(() => {
     fetchEvents();
-  }, [currentMonth]);
+  }, [currentMonth, user, token]);
+
+  // Handle edit mode from params
+  useEffect(() => {
+    if (params.editEventId && params.editMode === 'true' && token) {
+      loadEventForEdit(params.editEventId);
+    }
+  }, [params.editEventId, params.editMode, token]);
+
+  const loadEventForEdit = async (eventId: string) => {
+    try {
+      setIsLoading(true);
+      const eventData = await apiService.getEventById(eventId);
+      
+      // Pre-fill the form with event data
+      setNewEventTitle(eventData.title || '');
+      setNewEventDescription(eventData.description || '');
+      setNewEventLocation(eventData.location || '');
+      setNewEventCapacity(eventData.capacity?.toString() || '');
+      setNewEventPrice(eventData.priceCents ? (eventData.priceCents / 100).toString() : '');
+      setNewEventTags(eventData.tags?.join(', ') || '');
+      
+      const startDate = new Date(eventData.startsAt);
+      const endDate = new Date(eventData.endsAt);
+      
+      setEventCreationDate(startDate);
+      setStartTimeDate(startDate);
+      setEndTimeDate(endDate);
+      
+      setIsEditingEvent(true);
+      setEditingVendorEventId(eventId);
+      setIsCreateModalVisible(true);
+    } catch (error: any) {
+      showError('Failed to load event for editing');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Refresh when screen comes into focus (after accepting event)
+  useFocusEffect(
+    useCallback(() => {
+      console.log('🔄 Calendar screen focused, refreshing events...');
+      fetchEvents();
+    }, [currentMonth, user, token])
+  );
 
   // Helper functions
   const formatDate = (date: Date) => {

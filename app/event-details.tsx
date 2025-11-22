@@ -43,6 +43,21 @@ export default function EventDetailsScreen() {
       const eventData = await apiService.getEventById(eventId);
       console.log('📦 Event Data:', JSON.stringify(eventData, null, 2));
       console.log('👤 Vendor ID:', eventData.vendorId);
+      console.log('👤 Vendor ID Type:', typeof eventData.vendorId);
+      console.log('👤 Is Vendor Populated?:', eventData.vendorId && typeof eventData.vendorId === 'object');
+      
+      // If vendorId is just a string (not populated), we need to fetch vendor details
+      if (eventData.vendorId && typeof eventData.vendorId === 'string') {
+        console.log('⚠️ Vendor not populated, fetching vendor details...');
+        try {
+          // Try to get vendor info from the user profile endpoint
+          // For now, we'll just set the event and show what we have
+          console.log('ℹ️ Vendor ID is not populated. Backend should populate vendor data.');
+        } catch (err) {
+          console.warn('Could not fetch vendor details:', err);
+        }
+      }
+      
       setEvent(eventData);
     } catch (error: any) {
       showError('Failed to load event details');
@@ -84,7 +99,12 @@ export default function EventDetailsScreen() {
               setIsProcessing(true);
               await apiService.acceptEventAssignment(token, assignmentId);
               showSuccess('Event accepted! It will appear in your calendar.');
-              setTimeout(() => router.back(), 1500);
+              
+              // Navigate back after showing success message
+              // The screens will auto-refresh when they come into focus
+              setTimeout(() => {
+                router.back();
+              }, 1500);
             } catch (error: any) {
               showError(error.response?.data?.error || 'Failed to accept event');
             } finally {
@@ -112,7 +132,12 @@ export default function EventDetailsScreen() {
               setIsProcessing(true);
               await apiService.rejectEventAssignment(token, assignmentId);
               showSuccess('Event rejected');
-              setTimeout(() => router.back(), 1500);
+              
+              // Navigate back after showing success message
+              // The screens will auto-refresh when they come into focus
+              setTimeout(() => {
+                router.back();
+              }, 1500);
             } catch (error: any) {
               showError(error.response?.data?.error || 'Failed to reject event');
             } finally {
@@ -171,16 +196,30 @@ export default function EventDetailsScreen() {
   }
 
   const isPendingAssignment = assignment && assignment.status === 'pending';
+  
   // Get vendor data from assignment.assignedBy if available, otherwise from event.vendorId
-  const vendor = assignment?.assignedBy || event.vendorId;
-  const vendorName = vendor?.profile?.fullName || 'Unknown Vendor';
+  const vendorData = assignment?.assignedBy || event.vendorId;
+  
+  // Check if vendor data is populated (object) or just an ID (string)
+  const isVendorPopulated = vendorData && typeof vendorData === 'object';
+  const vendor = isVendorPopulated ? vendorData : null;
+  
+  const vendorName = vendor?.profile?.fullName || (isVendorPopulated ? 'Unknown Vendor' : 'Vendor');
   const academyName = vendor?.profile?.academyName;
   const vendorEmail = vendor?.email;
   const vendorPhone = vendor?.profile?.businessPhone;
   const vendorImage = vendor?.profile?.profilePicture;
+
+  // Check if current user is the vendor who created this event
+  const isEventOwner = user?.userType === 'vendor' && 
+    (event.vendorId === user._id || 
+     (typeof event.vendorId === 'object' && event.vendorId?._id === user._id));
   
   console.log('🔍 Using vendor from:', assignment?.assignedBy ? 'assignment.assignedBy' : 'event.vendorId');
+  console.log('👤 Vendor Data Type:', typeof vendorData);
+  console.log('👤 Is Vendor Populated?:', isVendorPopulated);
   console.log('👤 Vendor object:', vendor);
+  console.log('🖼️ Vendor Image:', vendorImage);
 
   // Helper function to get full image URL
   const getImageUrl = (imagePath: string | undefined) => {
@@ -203,12 +242,56 @@ export default function EventDetailsScreen() {
     }
   };
 
+  const handleEditEvent = () => {
+    // Navigate to explore tab with edit params
+    // This will automatically open the create/edit modal with all event data pre-filled
+    router.replace({
+      pathname: '/(tabs)/explore',
+      params: {
+        editEventId: eventId,
+        editMode: 'true',
+      },
+    });
+  };
+
+  const handleDeleteEvent = async () => {
+    Alert.alert(
+      'Delete Event',
+      'Are you sure you want to delete this event? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setIsProcessing(true);
+              if (!token) {
+                showError('You must be logged in');
+                return;
+              }
+              await apiService.deleteEvent(token, eventId);
+              showSuccess('Event deleted successfully');
+              setTimeout(() => {
+                router.back();
+              }, 1500);
+            } catch (error: any) {
+              showError(error.response?.data?.error || 'Failed to delete event');
+            } finally {
+              setIsProcessing(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   // Debug logging
   console.log('🖼️ Vendor Image Path:', vendorImage);
   console.log('🖼️ Full Image URL:', getImageUrl(vendorImage));
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color="#000" />
@@ -367,6 +450,26 @@ export default function EventDetailsScreen() {
             </TouchableOpacity>
           </View>
         )}
+
+        {/* Delete Button for Event Owner (Vendor) */}
+        {isEventOwner && !isPendingAssignment && (
+          <View style={styles.actionButtons}>
+            <TouchableOpacity
+              style={[styles.deleteButton, isProcessing && styles.buttonDisabled]}
+              onPress={handleDeleteEvent}
+              disabled={isProcessing}
+            >
+              {isProcessing ? (
+                <ActivityIndicator size="small" color="#EF4444" />
+              ) : (
+                <>
+                  <Ionicons name="trash-outline" size={20} color="#EF4444" />
+                  <Text style={styles.deleteButtonText}>Delete Event</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
 
       <Snackbar
@@ -382,7 +485,7 @@ export default function EventDetailsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: 'white',
   },
   header: {
     flexDirection: 'row',
@@ -391,8 +494,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
   },
   headerTitle: {
     fontSize: 20,
@@ -497,8 +598,9 @@ const styles = StyleSheet.create({
   actionButtons: {
     flexDirection: 'row',
     gap: 12,
-    paddingHorizontal: 20,
+    paddingHorizontal: 0,
     paddingBottom: 32,
+    marginHorizontal: 20,
   },
   rejectButton: {
     flex: 1,
@@ -534,6 +636,22 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.5,
+  },
+  deleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 16,
+    borderRadius: 12,
+    backgroundColor: 'white',
+    borderWidth: 2,
+    borderColor: '#EF4444',
+  },
+  deleteButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#EF4444',
   },
   vendorCard: {
     backgroundColor: 'white',
