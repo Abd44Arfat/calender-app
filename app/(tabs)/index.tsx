@@ -52,6 +52,11 @@ const HomeScreen = () => {
     user = null;
     token = null;
   }
+  // Date restrictions - current year only
+  const now = new Date();
+  const minimumDate = new Date(now.getFullYear(), 0, 1); // January 1st of current year
+  const maximumDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59); // December 31st of current year
+
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [events, setEvents] = useState<Event[]>([]);
@@ -817,6 +822,8 @@ const HomeScreen = () => {
                   mode="date"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                   textColor="#2196F3"
+                  minimumDate={minimumDate}
+                  maximumDate={maximumDate}
                   onChange={(event, selectedDate) => {
                     setShowDatePicker(false);
                     if (selectedDate) {

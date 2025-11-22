@@ -26,6 +26,11 @@ export default function CreateEventScreen() {
   const { token, user } = useAuth();
   const { snackbar, showSuccess, showError, hideSnackbar } = useSnackbar();
 
+  // Date restrictions - current year only
+  const now = new Date();
+  const minimumDate = new Date(now.getFullYear(), 0, 1); // January 1st of current year
+  const maximumDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59); // December 31st of current year
+
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
@@ -355,6 +360,8 @@ export default function CreateEventScreen() {
                 value={startDate}
                 mode="datetime"
                 display="spinner"
+                minimumDate={minimumDate}
+                maximumDate={maximumDate}
                 onChange={(event, date) => {
                   if (date) setStartDate(date);
                 }}
@@ -369,6 +376,8 @@ export default function CreateEventScreen() {
           value={startDate}
           mode="datetime"
           display="default"
+          minimumDate={minimumDate}
+          maximumDate={maximumDate}
           onChange={(event, date) => {
             setShowStartPicker(false);
             if (date) setStartDate(date);
@@ -391,6 +400,8 @@ export default function CreateEventScreen() {
                 value={endDate}
                 mode="datetime"
                 display="spinner"
+                minimumDate={minimumDate}
+                maximumDate={maximumDate}
                 onChange={(event, date) => {
                   if (date) setEndDate(date);
                 }}
@@ -405,6 +416,8 @@ export default function CreateEventScreen() {
           value={endDate}
           mode="datetime"
           display="default"
+          minimumDate={minimumDate}
+          maximumDate={maximumDate}
           onChange={(event, date) => {
             setShowEndPicker(false);
             if (date) setEndDate(date);

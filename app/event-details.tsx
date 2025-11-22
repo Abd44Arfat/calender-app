@@ -2,14 +2,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  Linking,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { Snackbar } from '../components/Snackbar';
 import { useAuth } from '../contexts/AuthContext';
@@ -39,6 +41,8 @@ export default function EventDetailsScreen() {
     try {
       setIsLoading(true);
       const eventData = await apiService.getEventById(eventId);
+      console.log('📦 Event Data:', JSON.stringify(eventData, null, 2));
+      console.log('👤 Vendor ID:', eventData.vendorId);
       setEvent(eventData);
     } catch (error: any) {
       showError('Failed to load event details');
@@ -56,6 +60,8 @@ export default function EventDetailsScreen() {
       });
       const foundAssignment = response.assignments?.find((a: any) => a._id === assignmentId);
       if (foundAssignment) {
+        console.log('📋 Assignment Data:', JSON.stringify(foundAssignment, null, 2));
+        console.log('👤 Assigned By:', foundAssignment.assignedBy);
         setAssignment(foundAssignment);
       }
     } catch (error: any) {
@@ -165,7 +171,41 @@ export default function EventDetailsScreen() {
   }
 
   const isPendingAssignment = assignment && assignment.status === 'pending';
-  const vendorName = event.vendorId?.profile?.fullName || 'Unknown Vendor';
+  // Get vendor data from assignment.assignedBy if available, otherwise from event.vendorId
+  const vendor = assignment?.assignedBy || event.vendorId;
+  const vendorName = vendor?.profile?.fullName || 'Unknown Vendor';
+  const academyName = vendor?.profile?.academyName;
+  const vendorEmail = vendor?.email;
+  const vendorPhone = vendor?.profile?.businessPhone;
+  const vendorImage = vendor?.profile?.profilePicture;
+  
+  console.log('🔍 Using vendor from:', assignment?.assignedBy ? 'assignment.assignedBy' : 'event.vendorId');
+  console.log('👤 Vendor object:', vendor);
+
+  // Helper function to get full image URL
+  const getImageUrl = (imagePath: string | undefined) => {
+    if (!imagePath) return null;
+    // If it already starts with http, return as is
+    if (imagePath.startsWith('http')) return imagePath;
+    // Otherwise, prepend the base URL
+    return `http://localhost:3000${imagePath}`;
+  };
+
+  const handleCallVendor = () => {
+    if (vendorPhone) {
+      Linking.openURL(`tel:${vendorPhone}`);
+    }
+  };
+
+  const handleEmailVendor = () => {
+    if (vendorEmail) {
+      Linking.openURL(`mailto:${vendorEmail}`);
+    }
+  };
+
+  // Debug logging
+  console.log('🖼️ Vendor Image Path:', vendorImage);
+  console.log('🖼️ Full Image URL:', getImageUrl(vendorImage));
 
   return (
     <SafeAreaView style={styles.container}>
@@ -177,7 +217,7 @@ export default function EventDetailsScreen() {
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView style={styles.content}>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Event Icon */}
         <View style={styles.iconContainer}>
           <View style={styles.icon}>
@@ -189,7 +229,7 @@ export default function EventDetailsScreen() {
         <Text style={styles.title}>{event.title}</Text>
 
         {/* Vendor Name */}
-        <Text style={styles.vendor}>by {vendorName}</Text>
+        <Text style={styles.subtitle}>by {vendorName}</Text>
 
         {/* Event Details */}
         <View style={styles.detailsCard}>
@@ -232,6 +272,64 @@ export default function EventDetailsScreen() {
           <View style={styles.descriptionCard}>
             <Text style={styles.descriptionTitle}>Description</Text>
             <Text style={styles.descriptionText}>{event.description}</Text>
+          </View>
+        )}
+
+        {/* Vendor Information Card */}
+        {vendor && (
+          <View style={styles.vendorCard}>
+            <Text style={styles.vendorCardTitle}>Organized By</Text>
+            
+            <View style={styles.vendorInfo}>
+              {/* Vendor Avatar */}
+              <View style={styles.vendorAvatar}>
+                {vendorImage ? (
+                  <Image
+                    source={{ uri: getImageUrl(vendorImage) || undefined }}
+                    style={styles.vendorAvatarImage}
+                    onError={(error) => {
+                      console.log('❌ Image load error:', error.nativeEvent.error);
+                    }}
+                    onLoad={() => {
+                      console.log('✅ Image loaded successfully');
+                    }}
+                  />
+                ) : (
+                  <View style={styles.vendorAvatarPlaceholder}>
+                    <Ionicons name="person" size={32} color="#EF4444" />
+                  </View>
+                )}
+              </View>
+
+              {/* Vendor Details */}
+              <View style={styles.vendorDetails}>
+                <Text style={styles.vendorFullName}>{vendorName}</Text>
+                {academyName && (
+                  <View style={styles.vendorMetaRow}>
+                    <Ionicons name="business-outline" size={16} color="#666" />
+                    <Text style={styles.vendorMetaText}>{academyName}</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+
+        
+
+            {/* Vendor Contact Info */}
+            <View style={styles.vendorContactInfo}>
+              {vendorEmail && (
+                <View style={styles.vendorContactRow}>
+                  <Ionicons name="mail" size={16} color="#999" />
+                  <Text style={styles.vendorContactText}>{vendorEmail}</Text>
+                </View>
+              )}
+              {vendorPhone && (
+                <View style={styles.vendorContactRow}>
+                  <Ionicons name="call" size={16} color="#999" />
+                  <Text style={styles.vendorContactText}>{vendorPhone}</Text>
+                </View>
+              )}
+            </View>
           </View>
         )}
 
@@ -344,7 +442,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 8,
   },
-  vendor: {
+  subtitle: {
     fontSize: 16,
     color: '#666',
     textAlign: 'center',
@@ -436,5 +534,104 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.5,
+  },
+  vendorCard: {
+    backgroundColor: 'white',
+    marginHorizontal: 20,
+    marginBottom: 16,
+    borderRadius: 12,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  vendorCardTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#999',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 16,
+  },
+  vendorInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  vendorAvatar: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    marginRight: 16,
+    overflow: 'hidden',
+  },
+  vendorAvatarImage: {
+    width: '100%',
+    height: '100%',
+  },
+  vendorAvatarPlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#FEF2F2',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  vendorDetails: {
+    flex: 1,
+  },
+  vendorFullName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#000',
+    marginBottom: 4,
+  },
+  vendorMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  vendorMetaText: {
+    fontSize: 14,
+    color: '#666',
+    marginLeft: 6,
+  },
+  contactActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  contactButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: '#EF4444',
+    backgroundColor: '#FEF2F2',
+  },
+  contactButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#EF4444',
+  },
+  vendorContactInfo: {
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    paddingTop: 16,
+  },
+  vendorContactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  vendorContactText: {
+    fontSize: 14,
+    color: '#666',
+    marginLeft: 8,
   },
 });

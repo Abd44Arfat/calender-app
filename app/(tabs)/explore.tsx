@@ -31,6 +31,12 @@ export default function ExploreScreen() {
   const { user, token } = useAuth();
   const insets = useSafeAreaInsets();
   const { snackbar, showError, showSuccess } = useSnackbar();
+  
+  // Date restrictions - current year only
+  const now = new Date();
+  const minimumDate = new Date(now.getFullYear(), 0, 1); // January 1st of current year
+  const maximumDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59); // December 31st of current year
+
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isLoading, setIsLoading] = useState(false);
@@ -860,6 +866,8 @@ export default function ExploreScreen() {
                   mode="date"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                   textColor="#2196F3"
+                  minimumDate={minimumDate}
+                  maximumDate={maximumDate}
                   onChange={(event, selectedDate) => {
                     setShowEventDatePicker(false);
                     if (selectedDate) {
