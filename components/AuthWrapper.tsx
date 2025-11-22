@@ -1,7 +1,7 @@
-import React from 'react';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
-import { useAuth } from '../contexts/AuthContext';
 import { router } from 'expo-router';
+import React from 'react';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { useAuth } from '../contexts/AuthContext';
 
 interface AuthWrapperProps {
   children: React.ReactNode;

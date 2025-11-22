@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { router } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
-import { useSnackbar } from '../../hooks/useSnackbar';
+import { useSnackbar } from '../../contexts/SnackbarContext';
 import { apiService } from '../../services/api';
 import { scheduleEventNotification } from '../../services/notificationservice';
 
@@ -27,10 +28,7 @@ interface EventsData {
 }
 
 export default function ExploreScreen() {
-  const auth = useAuth();
-  const user = auth?.user ?? null;
-  const token = auth?.token ?? null;
-  
+  const { user, token } = useAuth();
   const insets = useSafeAreaInsets();
   const { snackbar, showError, showSuccess } = useSnackbar();
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -38,9 +36,6 @@ export default function ExploreScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [events, setEvents] = useState<Event[]>([]);
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
-  const [isEventsModalVisible, setIsEventsModalVisible] = useState(false);
-  const [isConfirmationVisible, setIsConfirmationVisible] = useState(false);
-  const [confirmationMessage, setConfirmationMessage] = useState('');
   const [newEventTitle, setNewEventTitle] = useState('');
   const [newEventDescription, setNewEventDescription] = useState('');
   const [newEventLocation, setNewEventLocation] = useState('');
@@ -66,29 +61,92 @@ export default function ExploreScreen() {
       const startOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
       const endOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
       
-      const eventsResponse = await apiService.listEvents({
-        startDate: startOfMonth.toISOString(),
-        endDate: endOfMonth.toISOString(),
-        limit: 100,
-      });
+      let formattedEvents: Event[] = [];
 
-      const normalizedEvents = Array.isArray(eventsResponse?.events) ? eventsResponse.events : 
-                              Array.isArray(eventsResponse?.data) ? eventsResponse.data :
-                              Array.isArray(eventsResponse) ? eventsResponse : [];
+      // For customers, show only accepted events
+      if (user?.userType === 'customer' && token) {
+        try {
+          const acceptedEventsResponse = await apiService.getMyAcceptedEvents(token, {
+            limit: 100,
+          });
 
-      const formattedEvents = normalizedEvents.map((event: any, index: number) => ({
-        id: event._id || `event-${index}`, // Ensure unique ID using _id or fallback
-        title: event.title || 'Untitled Event',
-        time: `${new Date(event.startsAt).toTimeString().slice(0, 5)}-${new Date(event.endsAt).toTimeString().slice(0, 5)}`,
-        color: getRandomColor(event.title + event.startsAt), // Use random color based on event title and time
-        type: 'event',
-        startsAt: event.startsAt,
-        endsAt: event.endsAt,
-        location: event.location,
-        priceCents: event.priceCents,
-        capacity: event.capacity,
-        description: event.description,
-      }));
+          const acceptedEvents = acceptedEventsResponse.events || [];
+          
+          // Filter events for the current month
+          formattedEvents = acceptedEvents
+            .filter((event: any) => {
+              const eventDate = new Date(event.startsAt);
+              return eventDate >= startOfMonth && eventDate <= endOfMonth;
+            })
+            .map((event: any, index: number) => ({
+              id: event._id || `event-${index}`,
+              title: event.title || 'Untitled Event',
+              time: `${new Date(event.startsAt).toTimeString().slice(0, 5)}-${new Date(event.endsAt).toTimeString().slice(0, 5)}`,
+              color: getRandomColor(event.title + event.startsAt),
+              type: 'event',
+              startsAt: event.startsAt,
+              endsAt: event.endsAt,
+              location: event.location,
+              priceCents: event.priceCents,
+              capacity: event.capacity,
+              description: event.description,
+            }));
+        } catch (err: any) {
+          console.warn('Failed to fetch accepted events:', err);
+          // If token is invalid, fall back to showing all public events
+          if (err.response?.status === 401) {
+            console.log('Token invalid, showing public events instead');
+            const eventsResponse = await apiService.listEvents({
+              startDate: startOfMonth.toISOString(),
+              endDate: endOfMonth.toISOString(),
+              limit: 100,
+            });
+
+            const normalizedEvents = Array.isArray(eventsResponse?.events) ? eventsResponse.events : 
+                                    Array.isArray(eventsResponse?.data) ? eventsResponse.data :
+                                    Array.isArray(eventsResponse) ? eventsResponse : [];
+
+            formattedEvents = normalizedEvents.map((event: any, index: number) => ({
+              id: event._id || `event-${index}`,
+              title: event.title || 'Untitled Event',
+              time: `${new Date(event.startsAt).toTimeString().slice(0, 5)}-${new Date(event.endsAt).toTimeString().slice(0, 5)}`,
+              color: getRandomColor(event.title + event.startsAt),
+              type: 'event',
+              startsAt: event.startsAt,
+              endsAt: event.endsAt,
+              location: event.location,
+              priceCents: event.priceCents,
+              capacity: event.capacity,
+              description: event.description,
+            }));
+          }
+        }
+      } else {
+        // For vendors and non-logged-in users, show all public events
+        const eventsResponse = await apiService.listEvents({
+          startDate: startOfMonth.toISOString(),
+          endDate: endOfMonth.toISOString(),
+          limit: 100,
+        });
+
+        const normalizedEvents = Array.isArray(eventsResponse?.events) ? eventsResponse.events : 
+                                Array.isArray(eventsResponse?.data) ? eventsResponse.data :
+                                Array.isArray(eventsResponse) ? eventsResponse : [];
+
+        formattedEvents = normalizedEvents.map((event: any, index: number) => ({
+          id: event._id || `event-${index}`,
+          title: event.title || 'Untitled Event',
+          time: `${new Date(event.startsAt).toTimeString().slice(0, 5)}-${new Date(event.endsAt).toTimeString().slice(0, 5)}`,
+          color: getRandomColor(event.title + event.startsAt),
+          type: 'event',
+          startsAt: event.startsAt,
+          endsAt: event.endsAt,
+          location: event.location,
+          priceCents: event.priceCents,
+          capacity: event.capacity,
+          description: event.description,
+        }));
+      }
 
       setEvents(formattedEvents);
 
@@ -101,7 +159,11 @@ export default function ExploreScreen() {
       });
 
     } catch (err: any) {
-      showError(err.message || 'Failed to fetch events');
+      console.error('Failed to fetch events:', err);
+      // Only show error for critical failures, not token issues
+      if (err.response?.status !== 401) {
+        showError(err.message || 'Failed to fetch events');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -217,8 +279,9 @@ export default function ExploreScreen() {
     if (event.startsAt) {
       const eventDate = new Date(event.startsAt);
       if (eventDate.getTime() <= Date.now()) {
-        setConfirmationMessage('Cannot book: Event time has passed or is ongoing.');
-        setIsConfirmationVisible(true);
+        // setConfirmationMessage('Cannot book: Event time has passed or is ongoing.');
+        // setIsConfirmationVisible(true);
+        showError('Cannot book: Event time has passed or is ongoing.');
         return;
       }
     }
@@ -236,9 +299,9 @@ export default function ExploreScreen() {
               const eventIdStr = event.id.toString();
               const eventId = eventIdStr;
               await apiService.createBooking(token, { eventId });
-              setIsEventsModalVisible(false);
-              setConfirmationMessage('Your booking is confirmed!');
-              setIsConfirmationVisible(true);
+              // setIsEventsModalVisible(false);
+              // setConfirmationMessage('Your booking is confirmed!');
+              // setIsConfirmationVisible(true);
               showSuccess('Event booked successfully!');
               // Refresh events to reflect the booking
               await fetchEvents();
@@ -334,7 +397,7 @@ export default function ExploreScreen() {
     setEventCreationDate(startDate);
     setStartTimeDate(startDate);
     setEndTimeDate(endDate);
-    setIsEventsModalVisible(false);
+    // setIsEventsModalVisible(false);
     setIsCreateModalVisible(true);
   };
 
@@ -357,7 +420,7 @@ export default function ExploreScreen() {
               setIsLoading(true);
               await apiService.deleteEvent(token, eventId);
               showSuccess('Event deleted successfully');
-              setIsEventsModalVisible(false);
+              // setIsEventsModalVisible(false);
               await fetchEvents();
             } catch (err: any) {
               showError(err.message || 'Failed to delete event');
@@ -465,7 +528,7 @@ export default function ExploreScreen() {
             <View style={styles.profilePic}>
               {user?.profile?.profilePicture ? (
                 <Image
-                  source={{ uri: `https://quackplan2.ahmed-abd-elmohsen.tech${user.profile.profilePicture}` }}
+                  source={{ uri: `http://localhost:3000${user.profile.profilePicture}` }}
                   style={{ width: 40, height: 40, borderRadius: 20 }}
                 />
               ) : (
@@ -521,8 +584,16 @@ export default function ExploreScreen() {
                     !isCurrentMonthDay && styles.otherMonthDay
                   ]}
                   onPress={() => {
-                    setSelectedDate(date);
-                    setIsEventsModalVisible(true);
+                    const dateKey = formatDate(date);
+                    const dayEvents = calendarEvents[dateKey] || [];
+                    
+                    router.push({
+                      pathname: '/day-events',
+                      params: {
+                        date: date.toISOString(),
+                        eventsData: JSON.stringify(dayEvents)
+                      }
+                    });
                   }}
                 >
                   <Text style={[
@@ -556,21 +627,7 @@ export default function ExploreScreen() {
           <TouchableOpacity 
             style={styles.fab} 
             onPress={() => {
-              setIsEditingEvent(false);
-              setEditingVendorEventId(null);
-              setNewEventTitle('');
-              setNewEventDescription('');
-              setNewEventLocation('');
-              setNewEventCapacity('');
-              setNewEventPrice('');
-              setNewEventTags('');
-              const now = new Date();
-              setEventCreationDate(selectedDate);
-              setStartTimeDate(now);
-              const end = new Date(now);
-              end.setHours(end.getHours() + 1);
-              setEndTimeDate(end);
-              setIsCreateModalVisible(true);
+              router.push('/events/create');
             }}
           >
             <Ionicons name="add" size={24} color="white" />
@@ -580,8 +637,8 @@ export default function ExploreScreen() {
       <Modal
         animationType="slide"
         transparent={true}
-        visible={isEventsModalVisible}
-        onRequestClose={() => setIsEventsModalVisible(false)}
+        visible={false}
+        onRequestClose={() => {}}
       >
         <View style={styles.eventsModalOverlay}>
           <View style={styles.eventsModalContent}>
@@ -595,7 +652,7 @@ export default function ExploreScreen() {
             </Text>
             <TouchableOpacity
               style={styles.modalCloseButton}
-              onPress={() => setIsEventsModalVisible(false)}
+              onPress={() => {}}
             >
               <Ionicons name="close" size={24} color="#000" />
             </TouchableOpacity>
@@ -922,26 +979,7 @@ export default function ExploreScreen() {
         </View>
       </Modal>
 
-      {/* Confirmation Modal */}
-      <Modal
-        visible={isConfirmationVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setIsConfirmationVisible(false)}
-      >
-        <View style={styles.confirmOverlay}>
-          <View style={styles.confirmCard}>
-            <Ionicons name="checkmark-circle" size={64} color="#22C55E" style={{ marginBottom: 12 }} />
-            <Text style={styles.confirmTitle}>
-              {confirmationMessage.includes('Cannot book') ? 'Booking Error' : 'Booking Confirmed'}
-            </Text>
-            <Text style={styles.confirmMessage}>{confirmationMessage}</Text>
-            <TouchableOpacity onPress={() => setIsConfirmationVisible(false)} style={styles.confirmButton}>
-              <Text style={{ color: '#fff', fontWeight: '600' }}>OK</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+
 
       {/* Snackbar */}
       {snackbar.visible && (

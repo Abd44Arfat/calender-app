@@ -15,7 +15,18 @@
       "autoIncrement": true,
       "ios": {
         "image": "latest",
-        "resourceClass": "m-medium"
+        "buildConfiguration": "Release"
+      },
+      "env": {
+        "NODE_OPTIONS": "--max-old-space-size=3072",
+        "EXPO_NO_METRO_CACHE": "1"
+      },
+      "cache": {
+        "key": "production-cache-v2",
+        "paths": [
+          "node_modules",
+          "ios/Pods"
+        ]
       }
     }
   },

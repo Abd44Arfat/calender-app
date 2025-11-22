@@ -28,13 +28,13 @@ export const Snackbar: React.FC<SnackbarProps> = ({
   duration = 6000,
 }) => {
   const insets = useSafeAreaInsets();
-  const translateY = new Animated.Value(-100);
+  const translateY = new Animated.Value(-200);
 
   useEffect(() => {
     if (visible) {
       Animated.spring(translateY, {
-        toValue: 0,
-        useNativeDriver: true,
+        toValue: Math.max(insets.top + 10, 60), // Ensure minimum 60px from top
+        useNativeDriver: false, // Changed to false to allow top positioning
         tension: 100,
         friction: 8,
       }).start();
@@ -47,13 +47,13 @@ export const Snackbar: React.FC<SnackbarProps> = ({
     } else {
       hideSnackbar();
     }
-  }, [visible, duration]);
+  }, [visible, duration, insets.top]);
 
   const hideSnackbar = () => {
     Animated.timing(translateY, {
-      toValue: -100,
+      toValue: -200,
       duration: 300,
-      useNativeDriver: true,
+      useNativeDriver: false, // Changed to false to allow top positioning
     }).start(() => {
       onHide();
     });
@@ -92,9 +92,8 @@ export const Snackbar: React.FC<SnackbarProps> = ({
       style={[
         styles.container,
         {
-          transform: [{ translateY }],
+          top: translateY,
           backgroundColor: getBackgroundColor(),
-          top: insets.top + 10,
         },
       ]}
     >

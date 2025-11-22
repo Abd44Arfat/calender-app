@@ -4,23 +4,23 @@ import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  Linking,
-  Modal,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TextInputProps,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Image,
+    Linking,
+    Modal,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TextInputProps,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { Snackbar } from '../../components/Snackbar';
 import { useAuth } from '../../contexts/AuthContext';
-import { useSnackbar } from '../../hooks/useSnackbar';
+import { useSnackbar } from '../../contexts/SnackbarContext';
 import { apiService } from '../../services/api';
 
 export default function ProfileScreen() {
@@ -64,7 +64,7 @@ export default function ProfileScreen() {
   const getImageUrl = (imagePath: string | undefined) => {
     if (!imagePath) return null;
     if (imagePath.startsWith('http')) return imagePath;
-    return `https://quackplan2.ahmed-abd-elmohsen.tech${imagePath}`;
+    return `http://localhost:3000${imagePath}`;
   };
 
   useEffect(() => {
@@ -243,6 +243,7 @@ const pickImage = async () => {
 
   const handleMenuAction = (action: string) => {
     const actions: Record<string, () => void> = {
+      myEvents: () => router.push('/vendor/my-events'),
       edit: openEditModal,
       changePassword: () => setIsPasswordModalVisible(true),
       privacy: () => router.push('/privacy'),
@@ -283,6 +284,7 @@ const pickImage = async () => {
   };
 
   const menuItems = [
+    ...(user?.userType === 'vendor' ? [{ title: 'My Events', icon: 'calendar-outline', action: 'myEvents' }] : []),
     { title: 'Edit Profile', icon: 'person-outline', action: 'edit' },
     { title: 'Change Password', icon: 'lock-closed-outline', action: 'changePassword' },
     { title: 'Privacy', icon: 'shield-outline', action: 'privacy' },

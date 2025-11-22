@@ -7,7 +7,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Snackbar } from '../components/Snackbar';
 import { useAuth } from '../contexts/AuthContext';
-import { useSnackbar } from '../hooks/useSnackbar';
+import { useSnackbar } from '../contexts/SnackbarContext';
 
 export default function VerifyEmailScreen() {
   const auth = useAuth();

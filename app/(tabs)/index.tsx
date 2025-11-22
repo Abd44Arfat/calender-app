@@ -19,10 +19,9 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import EventCard from '../../components/EventCard';
 import { useAuth } from '../../contexts/AuthContext';
-import { useSnackbar } from '../../hooks/useSnackbar';
-import { apiService, Booking } from '../../services/api';
+import { useSnackbar } from '../../contexts/SnackbarContext';
+import { apiService } from '../../services/api';
 import { scheduleEventNotification } from '../../services/notificationservice';
-import { addChangeListener, getNotifications, initNotifications } from './notifications';
 
 // Change this value to adjust reminder offset
 const REMINDER_OFFSET_MINUTES = 10;
@@ -56,9 +55,6 @@ const HomeScreen = () => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [events, setEvents] = useState<Event[]>([]);
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [isBookingSuccess, setIsBookingSuccess] = useState(false);
-  const [bookingSuccessMsg, setBookingSuccessMsg] = useState('');
   const [isModalVisible, setIsModalVisible] = useState<boolean>(false);
   const [newTitle, setNewTitle] = useState<string>('');
   const [newStartTime, setNewStartTime] = useState<string>('09:00');
@@ -140,7 +136,7 @@ const HomeScreen = () => {
   const getImageUrl = (imagePath: string | undefined) => {
     if (!imagePath) return null;
     if (imagePath.startsWith('http')) return imagePath;
-    return `https://quackplan2.ahmed-abd-elmohsen.tech${imagePath}`;
+    return `http://localhost:3000${imagePath}`;
   };
   
   const getRandomColor = (seed: string) => {
@@ -158,7 +154,7 @@ const HomeScreen = () => {
     return colors[Math.abs(hash) % colors.length];
   };
 
-  const scheduleEventReminders = async (combinedEvents: Event[], bookingsList: Booking[]) => {
+  const scheduleEventReminders = async (combinedEvents: Event[]) => {
     const now = new Date().getTime();
     const offsetMs = REMINDER_OFFSET_MINUTES * 60 * 1000;
   
@@ -169,12 +165,7 @@ const HomeScreen = () => {
       e => (e.type === 'personal' || e.type === 'event') && new Date(e.startsAt).getTime() > now
     );
   
-    const upcomingBookings = bookingsList.filter(
-      b => b.eventId?.startsAt && new Date(b.eventId.startsAt).getTime() > now
-    );
-  
     console.log(`📌 Upcoming events: ${upcomingEvents.length}`);
-    console.log(`📌 Upcoming bookings: ${upcomingBookings.length}`);
   
     console.log("📋 Upcoming events detail:", upcomingEvents.map(e => ({
       title: e.title,
@@ -200,24 +191,6 @@ const HomeScreen = () => {
         console.warn('Failed to schedule reminder for event', e.title, err);
       }
     }
-
-    for (const b of upcomingBookings) {
-      try {
-        const e = b.eventId as any;
-        if (!e) continue;
-        const eventId = String(e._id || e.id);
-        await scheduleEventNotification({
-          id: eventId,
-          title: 'Booking Reminder',
-          body: `Your booked event "${e.title}" starts in ${REMINDER_OFFSET_MINUTES} minutes!`,
-          eventDateISO: e.startsAt,
-          type: 'booking',
-        });
-        console.log(`✅ Requested scheduling for booking "${e.title}"`);
-      } catch (err) {
-        console.warn('Failed to schedule reminder for booking', err);
-      }
-    }
   };
   
 
@@ -229,53 +202,122 @@ const HomeScreen = () => {
       const endISO = new Date(selectedDate);
       endISO.setHours(23, 59, 59, 999);
 
-      const publicEvents = await apiService.listEvents({
-        startDate: startISO.toISOString(),
-        endDate: endISO.toISOString(),
-        limit: 200,
-      });
-
+      let vendorEvents: any = [];
       let personalEvents: any = [];
-      if (token) {
-        personalEvents = await apiService.listPersonalEvents(token, {
+      let acceptedEvents: any = [];
+
+      // For customers, fetch accepted events instead of all public events
+      if (user?.userType === 'customer' && token) {
+        try {
+          const acceptedEventsResponse = await apiService.getMyAcceptedEvents(token, {
+            limit: 200,
+          });
+          
+          // Filter accepted events for the selected date
+          acceptedEvents = (acceptedEventsResponse.events || []).filter((e: any) => {
+            const eventDate = new Date(e.startsAt);
+            return eventDate >= startISO && eventDate <= endISO;
+          });
+        } catch (err: any) {
+          console.warn('Failed to fetch accepted events:', err);
+          // If token is invalid, continue without accepted events
+          if (err.response?.status === 401) {
+            console.log('Token invalid, skipping accepted events');
+          }
+        }
+
+        // Also fetch personal events for customers
+        try {
+          personalEvents = await apiService.listPersonalEvents(token, {
+            startDate: startISO.toISOString(),
+            endDate: endISO.toISOString(),
+            limit: 200,
+          });
+        } catch (err: any) {
+          console.warn('Failed to fetch personal events:', err);
+          // If token is invalid, continue without personal events
+          if (err.response?.status === 401) {
+            console.log('Token invalid, skipping personal events');
+          }
+        }
+      } else if (user?.userType === 'vendor' && token) {
+        // For vendors, show their own events
+        vendorEvents = await apiService.listEvents({
+          startDate: startISO.toISOString(),
+          endDate: endISO.toISOString(),
+          limit: 200,
+        });
+
+        // Also fetch personal events for vendors
+        try {
+          personalEvents = await apiService.listPersonalEvents(token, {
+            startDate: startISO.toISOString(),
+            endDate: endISO.toISOString(),
+            limit: 200,
+          });
+        } catch (err: any) {
+          console.warn('Failed to fetch personal events:', err);
+        }
+      } else {
+        // For non-logged-in users, show all public events
+        vendorEvents = await apiService.listEvents({
           startDate: startISO.toISOString(),
           endDate: endISO.toISOString(),
           limit: 200,
         });
       }
 
-      const combined = [...normalize(publicEvents), ...normalize(personalEvents)].map(
+      // Mark personal events explicitly
+      const normalizedPersonalEvents = normalize(personalEvents).map((e: any) => ({
+        ...e,
+        isPersonal: true,
+        type: 'personal',
+      }));
+
+      // Mark vendor/accepted events as not personal
+      const normalizedVendorEvents = normalize(vendorEvents).map((e: any) => ({
+        ...e,
+        isPersonal: false,
+        type: 'event',
+      }));
+
+      const normalizedAcceptedEvents = acceptedEvents.map((e: any) => ({
+        ...e,
+        isPersonal: false,
+        type: 'event',
+      }));
+
+      const combined = [
+        ...normalizedVendorEvents,
+        ...normalizedPersonalEvents,
+        ...normalizedAcceptedEvents
+      ].map(
         (e: any, idx: number) => {
-          const isPersonal = !!(e.isPersonal || e.type === 'personal');
           return ({
-            ...e, // Preserve all original fields
+            ...e, // Preserve all original fields including isPersonal
             id: e._id || e.id || `event-${Date.now()}-${idx}`,
             title: e.title || 'Untitled',
             startsAt: e.startsAt,
             endsAt: e.endsAt,
-            type: isPersonal ? 'personal' : (e.type || 'event'),
-            isPersonal,
+            // Keep the type and isPersonal that was already set
           });
         }
       );
 
-      setEvents(combined);
+      console.log('📅 Combined events:', combined.map(e => ({
+        id: e.id,
+        title: e.title,
+        isPersonal: e.isPersonal,
+        type: e.type
+      })));
 
-      let bookingsList: Booking[] = [];
-      if (token) {
-        const bookingsResponse = await apiService.listBookings(token, {
-          status: 'confirmed',
-          limit: 50,
-        });
-        const now = new Date();
-        bookingsList = (bookingsResponse.bookings || []).filter(b => {
-          const end = b.eventId?.endsAt ? new Date(b.eventId.endsAt) : null;
-          return end && end > now;
-        });
-        setBookings(bookingsList);
-      }
+      setEvents(combined);
     } catch (err: any) {
-      showError(err.message || 'Failed to fetch events');
+      console.error('Failed to fetch events:', err);
+      // Only show error for critical failures, not token issues
+      if (err.response?.status !== 401) {
+        showError(err.message || 'Failed to fetch events');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -283,7 +325,6 @@ const HomeScreen = () => {
 
   useEffect(() => {
     const setup = async () => {
-      await initNotifications();
       try {
         const startISO = new Date();
         const endISO = new Date();
@@ -318,19 +359,6 @@ const HomeScreen = () => {
           }
         );
 
-        let bookingsList: Booking[] = [];
-        if (token) {
-          const bookingsResponse = await apiService.listBookings(token, {
-            status: 'confirmed',
-            limit: 50,
-          });
-          const now = new Date();
-          bookingsList = (bookingsResponse.bookings || []).filter(b => {
-            const end = b.eventId?.endsAt ? new Date(b.eventId.endsAt) : null;
-            return end && end > now;
-          });
-        }
-
         try {
           const { resetScheduledReminders } = await import('../../services/notificationservice');
           await resetScheduledReminders();
@@ -338,7 +366,7 @@ const HomeScreen = () => {
           console.warn('Failed to reset scheduled reminders:', e);
         }
 
-        await scheduleEventReminders(combined, bookingsList);
+        await scheduleEventReminders(combined);
       } catch (err) {
         console.warn('Failed to set up reminders:', err);
       }
@@ -350,10 +378,9 @@ const HomeScreen = () => {
     fetchEvents();
   }, [selectedDate, token]);
 
-  // Clear bookings when user changes or logs out
+  // Clear events when user changes or logs out
   useEffect(() => {
     if (!user || !token) {
-      setBookings([]);
       setEvents([]);
     }
   }, [user, token]);
@@ -374,14 +401,22 @@ const HomeScreen = () => {
   );
 
   useEffect(() => {
+    // Load unread notification count from API if needed
     const updateUnread = async () => {
-      const notifs = await getNotifications();
-      setUnreadCount(notifs.filter((n: { read: boolean }) => !n.read).length);
+      if (token && user?.userType === 'customer') {
+        try {
+          const response = await apiService.getMyAssignments(token, {
+            status: 'pending',
+            limit: 100,
+          });
+          setUnreadCount(response.assignments?.length || 0);
+        } catch (err) {
+          console.warn('Failed to fetch notification count:', err);
+        }
+      }
     };
     updateUnread();
-    const unsubscribe = addChangeListener(updateUnread);
-    return () => unsubscribe();
-  }, []);
+  }, [token, user]);
 
   const getEventsForTime = (time: string) => {
     const parsed = parseTime(time);
@@ -391,54 +426,18 @@ const HomeScreen = () => {
       e.startsAt && sameDay(new Date(e.startsAt), selectedDate)
     );
 
-    const currentDayBookings = bookings.filter(
-      b => b.eventId?.startsAt && sameDay(new Date(b.eventId.startsAt), selectedDate)
-    );
+    const allItems = currentDayEvents.map((e, idx) => ({
+      id: String(e.id),
+      originalId: String(e.id),
+      fullEvent: e,
+      title: e.title,
+      time: `${toHHmm(e.startsAt)} - ${toHHmm(e.endsAt)}`,
+      color: getRandomColor(e.title + e.startsAt),
+      startHour: new Date(e.startsAt).getHours(),
+      type: e.type || 'event',
+    }));
 
-    const allItems = [
-      ...currentDayEvents.map((e, idx) => ({
-        id: String(e.id),
-        originalId: String(e.id),
-        fullEvent: e,
-        title: e.title,
-        time: `${toHHmm(e.startsAt)} - ${toHHmm(e.endsAt)}`,
-        color: getRandomColor(e.title + e.startsAt),
-        startHour: new Date(e.startsAt).getHours(),
-        type: e.type || 'event',
-      })),
-      ...currentDayBookings.map((b, idx) => {
-        const eventId = b.eventId?._id || b._id;
-        return {
-          id: `booking-${String(eventId)}`,
-          originalId: String(eventId),
-          title: `📅 ${b.eventId?.title || 'No Title'}`,
-          time: `${toHHmm(b.eventId?.startsAt)} - ${toHHmm(b.eventId?.endsAt)}`,
-          color: getRandomColor((b.eventId?.title || '') + (b.eventId?.startsAt || '') + 'booking'),
-          startHour: b.eventId?.startsAt ? new Date(b.eventId.startsAt).getHours() : -1,
-          type: 'booking',
-          booking: b,
-        };
-      }),
-    ];
-
-    // Improved deduplication logic: prioritize bookings over events for the same event
-    const uniqueItems = allItems.reduce((acc, item) => {
-      // Use originalId as the key for deduplication since it represents the actual event ID
-      const key = item.originalId;
-      
-      if (!acc[key]) {
-        // No existing item for this event ID, add it
-        acc[key] = item;
-      } else if (item.type === 'booking' && acc[key].type !== 'booking') {
-        // Replace event with booking if booking exists for the same event ID
-        acc[key] = item;
-      }
-      // If both are bookings or both are events, keep the first one (shouldn't happen normally)
-      
-      return acc;
-    }, {} as { [key: string]: any });
-
-    return Object.values(uniqueItems).filter(item => item.startHour === parsed.h);
+    return allItems.filter(item => item.startHour === parsed.h);
   };
 
   const openCreateModal = () => {
@@ -481,6 +480,8 @@ const HomeScreen = () => {
       return;
     }
 
+    console.log('🗑️ Attempting to delete event:', eventId);
+
     Alert.alert(
       'Delete Event',
       'Are you sure you want to delete this event?',
@@ -492,12 +493,14 @@ const HomeScreen = () => {
           onPress: async () => {
             try {
               setIsLoading(true);
+              console.log('🗑️ Deleting event with ID:', eventId);
               await apiService.deletePersonalEvent(token, eventId);
               showSuccess('Event deleted successfully');
               setIsEventDetailsVisible(false);
               await fetchEvents();
             } catch (err: any) {
-              showError(err.message || 'Failed to delete event');
+              console.error('❌ Delete error:', err);
+              showError(err.message || err.response?.data?.error || 'Failed to delete event');
             } finally {
               setIsLoading(false);
             }
@@ -557,15 +560,11 @@ const HomeScreen = () => {
         // Update existing event
         await apiService.updatePersonalEvent(token, editingEventId, payload);
         showSuccess('Personal event updated');
-        setBookingSuccessMsg('Your event was updated successfully!');
       } else {
         // Create new event
         await apiService.createPersonalEvent(token, payload);
         showSuccess('Personal event created');
-        setBookingSuccessMsg('Your event was created successfully!');
       }
-      
-      setIsBookingSuccess(true);
       setIsModalVisible(false);
       await fetchEvents();
     } catch (err: any) {
@@ -575,45 +574,6 @@ const HomeScreen = () => {
     }
   };
 
-  const cancelBooking = async (booking: Booking) => {
-    if (!token || !user?._id) {
-      showError('You must be logged in to cancel bookings');
-      return;
-    }
-    if (!booking.eventId) {
-      showError('This booking has no linked event.');
-      return;
-    }
-
-    Alert.alert(
-      'Cancel Booking',
-      `Are you sure you want to cancel your booking for "${booking.eventId.title || 'Untitled'}"?`,
-      [
-        { text: 'No', style: 'cancel' },
-        {
-          text: 'Yes, Cancel',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setIsLoading(true);
-              await apiService.cancelBooking(token, booking._id, {
-                byUserId: user._id as string,
-              });
-              showSuccess('Booking cancelled successfully!');
-              // Refresh events and bookings to ensure the canceled item is removed
-              await fetchEvents();
-              // Update bookings state to remove the canceled booking
-              setBookings(prevBookings => prevBookings.filter(b => b._id !== booking._id));
-            } catch (err: any) {
-              showError(err.message || 'Failed to cancel booking');
-            } finally {
-              setIsLoading(false);
-            }
-          },
-        },
-      ]
-    );
-  };
 
   const timeSlots = [
     '08:00 am','09:00 am','10:00 am','11:00 am','12:00 pm',
@@ -695,47 +655,6 @@ const HomeScreen = () => {
             </ScrollView>
           </View>
 
-          {/* My Bookings Section */}
-          {user?.userType === 'customer' && bookings.length > 0 && (
-            <View style={styles.bookingsSection}>
-              <Text style={styles.sectionTitle}>My Bookings</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bookingsContainer}>
-                {bookings.slice(0, 5).map((booking) => (
-                  <View
-                    key={booking._id}
-                    style={styles.bookingCard}
-                  >
-                    <Text style={styles.bookingTitle} numberOfLines={1}>
-                      {booking.eventId?.title || 'Untitled'}
-                    </Text>
-                    <Text style={styles.bookingTime}>
-                      {toHHmm(booking.eventId?.startsAt)} - {toHHmm(booking.eventId?.endsAt)}
-                    </Text>
-                    {booking.eventId?.location && (
-                      <Text style={styles.bookingLocation} numberOfLines={1}>
-                        📍 {booking.eventId.location}
-                      </Text>
-                    )}
-                    {typeof booking.eventId?.priceCents === 'number' && (
-                      <Text style={styles.bookingPrice}>
-                        ${(booking.eventId.priceCents / 100).toFixed(2)}
-                      </Text>
-                    )}
-                    <TouchableOpacity
-                      style={styles.cancelButton}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        cancelBooking(booking);
-                      }}
-                      disabled={isLoading}
-                    >
-                      <Text style={styles.cancelButtonText}>Cancel</Text>
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </ScrollView>
-            </View>
-          )}
 
           {/* Schedule Timeline */}
           <View style={styles.scheduleContainer}>
@@ -755,8 +674,10 @@ const HomeScreen = () => {
                             onPress={() => {
                               if (ev.fullEvent) {
                                 const e = ev.fullEvent;
+                                const eventId = e._id || e.id;
                                 const normalized = {
-                                  id: e.id || e._id,
+                                  id: eventId,
+                                  _id: e._id, // Keep _id for API calls
                                   title: e.title || 'Untitled',
                                   startsAt: e.startsAt,
                                   endsAt: e.endsAt,
@@ -767,7 +688,13 @@ const HomeScreen = () => {
                                   type: e.type || 'event',
                                   isPersonal: !!e.isPersonal,
                                 } as any;
-                                console.log('🔍 Opening event modal - isPersonal:', normalized.isPersonal, 'type:', normalized.type, 'full event:', e);
+                                console.log('🔍 Opening event modal:', {
+                                  id: normalized.id,
+                                  _id: normalized._id,
+                                  isPersonal: normalized.isPersonal,
+                                  type: normalized.type,
+                                  title: normalized.title
+                                });
                                 setSelectedEvent(normalized);
                                 modalOpeningRef.current = true;
                                 setTimeout(() => {
@@ -1100,33 +1027,6 @@ const HomeScreen = () => {
         </TouchableOpacity>
       </Modal>
 
-      {/* Booking Success Modal (shown after creating personal event) */}
-      <Modal
-        visible={isBookingSuccess}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
-          setIsBookingSuccess(false); // Reset state when modal is closed
-          setBookingSuccessMsg('');
-        }}
-      >
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.4)' }}>
-          <View style={{ backgroundColor: 'white', padding: 24, borderRadius: 12, alignItems: 'center', minWidth: 250 }}>
-            <Ionicons name="checkmark-circle" size={48} color="#4CAF50" style={{ marginBottom: 12 }} />
-            <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 8 }}>Success</Text>
-            <Text style={{ fontSize: 16, color: '#333', marginBottom: 16, textAlign: 'center' }}>{bookingSuccessMsg}</Text>
-            <TouchableOpacity
-              onPress={() => {
-                setIsBookingSuccess(false); // Reset state on OK press
-                setBookingSuccessMsg('');
-              }}
-              style={{ backgroundColor: '#4CAF50', paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8 }}
-            >
-              <Text style={{ color: 'white', fontWeight: '600', fontSize: 16 }}>OK</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
 
       {/* Event Details Modal (bottom sheet for non-booking events) */}
       <Modal
@@ -1186,43 +1086,46 @@ const HomeScreen = () => {
                   </View>
                 )}
 
+                {/* Event Type Badge */}
                 <View style={[styles.eventTypePill, { alignSelf: 'center', marginTop: 12 }]}> 
                   <Text style={[styles.eventTypeText, { color: (selectedEvent as any).isPersonal || (selectedEvent as any).type === 'personal' ? '#60A5FA' : '#10B981' }]}>
-                    {(selectedEvent as any).isPersonal || (selectedEvent as any).type === 'personal' ? 'Personal Event' : 'Personal Event'}
+                    {(selectedEvent as any).isPersonal || (selectedEvent as any).type === 'personal' ? 'Personal Event' : 'Public Event'}
                   </Text>
                 </View>
 
-                {/* ALWAYS SHOW BUTTONS FOR TESTING - BOTTOM SHEET */}
-                <View style={{ flexDirection: 'row', gap: 12, marginTop: 18, width: '100%' }}>
-                  <TouchableOpacity 
-                    style={[styles.closeModalButton, { flex: 1, backgroundColor: '#3B82F6', borderWidth: 0 }]} 
-                    onPress={() => {
-                      console.log('BOTTOM SHEET - EDIT BUTTON CLICKED');
-                      setIsEventDetailsVisible(false);
-                      openEditModal(selectedEvent);
-                    }}
-                  >
-                    <Ionicons name="create-outline" size={18} color="white" style={{ marginRight: 6 }} />
-                    <Text style={[styles.closeModalButtonText, { color: 'white' }]}>Edit</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[styles.closeModalButton, { flex: 1, backgroundColor: '#EF4444', borderWidth: 0 }]} 
-                    onPress={() => {
-                      console.log('BOTTOM SHEET - DELETE BUTTON CLICKED');
-                      deletePersonalEvent((selectedEvent as any).id);
-                    }}
-                    disabled={isLoading}
-                  >
-                    {isLoading ? (
-                      <ActivityIndicator size="small" color="white" />
-                    ) : (
-                      <>
-                        <Ionicons name="trash-outline" size={18} color="white" style={{ marginRight: 6 }} />
-                        <Text style={[styles.closeModalButtonText, { color: 'white' }]}>Delete</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                </View>
+                {/* Show Edit/Delete buttons ONLY for personal events */}
+                {((selectedEvent as any).isPersonal || (selectedEvent as any).type === 'personal') && (
+                  <View style={{ flexDirection: 'row', gap: 12, marginTop: 18, width: '100%' }}>
+                    <TouchableOpacity 
+                      style={[styles.closeModalButton, { flex: 1, backgroundColor: '#3B82F6', borderWidth: 0 }]} 
+                      onPress={() => {
+                        setIsEventDetailsVisible(false);
+                        openEditModal(selectedEvent);
+                      }}
+                    >
+                      <Ionicons name="create-outline" size={18} color="white" style={{ marginRight: 6 }} />
+                      <Text style={[styles.closeModalButtonText, { color: 'white' }]}>Edit</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={[styles.closeModalButton, { flex: 1, backgroundColor: '#EF4444', borderWidth: 0 }]} 
+                      onPress={() => {
+                        const eventId = (selectedEvent as any)._id || (selectedEvent as any).id;
+                        console.log('🗑️ Delete button pressed, eventId:', eventId);
+                        deletePersonalEvent(eventId);
+                      }}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? (
+                        <ActivityIndicator size="small" color="white" />
+                      ) : (
+                        <>
+                          <Ionicons name="trash-outline" size={18} color="white" style={{ marginRight: 6 }} />
+                          <Text style={[styles.closeModalButtonText, { color: 'white' }]}>Delete</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                )}
 
                 <TouchableOpacity style={[styles.closeModalButton, { marginTop: 12 }]} onPress={() => setIsEventDetailsVisible(false)}>
                   <Text style={styles.closeModalButtonText}>Close</Text>

@@ -2,19 +2,19 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Snackbar } from '../components/Snackbar';
 import { useAuth } from '../contexts/AuthContext';
-import { useSnackbar } from '../hooks/useSnackbar';
+import { useSnackbar } from '../contexts/SnackbarContext';
 import { RegisterRequest } from '../services/api';
 
 export default function RegisterScreen() {

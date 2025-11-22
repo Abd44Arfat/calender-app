@@ -4,7 +4,7 @@ import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-nativ
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Snackbar } from '../components/Snackbar';
 import { useAuth } from '../contexts/AuthContext';
-import { useSnackbar } from '../hooks/useSnackbar';
+import { useSnackbar } from '../contexts/SnackbarContext';
 
 export default function ResetPasswordNewScreen() {
   const params = useLocalSearchParams();

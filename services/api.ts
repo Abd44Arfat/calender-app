@@ -1,4 +1,4 @@
-const BASE_URL = 'https://quackplan2.ahmed-abd-elmohsen.tech'; // Replace with your actual server URL
+const BASE_URL = 'http://localhost:3000'; // Local development server
 
 export interface RegisterRequest {
   email: string;
@@ -139,6 +139,77 @@ export interface ChangePasswordRequest {
 
 export interface CancelBookingRequest {
   byUserId: string;
+}
+
+// ================= Event Assignment Interfaces =================
+export interface User {
+  _id: string;
+  email: string;
+  profile: {
+    fullName: string;
+    profilePicture?: string;
+  };
+}
+
+export interface UsersResponse {
+  users: User[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+  };
+}
+
+export interface CreateEventWithAssignmentRequest extends CreateEventRequest {
+  assignedUsers?: string[];
+}
+
+export interface EventAssignment {
+  _id: string;
+  eventId: {
+    _id: string;
+    title: string;
+    startsAt: string;
+    endsAt: string;
+    vendorId: {
+      profile: {
+        fullName: string;
+      };
+    };
+  };
+  userId: string | {
+    _id: string;
+    email: string;
+    profile: {
+      fullName: string;
+    };
+  };
+  status: 'pending' | 'accepted' | 'rejected';
+  assignedBy: {
+    profile: {
+      fullName: string;
+    };
+  };
+  respondedAt?: string;
+  createdAt: string;
+}
+
+export interface EventAssignmentsResponse {
+  assignments: EventAssignment[];
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+  };
+}
+
+export interface AcceptedEventsResponse {
+  events: any[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+  };
 }
 
 class ApiService {
@@ -514,6 +585,133 @@ class ApiService {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
+    });
+  }
+
+  // ================= Event Assignment APIs =================
+  
+  // Get all users (for vendor to select users)
+  async getAllUsers(token: string, params?: {
+    userType?: 'customer' | 'vendor';
+    search?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<UsersResponse> {
+    const query = new URLSearchParams();
+    Object.entries(params || {}).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        query.append(key, String(value));
+      }
+    });
+    const qs = query.toString();
+    const endpoint = `/api/users${qs ? `?${qs}` : ''}`;
+    return this.request<UsersResponse>(endpoint, {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+  }
+
+  // Create event with assigned users
+  async createEventWithAssignment(token: string, body: CreateEventWithAssignmentRequest): Promise<any> {
+    return this.request<any>('/api/events', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+  }
+
+  // Get user's event assignments (pending/accepted/rejected)
+  async getMyAssignments(token: string, params?: {
+    status?: 'pending' | 'accepted' | 'rejected';
+    page?: number;
+    limit?: number;
+  }): Promise<EventAssignmentsResponse> {
+    const query = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          query.append(key, String(value));
+        }
+      });
+    }
+    const qs = query.toString();
+    const endpoint = `/api/event-assignments/my-assignments${qs ? `?${qs}` : ''}`;
+    return this.request<EventAssignmentsResponse>(endpoint, {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+  }
+
+  // Get user's accepted events (calendar)
+  async getMyAcceptedEvents(token: string, params?: {
+    page?: number;
+    limit?: number;
+  }): Promise<AcceptedEventsResponse> {
+    const query = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          query.append(key, String(value));
+        }
+      });
+    }
+    const qs = query.toString();
+    const endpoint = `/api/event-assignments/my-events${qs ? `?${qs}` : ''}`;
+    return this.request<AcceptedEventsResponse>(endpoint, {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+  }
+
+  // Accept event assignment
+  async acceptEventAssignment(token: string, assignmentId: string): Promise<EventAssignment> {
+    return this.request<EventAssignment>(`/api/event-assignments/${assignmentId}/accept`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+  }
+
+  // Reject event assignment
+  async rejectEventAssignment(token: string, assignmentId: string): Promise<EventAssignment> {
+    return this.request<EventAssignment>(`/api/event-assignments/${assignmentId}/reject`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+  }
+
+  // Get event assignments for specific event (vendor only)
+  async getEventAssignments(token: string, eventId: string): Promise<EventAssignmentsResponse> {
+    return this.request<EventAssignmentsResponse>(`/api/event-assignments/event/${eventId}`, {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+  }
+
+  // Get notifications
+  async getNotifications(token: string, params?: {
+    type?: string;
+    sent?: boolean;
+    page?: number;
+    limit?: number;
+  }): Promise<any> {
+    const query = new URLSearchParams();
+    Object.entries(params || {}).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        query.append(key, String(value));
+      }
+    });
+    const qs = query.toString();
+    const endpoint = `/api/notifications${qs ? `?${qs}` : ''}`;
+    return this.request<any>(endpoint, {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${token}` },
     });
   }
 }  
