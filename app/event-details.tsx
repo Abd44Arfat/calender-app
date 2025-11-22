@@ -453,7 +453,7 @@ export default function EventDetailsScreen() {
 
         {/* Delete Button for Event Owner (Vendor) */}
         {isEventOwner && !isPendingAssignment && (
-          <View style={styles.actionButtons}>
+          <View style={styles.actionButtonsSingle}>
             <TouchableOpacity
               style={[styles.deleteButton, isProcessing && styles.buttonDisabled]}
               onPress={handleDeleteEvent}
@@ -596,6 +596,12 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   actionButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingBottom: 32,
+  },
+  actionButtonsSingle: {
     paddingHorizontal: 20,
     paddingBottom: 32,
   },
