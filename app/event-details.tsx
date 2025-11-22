@@ -596,11 +596,8 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   actionButtons: {
-    flexDirection: 'row',
-    gap: 12,
-    paddingHorizontal: 0,
+    paddingHorizontal: 20,
     paddingBottom: 32,
-    marginHorizontal: 20,
   },
   rejectButton: {
     flex: 1,
@@ -647,6 +644,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderWidth: 2,
     borderColor: '#EF4444',
+    width: '100%',
   },
   deleteButtonText: {
     fontSize: 16,
