@@ -3,14 +3,14 @@ import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  FlatList,
-  Image,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    FlatList,
+    Image,
+    RefreshControl,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Snackbar } from '../../components/Snackbar';
@@ -174,7 +174,7 @@ export default function NotificationsScreen() {
   const getImageUrl = (imagePath?: string) => {
     if (!imagePath) return null;
     if (imagePath.startsWith('http')) return imagePath;
-    return `http://localhost:3000${imagePath}`;
+    return `https://quackplan2.ahmed-abd-elmohsen.tech${imagePath}`;
   };
 
   const renderVendorNotification = ({ item }: { item: any }) => {

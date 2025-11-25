@@ -64,7 +64,7 @@ export default function ProfileScreen() {
   const getImageUrl = (imagePath: string | undefined) => {
     if (!imagePath) return null;
     if (imagePath.startsWith('http')) return imagePath;
-    return `http://localhost:3000${imagePath}`;
+    return `https://quackplan2.ahmed-abd-elmohsen.tech${imagePath}`;
   };
 
   useEffect(() => {

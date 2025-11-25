@@ -581,7 +581,7 @@ export default function ExploreScreen() {
             <View style={styles.profilePic}>
               {user?.profile?.profilePicture ? (
                 <Image
-                  source={{ uri: `http://localhost:3000${user.profile.profilePicture}` }}
+                  source={{ uri: `https://quackplan2.ahmed-abd-elmohsen.tech${user.profile.profilePicture}` }}
                   style={{ width: 40, height: 40, borderRadius: 20 }}
                 />
               ) : (

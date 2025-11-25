@@ -69,7 +69,7 @@ export default function EventDetailsScreen() {
   const getImageUrl = (imagePath?: string) => {
     if (!imagePath) return null;
     if (imagePath.startsWith('http')) return imagePath;
-    return `http://localhost:3000${imagePath}`;
+    return `https://quackplan2.ahmed-abd-elmohsen.tech${imagePath}`;
   };
 
   const formatDate = (dateString: string) => {

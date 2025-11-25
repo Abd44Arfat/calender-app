@@ -6,13 +6,13 @@ import {
   Alert,
   Image,
   Linking,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Snackbar } from '../components/Snackbar';
 import { useAuth } from '../contexts/AuthContext';
 import { useSnackbar } from '../contexts/SnackbarContext';
@@ -227,7 +227,7 @@ export default function EventDetailsScreen() {
     // If it already starts with http, return as is
     if (imagePath.startsWith('http')) return imagePath;
     // Otherwise, prepend the base URL
-    return `http://localhost:3000${imagePath}`;
+    return `https://quackplan2.ahmed-abd-elmohsen.tech${imagePath}`;
   };
 
   const handleCallVendor = () => {

@@ -1,4 +1,4 @@
-const BASE_URL = 'http://localhost:3000'; // Local development server
+const BASE_URL = 'https://quackplan2.ahmed-abd-elmohsen.tech';
 
 export interface RegisterRequest {
   email: string;
