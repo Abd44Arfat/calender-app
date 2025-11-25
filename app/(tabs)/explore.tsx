@@ -908,20 +908,23 @@ export default function ExploreScreen() {
               </TouchableOpacity>
 
               {showEventDatePicker && (
-                <DateTimePicker
-                  value={eventCreationDate}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  textColor="#2196F3"
-                  minimumDate={minimumDate}
-                  maximumDate={maximumDate}
-                  onChange={(event, selectedDate) => {
-                    setShowEventDatePicker(false);
-                    if (selectedDate) {
-                      setEventCreationDate(selectedDate);
-                    }
-                  }}
-                />
+                <View style={{ backgroundColor: 'rgba(33, 150, 243, 0.05)', borderRadius: 8, padding: 8 }}>
+                  <DateTimePicker
+                    value={eventCreationDate}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    themeVariant="light"
+                    accentColor="#2196F3"
+                    minimumDate={minimumDate}
+                    maximumDate={maximumDate}
+                    onChange={(event, selectedDate) => {
+                      setShowEventDatePicker(false);
+                      if (selectedDate) {
+                        setEventCreationDate(selectedDate);
+                      }
+                    }}
+                  />
+                </View>
               )}
 
               {/* Time Pickers */}
@@ -956,35 +959,41 @@ export default function ExploreScreen() {
               </View>
 
               {showStartTimePicker && (
-                <DateTimePicker
-                  value={startTimeDate}
-                  mode="time"
-                  is24Hour={use24HourFormatVendor}
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  textColor="#2196F3"
-                  onChange={(event, selectedTime) => {
-                    setShowStartTimePicker(false);
-                    if (selectedTime) {
-                      setStartTimeDate(selectedTime);
-                    }
-                  }}
-                />
+                <View style={{ backgroundColor: 'rgba(33, 150, 243, 0.05)', borderRadius: 8, padding: 8 }}>
+                  <DateTimePicker
+                    value={startTimeDate}
+                    mode="time"
+                    is24Hour={use24HourFormatVendor}
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    themeVariant="light"
+                    accentColor="#2196F3"
+                    onChange={(event, selectedTime) => {
+                      setShowStartTimePicker(false);
+                      if (selectedTime) {
+                        setStartTimeDate(selectedTime);
+                      }
+                    }}
+                  />
+                </View>
               )}
 
               {showEndTimePicker && (
-                <DateTimePicker
-                  value={endTimeDate}
-                  mode="time"
-                  is24Hour={use24HourFormatVendor}
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  textColor="#2196F3"
-                  onChange={(event, selectedTime) => {
-                    setShowEndTimePicker(false);
-                    if (selectedTime) {
-                      setEndTimeDate(selectedTime);
-                    }
-                  }}
-                />
+                <View style={{ backgroundColor: 'rgba(33, 150, 243, 0.05)', borderRadius: 8, padding: 8 }}>
+                  <DateTimePicker
+                    value={endTimeDate}
+                    mode="time"
+                    is24Hour={use24HourFormatVendor}
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    themeVariant="light"
+                    accentColor="#2196F3"
+                    onChange={(event, selectedTime) => {
+                      setShowEndTimePicker(false);
+                      if (selectedTime) {
+                        setEndTimeDate(selectedTime);
+                      }
+                    }}
+                  />
+                </View>
               )}
 
               {/* Capacity and Price */}

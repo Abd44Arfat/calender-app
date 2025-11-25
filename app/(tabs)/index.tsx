@@ -816,12 +816,22 @@ const HomeScreen = () => {
                   minimumDate={minimumDate}
                   maximumDate={maximumDate}
                   onChange={(event, selectedDate) => {
-                    setShowDatePicker(false);
+                    if (Platform.OS === 'android') {
+                      setShowDatePicker(false);
+                    }
                     if (selectedDate) {
                       setEventDate(selectedDate);
                     }
                   }}
                 />
+              )}
+              {showDatePicker && Platform.OS === 'ios' && (
+                <TouchableOpacity
+                  style={styles.doneButton}
+                  onPress={() => setShowDatePicker(false)}
+                >
+                  <Text style={styles.doneButtonText}>Done</Text>
+                </TouchableOpacity>
               )}
 
               {/* Time Pickers */}
@@ -863,12 +873,23 @@ const HomeScreen = () => {
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                   textColor="#2196F3"
                   onChange={(event, selectedTime) => {
-                    setShowStartTimePicker(false);
+                    if (Platform.OS === 'android') {
+                      setShowStartTimePicker(false);
+                    }
                     if (selectedTime) {
+                      console.log('Start time changed to:', selectedTime);
                       setStartTime(selectedTime);
                     }
                   }}
                 />
+              )}
+              {showStartTimePicker && Platform.OS === 'ios' && (
+                <TouchableOpacity
+                  style={styles.doneButton}
+                  onPress={() => setShowStartTimePicker(false)}
+                >
+                  <Text style={styles.doneButtonText}>Done</Text>
+                </TouchableOpacity>
               )}
 
               {showEndTimePicker && (
@@ -879,12 +900,23 @@ const HomeScreen = () => {
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                   textColor="#2196F3"
                   onChange={(event, selectedTime) => {
-                    setShowEndTimePicker(false);
+                    if (Platform.OS === 'android') {
+                      setShowEndTimePicker(false);
+                    }
                     if (selectedTime) {
+                      console.log('End time changed to:', selectedTime);
                       setEndTime(selectedTime);
                     }
                   }}
                 />
+              )}
+              {showEndTimePicker && Platform.OS === 'ios' && (
+                <TouchableOpacity
+                  style={styles.doneButton}
+                  onPress={() => setShowEndTimePicker(false)}
+                >
+                  <Text style={styles.doneButtonText}>Done</Text>
+                </TouchableOpacity>
               )}
 
               {/* Notes Input */}
@@ -1500,6 +1532,19 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     color: 'white',
     fontSize: 12,
+    fontWeight: '600',
+  },
+  doneButton: {
+    backgroundColor: '#2196F3',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  doneButtonText: {
+    color: 'white',
+    fontSize: 16,
     fontWeight: '600',
   },
 });
