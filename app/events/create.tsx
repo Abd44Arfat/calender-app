@@ -362,6 +362,7 @@ export default function CreateEventScreen() {
                 display="spinner"
                 minimumDate={minimumDate}
                 maximumDate={maximumDate}
+                textColor="#2563EB"
                 onChange={(event, date) => {
                   if (date) setStartDate(date);
                 }}
@@ -402,6 +403,7 @@ export default function CreateEventScreen() {
                 display="spinner"
                 minimumDate={minimumDate}
                 maximumDate={maximumDate}
+                textColor="#2563EB"
                 onChange={(event, date) => {
                   if (date) setEndDate(date);
                 }}

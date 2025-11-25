@@ -820,7 +820,7 @@ const HomeScreen = () => {
                       setShowDatePicker(false);
                     }
                     if (selectedDate) {
-                      setEventDate(selectedDate);
+                      setEventDate(new Date(selectedDate));
                     }
                   }}
                 />
@@ -878,7 +878,7 @@ const HomeScreen = () => {
                     }
                     if (selectedTime) {
                       console.log('Start time changed to:', selectedTime);
-                      setStartTime(selectedTime);
+                      setStartTime(new Date(selectedTime));
                     }
                   }}
                 />
@@ -905,7 +905,7 @@ const HomeScreen = () => {
                     }
                     if (selectedTime) {
                       console.log('End time changed to:', selectedTime);
-                      setEndTime(selectedTime);
+                      setEndTime(new Date(selectedTime));
                     }
                   }}
                 />

@@ -1,24 +1,22 @@
 // app/verify-email.tsx
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { OTPInput } from 'input-otp-native';
 import React, { useRef, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import OTPTextInput from 'react-native-otp-textinput';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Snackbar } from '../components/Snackbar';
 import { useAuth } from '../contexts/AuthContext';
-import { useSnackbar } from '../contexts/SnackbarContext';
+import { useSnackbar } from '../hooks/useSnackbar';
 
 export default function VerifyEmailScreen() {
-  const auth = useAuth();
-  const verifyEmail = auth?.verifyEmail;
-  const resendOtp = auth?.resendOtp;
+  const { verifyEmail, resendOtp } = useAuth() as any;
   const { email } = useLocalSearchParams<{ email?: string }>();
   const { snackbar, showError, showSuccess, hideSnackbar } = useSnackbar();
 
   const [otp, setOtp] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const otpInputRef = useRef<any>(null);
+  const otpInputRef = useRef<OTPTextInput>(null);
 
   const handleVerify = async () => {
     const cleanOtp = otp.trim();
@@ -31,15 +29,11 @@ export default function VerifyEmailScreen() {
       setIsSubmitting(true);
       console.log('📤 VERIFY PAYLOAD', { email: cleanEmail, otp: cleanOtp });
 
-      if (verifyEmail) {
-        const res = await verifyEmail({ email: cleanEmail, otp: cleanOtp });
-        console.log('✅ VERIFY SUCCESS:', res);
+      const res = await verifyEmail({ email: cleanEmail, otp: cleanOtp });
+      console.log('✅ VERIFY SUCCESS:', res);
 
-        showSuccess('Email verified! Redirecting...');
-        router.replace('/(tabs)');
-      } else {
-        showError('Verification function not available');
-      }
+      showSuccess('Email verified! Redirecting...');
+      router.replace('/(tabs)');
     } catch (err: any) {
       console.error('❌ API Error:', err?.response?.data);
       showError(err?.response?.data?.error || err?.response?.data?.message || 'Verification failed');
@@ -53,14 +47,9 @@ export default function VerifyEmailScreen() {
     if (!cleanEmail) return showError('Missing email');
 
     try {
-      if (resendOtp) {
-        await resendOtp({ email: cleanEmail });
-        otpInputRef.current?.clear();
-        setOtp('');
-        showSuccess('Verification code resent!');
-      } else {
-        showError('Resend function not available');
-      }
+      await resendOtp({ email: cleanEmail });
+      otpInputRef.current?.clear();
+      showSuccess('Verification code resent!');
     } catch (err: any) {
       console.error('❌ Resend error:', err?.response?.data);
       showError(err?.response?.data?.message || err.message || 'Failed to resend OTP');
@@ -81,24 +70,15 @@ export default function VerifyEmailScreen() {
         <Text style={styles.subtitle}>We sent a verification code to</Text>
         <Text style={styles.emailText}>{email || 'No email found'}</Text>
 
-        <OTPInput
+        <OTPTextInput
           ref={otpInputRef}
-          maxLength={6}
-          value={otp}
-          onChange={(value) => setOtp(value)}
+          handleTextChange={setOtp}
+          inputCount={6}
+          keyboardType="number-pad"
+          tintColor="#ef4444"
+          offTintColor="#e5e7eb"
           containerStyle={styles.otpContainer}
-          render={({ slots }) => (
-            <View style={styles.otpRow}>
-              {slots.map((slot, index) => (
-                <View key={index} style={[
-                  styles.otpBox,
-                  slot.isActive && styles.otpBoxActive
-                ]}>
-                  <Text style={styles.otpText}>{slot.char || ''}</Text>
-                </View>
-              ))}
-            </View>
-          )}
+          textInputStyle={styles.otpBox}
         />
 
         <TouchableOpacity style={styles.button} onPress={handleVerify} disabled={isSubmitting}>
@@ -138,29 +118,14 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 14, color: '#6b7280', marginBottom: 10 },
   emailText: { fontSize: 16, fontWeight: '600', marginBottom: 20 },
   otpContainer: { marginBottom: 20 },
-  otpRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
   otpBox: {
-    width: 48,
-    height: 56,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#e5e7eb',
     backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  otpBoxActive: {
-    borderColor: '#ef4444',
-    borderWidth: 2,
-  },
-  otpText: {
-    fontSize: 20,
-    fontWeight: '600',
     color: '#111827',
+    fontSize: 18,
+    fontWeight: '600',
   },
   button: {
     backgroundColor: '#ef4444',
