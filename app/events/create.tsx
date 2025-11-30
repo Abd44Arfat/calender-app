@@ -98,7 +98,7 @@ export default function CreateEventScreen() {
 
     try {
       setIsLoading(true);
-      
+
       const eventData = {
         title,
         description,
@@ -375,7 +375,7 @@ export default function CreateEventScreen() {
       {showStartPicker && Platform.OS === 'android' && (
         <DateTimePicker
           value={startDate}
-          mode="datetime"
+          mode="date"
           display="default"
           minimumDate={minimumDate}
           maximumDate={maximumDate}
@@ -416,7 +416,7 @@ export default function CreateEventScreen() {
       {showEndPicker && Platform.OS === 'android' && (
         <DateTimePicker
           value={endDate}
-          mode="datetime"
+          mode="date"
           display="default"
           minimumDate={minimumDate}
           maximumDate={maximumDate}

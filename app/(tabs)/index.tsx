@@ -4,18 +4,19 @@ import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    Modal,
-    Platform,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  Image,
+  Modal,
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import EventCard from '../../components/EventCard';
@@ -42,7 +43,7 @@ const HomeScreen = () => {
   const { user, token } = useAuth();
   const insets = useSafeAreaInsets();
   const { snackbar, showError, showSuccess } = useSnackbar();
-  
+
   // Date restrictions - current year only
   const now = new Date();
   const minimumDate = new Date(now.getFullYear(), 0, 1); // January 1st of current year
@@ -134,12 +135,12 @@ const HomeScreen = () => {
     if (imagePath.startsWith('http')) return imagePath;
     return `https://quackplan2.ahmed-abd-elmohsen.tech${imagePath}`;
   };
-  
+
   const getRandomColor = (seed: string) => {
     const colors = [
-      '#EF4444','#F97316','#EAB308','#22C55E','#06B6D4',
-      '#3B82F6','#8B5CF6','#EC4899','#84CC16','#F59E0B',
-      '#10B981','#6366F1',
+      '#EF4444', '#F97316', '#EAB308', '#22C55E', '#06B6D4',
+      '#3B82F6', '#8B5CF6', '#EC4899', '#84CC16', '#F59E0B',
+      '#10B981', '#6366F1',
     ];
     let hash = 0;
     for (let i = 0; i < seed.length; i++) {
@@ -153,22 +154,22 @@ const HomeScreen = () => {
   const scheduleEventReminders = async (combinedEvents: Event[]) => {
     const now = new Date().getTime();
     const offsetMs = REMINDER_OFFSET_MINUTES * 60 * 1000;
-  
+
     console.log("⏰ Scheduling reminders...");
     console.log("Now:", new Date(now).toISOString());
-  
+
     const upcomingEvents = combinedEvents.filter(
       e => (e.type === 'personal' || e.type === 'event') && new Date(e.startsAt).getTime() > now
     );
-  
+
     console.log(`📌 Upcoming events: ${upcomingEvents.length}`);
-  
+
     console.log("📋 Upcoming events detail:", upcomingEvents.map(e => ({
       title: e.title,
       startsAt: e.startsAt,
       endsAt: e.endsAt
     })));
-  
+
     for (const e of upcomingEvents) {
       try {
         if (e.type === 'personal') {
@@ -188,7 +189,7 @@ const HomeScreen = () => {
       }
     }
   };
-  
+
 
   const fetchEvents = async () => {
     try {
@@ -208,7 +209,7 @@ const HomeScreen = () => {
           const acceptedEventsResponse = await apiService.getMyAcceptedEvents(token, {
             limit: 200,
           });
-          
+
           // Filter accepted events for the selected date
           acceptedEvents = (acceptedEventsResponse.events || []).filter((e: any) => {
             const eventDate = new Date(e.startsAt);
@@ -442,7 +443,7 @@ const HomeScreen = () => {
     now.setHours(now.getHours() + 1);
     const end = new Date(now);
     end.setHours(end.getHours() + 1);
-    
+
     setIsEditMode(false);
     setEditingEventId(null);
     setEventDate(selectedDate);
@@ -460,10 +461,10 @@ const HomeScreen = () => {
     setEditingEventId(event.id);
     setNewTitle(event.title || '');
     setNewNotes(event.description || event.notes || '');
-    
+
     const startDate = new Date(event.startsAt);
     const endDate = new Date(event.endsAt);
-    
+
     setEventDate(startDate);
     setStartTime(startDate);
     setEndTime(endDate);
@@ -510,10 +511,10 @@ const HomeScreen = () => {
     if (use24HourFormat) {
       return date.toTimeString().slice(0, 5);
     } else {
-      return date.toLocaleTimeString('en-US', { 
-        hour: '2-digit', 
-        minute: '2-digit', 
-        hour12: true 
+      return date.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
       });
     }
   };
@@ -529,11 +530,11 @@ const HomeScreen = () => {
     }
     try {
       setIsLoading(true);
-      
+
       // Use the date and time from pickers
       const start = new Date(eventDate);
       start.setHours(startTime.getHours(), startTime.getMinutes(), 0, 0);
-      
+
       const end = new Date(eventDate);
       end.setHours(endTime.getHours(), endTime.getMinutes(), 0, 0);
 
@@ -572,15 +573,15 @@ const HomeScreen = () => {
 
 
   const timeSlots = [
-    '08:00 am','09:00 am','10:00 am','11:00 am','12:00 pm',
-    '01:00 pm','02:00 pm','03:00 pm','04:00 pm','05:00 pm',
-    '06:00 pm','07:00 pm','08:00 pm','09:00 pm','10:00 pm',
+    '08:00 am', '09:00 am', '10:00 am', '11:00 am', '12:00 pm',
+    '01:00 pm', '02:00 pm', '03:00 pm', '04:00 pm', '05:00 pm',
+    '06:00 pm', '07:00 pm', '08:00 pm', '09:00 pm', '10:00 pm',
   ];
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="white" />
-      
+
       {isLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#1E88E5" />
@@ -605,7 +606,7 @@ const HomeScreen = () => {
                 Hi, {user?.profile?.fullName?.split(' ')[0] || 'User'}!
               </Text>
             </View>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.notificationIcon}
               onPress={() => router.push('/(tabs)/notifications')}
             >
@@ -620,7 +621,7 @@ const HomeScreen = () => {
 
           {/* Date Selector */}
           <View style={styles.dateSection}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.daysContainer}>
+            <View style={styles.daysContainer}>
               {days.map((item, index) => (
                 <TouchableOpacity
                   key={index}
@@ -648,7 +649,7 @@ const HomeScreen = () => {
                   </Text>
                 </TouchableOpacity>
               ))}
-            </ScrollView>
+            </View>
           </View>
 
 
@@ -665,65 +666,65 @@ const HomeScreen = () => {
                   <View style={styles.eventColumn}>
                     {eventsAt.length
                       ? eventsAt.map((ev: any) => (
-                          <TouchableOpacity
-                            key={`${index}-${ev.id}`}
-                            onPress={() => {
-                              if (ev.fullEvent) {
-                                const e = ev.fullEvent;
-                                const eventId = e._id || e.id;
-                                const normalized = {
-                                  id: eventId,
-                                  _id: e._id, // Keep _id for API calls
-                                  title: e.title || 'Untitled',
-                                  startsAt: e.startsAt,
-                                  endsAt: e.endsAt,
-                                  description: e.description || e.notes || '',
-                                  notes: e.notes || e.description || '',
-                                  location: e.location || '',
-                                  priceCents: e.priceCents || e.costCents || null,
-                                  type: e.type || 'event',
-                                  isPersonal: !!e.isPersonal,
-                                } as any;
-                                console.log('🔍 Opening event modal:', {
-                                  id: normalized.id,
-                                  _id: normalized._id,
-                                  isPersonal: normalized.isPersonal,
-                                  type: normalized.type,
-                                  title: normalized.title
-                                });
-                                setSelectedEvent(normalized);
-                                modalOpeningRef.current = true;
-                                setTimeout(() => {
-                                  setIsEventDetailsVisible(true);
-                                  setTimeout(() => { modalOpeningRef.current = false; }, 200);
-                                }, 120);
-                                return;
-                              }
-                              if (ev.booking) {
-                                const bEvent = ev.booking.eventId as any;
-                                setSelectedEvent({
-                                  id: bEvent._id || ev.originalId,
-                                  title: bEvent.title || 'Untitled',
-                                  startsAt: bEvent.startsAt,
-                                  endsAt: bEvent.endsAt,
-                                  description: bEvent.description || '',
-                                  location: bEvent.location || '',
-                                  priceCents: bEvent.priceCents || null,
-                                  type: 'booking',
-                                  isPersonal: false,
-                                  bookingData: ev.booking,
-                                });
-                                modalOpeningRef.current = true;
-                                setTimeout(() => {
-                                  setIsEventDetailsVisible(true);
-                                  setTimeout(() => { modalOpeningRef.current = false; }, 200);
-                                }, 120);
-                              }
-                            }}
-                          >
-                            <EventCard event={ev} />
-                          </TouchableOpacity>
-                        ))
+                        <TouchableOpacity
+                          key={`${index}-${ev.id}`}
+                          onPress={() => {
+                            if (ev.fullEvent) {
+                              const e = ev.fullEvent;
+                              const eventId = e._id || e.id;
+                              const normalized = {
+                                id: eventId,
+                                _id: e._id, // Keep _id for API calls
+                                title: e.title || 'Untitled',
+                                startsAt: e.startsAt,
+                                endsAt: e.endsAt,
+                                description: e.description || e.notes || '',
+                                notes: e.notes || e.description || '',
+                                location: e.location || '',
+                                priceCents: e.priceCents || e.costCents || null,
+                                type: e.type || 'event',
+                                isPersonal: !!e.isPersonal,
+                              } as any;
+                              console.log('🔍 Opening event modal:', {
+                                id: normalized.id,
+                                _id: normalized._id,
+                                isPersonal: normalized.isPersonal,
+                                type: normalized.type,
+                                title: normalized.title
+                              });
+                              setSelectedEvent(normalized);
+                              modalOpeningRef.current = true;
+                              setTimeout(() => {
+                                setIsEventDetailsVisible(true);
+                                setTimeout(() => { modalOpeningRef.current = false; }, 200);
+                              }, 120);
+                              return;
+                            }
+                            if (ev.booking) {
+                              const bEvent = ev.booking.eventId as any;
+                              setSelectedEvent({
+                                id: bEvent._id || ev.originalId,
+                                title: bEvent.title || 'Untitled',
+                                startsAt: bEvent.startsAt,
+                                endsAt: bEvent.endsAt,
+                                description: bEvent.description || '',
+                                location: bEvent.location || '',
+                                priceCents: bEvent.priceCents || null,
+                                type: 'booking',
+                                isPersonal: false,
+                                bookingData: ev.booking,
+                              });
+                              modalOpeningRef.current = true;
+                              setTimeout(() => {
+                                setIsEventDetailsVisible(true);
+                                setTimeout(() => { modalOpeningRef.current = false; }, 200);
+                              }, 120);
+                            }
+                          }}
+                        >
+                          <EventCard event={ev} />
+                        </TouchableOpacity>
+                      ))
                       : <View style={styles.emptySlot} />}
                   </View>
                 </View>
@@ -731,7 +732,8 @@ const HomeScreen = () => {
             })}
           </View>
         </ScrollView>
-      )}
+      )
+      }
 
       {/* Floating Action Button */}
       <TouchableOpacity style={styles.fab} onPress={openCreateModal}>
@@ -746,7 +748,7 @@ const HomeScreen = () => {
               <Text style={styles.modalTitle}>
                 {isEditMode ? 'Edit Personal Event' : 'Create Personal Event'}
               </Text>
-              
+
               {/* Title Input */}
               <TextInput
                 placeholder="Title"
@@ -798,9 +800,9 @@ const HomeScreen = () => {
               >
                 <Ionicons name="calendar-outline" size={20} color="#666" />
                 <Text style={styles.pickerButtonText}>
-                  {eventDate.toLocaleDateString('en-US', { 
+                  {eventDate.toLocaleDateString('en-US', {
                     weekday: 'short',
-                    month: 'short', 
+                    month: 'short',
                     day: 'numeric',
                     year: 'numeric'
                   })}
@@ -931,15 +933,15 @@ const HomeScreen = () => {
 
               {/* Action Buttons */}
               <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 12 }}>
-                <TouchableOpacity 
-                  onPress={() => setIsModalVisible(false)} 
+                <TouchableOpacity
+                  onPress={() => setIsModalVisible(false)}
                   style={[styles.modalBtn, { backgroundColor: '#9ca3af' }]}
                 >
                   <Text style={styles.modalBtnText}>Cancel</Text>
                 </TouchableOpacity>
-                <TouchableOpacity 
-                  onPress={submitPersonalEvent} 
-                  style={styles.modalBtn} 
+                <TouchableOpacity
+                  onPress={submitPersonalEvent}
+                  style={styles.modalBtn}
                   disabled={isLoading}
                 >
                   {isLoading ? (
@@ -1010,7 +1012,7 @@ const HomeScreen = () => {
                   </View>
                 ) : null}
 
-                <View style={[styles.eventTypePill, { alignSelf: 'center', marginTop: 8 }]}> 
+                <View style={[styles.eventTypePill, { alignSelf: 'center', marginTop: 8 }]}>
                   <Text style={[styles.eventTypeText, { color: (selectedEvent as any).isPersonal || (selectedEvent as any).type === 'personal' ? '#60A5FA' : '#10B981' }]}>
                     {(selectedEvent as any).isPersonal || (selectedEvent as any).type === 'personal' ? 'Personal Event' : ((selectedEvent as any).type === 'booking' ? 'Booking' : 'Personal Event')}
                   </Text>
@@ -1018,8 +1020,8 @@ const HomeScreen = () => {
 
                 {/* ALWAYS SHOW BUTTONS FOR TESTING */}
                 <View style={{ flexDirection: 'row', gap: 12, marginTop: 18, width: '100%' }}>
-                  <TouchableOpacity 
-                    style={[styles.closeModalButton, { flex: 1, backgroundColor: '#3B82F6', borderWidth: 0 }]} 
+                  <TouchableOpacity
+                    style={[styles.closeModalButton, { flex: 1, backgroundColor: '#3B82F6', borderWidth: 0 }]}
                     onPress={() => {
                       console.log('EDIT BUTTON CLICKED');
                       setIsEventDetailsVisible(false);
@@ -1029,8 +1031,8 @@ const HomeScreen = () => {
                     <Ionicons name="create-outline" size={18} color="white" style={{ marginRight: 6 }} />
                     <Text style={[styles.closeModalButtonText, { color: 'white' }]}>Edit</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[styles.closeModalButton, { flex: 1, backgroundColor: '#EF4444', borderWidth: 0 }]} 
+                  <TouchableOpacity
+                    style={[styles.closeModalButton, { flex: 1, backgroundColor: '#EF4444', borderWidth: 0 }]}
                     onPress={() => {
                       console.log('DELETE BUTTON CLICKED');
                       deletePersonalEvent((selectedEvent as any).id);
@@ -1101,7 +1103,7 @@ const HomeScreen = () => {
                   <Text style={styles.eventDetailText}>{formatDateForModal((selectedEvent as any).startsAt)}</Text>
                 </View>
 
-              
+
 
                 {(selectedEvent as any).description ? (
                   <View style={[styles.eventDetailItem, { alignItems: 'flex-start' }]}>
@@ -1117,7 +1119,7 @@ const HomeScreen = () => {
                 )}
 
                 {/* Event Type Badge */}
-                <View style={[styles.eventTypePill, { alignSelf: 'center', marginTop: 12 }]}> 
+                <View style={[styles.eventTypePill, { alignSelf: 'center', marginTop: 12 }]}>
                   <Text style={[styles.eventTypeText, { color: (selectedEvent as any).isPersonal || (selectedEvent as any).type === 'personal' ? '#60A5FA' : '#10B981' }]}>
                     {(selectedEvent as any).isPersonal || (selectedEvent as any).type === 'personal' ? 'Personal Event' : 'Public Event'}
                   </Text>
@@ -1126,8 +1128,8 @@ const HomeScreen = () => {
                 {/* Show Edit/Delete buttons ONLY for personal events */}
                 {((selectedEvent as any).isPersonal || (selectedEvent as any).type === 'personal') && (
                   <View style={{ flexDirection: 'row', gap: 12, marginTop: 18, width: '100%' }}>
-                    <TouchableOpacity 
-                      style={[styles.closeModalButton, { flex: 1, backgroundColor: '#3B82F6', borderWidth: 0 }]} 
+                    <TouchableOpacity
+                      style={[styles.closeModalButton, { flex: 1, backgroundColor: '#3B82F6', borderWidth: 0 }]}
                       onPress={() => {
                         setIsEventDetailsVisible(false);
                         openEditModal(selectedEvent);
@@ -1136,8 +1138,8 @@ const HomeScreen = () => {
                       <Ionicons name="create-outline" size={18} color="white" style={{ marginRight: 6 }} />
                       <Text style={[styles.closeModalButtonText, { color: 'white' }]}>Edit</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity 
-                      style={[styles.closeModalButton, { flex: 1, backgroundColor: '#EF4444', borderWidth: 0 }]} 
+                    <TouchableOpacity
+                      style={[styles.closeModalButton, { flex: 1, backgroundColor: '#EF4444', borderWidth: 0 }]}
                       onPress={() => {
                         const eventId = (selectedEvent as any)._id || (selectedEvent as any).id;
                         console.log('🗑️ Delete button pressed, eventId:', eventId);
@@ -1167,22 +1169,24 @@ const HomeScreen = () => {
       </Modal>
 
       {/* Snackbar */}
-      {snackbar.visible && (
-        <View
-          style={{
-            position: 'absolute',
-            top: insets.top + 10,
-            left: 16,
-            right: 16,
-            backgroundColor: snackbar.type === 'error' ? '#EF4444' : '#10B981',
-            padding: 12,
-            borderRadius: 8,
-          }}
-        >
-          <Text style={{ color: 'white', textAlign: 'center' }}>{snackbar.message}</Text>
-        </View>
-      )}
-    </SafeAreaView>
+      {
+        snackbar.visible && (
+          <View
+            style={{
+              position: 'absolute',
+              top: insets.top + 10,
+              left: 16,
+              right: 16,
+              backgroundColor: snackbar.type === 'error' ? '#EF4444' : '#10B981',
+              padding: 12,
+              borderRadius: 8,
+            }}
+          >
+            <Text style={{ color: 'white', textAlign: 'center' }}>{snackbar.message}</Text>
+          </View>
+        )
+      }
+    </SafeAreaView >
   );
 };
 
@@ -1391,12 +1395,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   dateSection: { paddingHorizontal: 20, paddingBottom: 20 },
-  daysContainer: { flexDirection: 'row' },
+  daysContainer: { flexDirection: 'row', justifyContent: 'space-between' },
   dayItem: {
     alignItems: 'center',
-    paddingHorizontal: 16,
+    width: (Dimensions.get('window').width - 40 - 48) / 7, // (screen - padding - gaps) / 7
     paddingVertical: 12,
-    marginRight: 8,
     borderRadius: 12,
     backgroundColor: 'white',
     borderWidth: 1,
@@ -1452,10 +1455,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
   },
-  modalCard: { 
-    width: '100%', 
-    backgroundColor: 'white', 
-    borderRadius: 12, 
+  modalCard: {
+    width: '100%',
+    backgroundColor: 'white',
+    borderRadius: 12,
     padding: 16,
     maxHeight: '85%',
   },
