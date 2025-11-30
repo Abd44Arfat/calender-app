@@ -3,7 +3,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect } from '@react-navigation/native';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, Image, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSnackbar } from '../../contexts/SnackbarContext';
@@ -33,7 +33,7 @@ export default function ExploreScreen() {
   const insets = useSafeAreaInsets();
   const { snackbar, showError, showSuccess } = useSnackbar();
   const params = useLocalSearchParams<{ editEventId?: string; editMode?: string }>();
-  
+
   // Date restrictions - current year only
   const now = new Date();
   const minimumDate = new Date(now.getFullYear(), 0, 1); // January 1st of current year
@@ -68,7 +68,7 @@ export default function ExploreScreen() {
       setIsLoading(true);
       const startOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
       const endOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
-      
+
       let formattedEvents: Event[] = [];
 
       // For customers, show only accepted events
@@ -79,7 +79,7 @@ export default function ExploreScreen() {
           });
 
           const acceptedEvents = acceptedEventsResponse.events || [];
-          
+
           // Filter events for the current month
           formattedEvents = acceptedEvents
             .filter((event: any) => {
@@ -110,9 +110,9 @@ export default function ExploreScreen() {
               limit: 100,
             });
 
-            const normalizedEvents = Array.isArray(eventsResponse?.events) ? eventsResponse.events : 
-                                    Array.isArray(eventsResponse?.data) ? eventsResponse.data :
-                                    Array.isArray(eventsResponse) ? eventsResponse : [];
+            const normalizedEvents = Array.isArray(eventsResponse?.events) ? eventsResponse.events :
+              Array.isArray(eventsResponse?.data) ? eventsResponse.data :
+                Array.isArray(eventsResponse) ? eventsResponse : [];
 
             formattedEvents = normalizedEvents.map((event: any, index: number) => ({
               id: event._id || `event-${index}`,
@@ -137,9 +137,9 @@ export default function ExploreScreen() {
           limit: 100,
         });
 
-        const normalizedEvents = Array.isArray(eventsResponse?.events) ? eventsResponse.events : 
-                                Array.isArray(eventsResponse?.data) ? eventsResponse.data :
-                                Array.isArray(eventsResponse) ? eventsResponse : [];
+        const normalizedEvents = Array.isArray(eventsResponse?.events) ? eventsResponse.events :
+          Array.isArray(eventsResponse?.data) ? eventsResponse.data :
+            Array.isArray(eventsResponse) ? eventsResponse : [];
 
         formattedEvents = normalizedEvents.map((event: any, index: number) => ({
           id: event._id || `event-${index}`,
@@ -192,7 +192,7 @@ export default function ExploreScreen() {
     try {
       setIsLoading(true);
       const eventData = await apiService.getEventById(eventId);
-      
+
       // Pre-fill the form with event data
       setNewEventTitle(eventData.title || '');
       setNewEventDescription(eventData.description || '');
@@ -200,14 +200,14 @@ export default function ExploreScreen() {
       setNewEventCapacity(eventData.capacity?.toString() || '');
       setNewEventPrice(eventData.priceCents ? (eventData.priceCents / 100).toString() : '');
       setNewEventTags(eventData.tags?.join(', ') || '');
-      
+
       const startDate = new Date(eventData.startsAt);
       const endDate = new Date(eventData.endsAt);
-      
+
       setEventCreationDate(startDate);
       setStartTimeDate(startDate);
       setEndTimeDate(endDate);
-      
+
       setIsEditingEvent(true);
       setEditingVendorEventId(eventId);
       setIsCreateModalVisible(true);
@@ -247,7 +247,7 @@ export default function ExploreScreen() {
       '#10B981', // Emerald
       '#6366F1', // Indigo
     ];
-    
+
     // Use the seed to consistently generate the same color for the same event
     let hash = 0;
     for (let i = 0; i < seed.length; i++) {
@@ -255,7 +255,7 @@ export default function ExploreScreen() {
       hash = ((hash << 5) - hash) + char;
       hash = hash & hash; // Convert to 32-bit integer
     }
-    
+
     return colors[Math.abs(hash) % colors.length];
   };
 
@@ -266,15 +266,15 @@ export default function ExploreScreen() {
     const lastDay = new Date(year, month + 1, 0);
     const startDate = new Date(firstDay);
     startDate.setDate(startDate.getDate() - firstDay.getDay() + 1);
-    
+
     const days = [];
     const currentDate = new Date(startDate);
-    
+
     while (currentDate <= lastDay || days.length < 42) {
       days.push(new Date(currentDate));
       currentDate.setDate(currentDate.getDate() + 1);
     }
-    
+
     return days;
   };
 
@@ -294,14 +294,14 @@ export default function ExploreScreen() {
   }, [events]);
 
   const isSameDay = (date1: Date, date2: Date) => {
-    return date1.getDate() === date2.getDate() && 
-           date1.getMonth() === date2.getMonth() && 
-           date1.getFullYear() === date2.getFullYear();
+    return date1.getDate() === date2.getDate() &&
+      date1.getMonth() === date2.getMonth() &&
+      date1.getFullYear() === date2.getFullYear();
   };
 
   const isCurrentMonth = (date: Date) => {
-    return date.getMonth() === currentMonth.getMonth() && 
-           date.getFullYear() === currentMonth.getFullYear();
+    return date.getMonth() === currentMonth.getMonth() &&
+      date.getFullYear() === currentMonth.getFullYear();
   };
 
   const getMonthName = (date: Date) => {
@@ -327,7 +327,7 @@ export default function ExploreScreen() {
       showError('Please login to book events');
       return;
     }
-  
+
     // Prevent booking if event start time is not in the future
     if (event.startsAt) {
       const eventDate = new Date(event.startsAt);
@@ -338,7 +338,7 @@ export default function ExploreScreen() {
         return;
       }
     }
-  
+
     Alert.alert(
       'Book Event',
       `Do you want to book "${event.title}" for $${event.priceCents ? (event.priceCents / 100).toFixed(2) : '0.00'}?`,
@@ -388,13 +388,13 @@ export default function ExploreScreen() {
       ]
     );
   };
-  
+
   const cancelBooking = async (bookingId: string) => {
     if (!token || !user?._id) {
       showError('Please login to cancel bookings');
       return;
     }
-  
+
     Alert.alert(
       'Cancel Booking',
       'Are you sure you want to cancel this booking?',
@@ -427,10 +427,10 @@ export default function ExploreScreen() {
     if (use24HourFormatVendor) {
       return date.toTimeString().slice(0, 5);
     } else {
-      return date.toLocaleTimeString('en-US', { 
-        hour: '2-digit', 
-        minute: '2-digit', 
-        hour12: true 
+      return date.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
       });
     }
   };
@@ -443,10 +443,10 @@ export default function ExploreScreen() {
     setNewEventLocation(event.location || '');
     setNewEventCapacity(event.capacity?.toString() || '');
     setNewEventPrice(event.priceCents ? (event.priceCents / 100).toString() : '');
-    
+
     const startDate = new Date(event.startsAt!);
     const endDate = new Date(event.endsAt!);
-    
+
     setEventCreationDate(startDate);
     setStartTimeDate(startDate);
     setEndTimeDate(endDate);
@@ -503,7 +503,7 @@ export default function ExploreScreen() {
       // Use the date and time from pickers
       const startDate = new Date(eventCreationDate);
       startDate.setHours(startTimeDate.getHours(), startTimeDate.getMinutes(), 0, 0);
-      
+
       const endDate = new Date(eventCreationDate);
       endDate.setHours(endTimeDate.getHours(), endTimeDate.getMinutes(), 0, 0);
 
@@ -536,11 +536,11 @@ export default function ExploreScreen() {
         await apiService.createEvent(token, eventData);
         showSuccess('Event created successfully!');
       }
-      
+
       setIsCreateModalVisible(false);
       setIsEditingEvent(false);
       setEditingVendorEventId(null);
-      
+
       // Reset form
       setNewEventTitle('');
       setNewEventDescription('');
@@ -550,7 +550,7 @@ export default function ExploreScreen() {
       setNewEventCapacity('');
       setNewEventPrice('');
       setNewEventTags('');
-      
+
       // Refresh events
       await fetchEvents();
     } catch (err: any) {
@@ -565,9 +565,9 @@ export default function ExploreScreen() {
     return selectedDayEvents.map((event, index) => ({
       ...event,
       id: `${event.id}-${index}`, // Ensure unique IDs by combining with index
-      subtitle: `Event for ${selectedDate.toLocaleDateString('en-US', { 
-        month: 'long', 
-        day: 'numeric' 
+      subtitle: `Event for ${selectedDate.toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric'
       })}`,
     }));
   }, [selectedDate, selectedDayEvents]);
@@ -596,15 +596,15 @@ export default function ExploreScreen() {
 
         {/* Month Header */}
         <View style={styles.monthHeader}>
-          <TouchableOpacity 
-            style={styles.navButton} 
+          <TouchableOpacity
+            style={styles.navButton}
             onPress={() => navigateMonth('prev')}
           >
             <Ionicons name="chevron-back" size={20} color="#000" />
           </TouchableOpacity>
           <Text style={styles.monthText}>{getMonthName(currentMonth)}</Text>
-          <TouchableOpacity 
-            style={styles.navButton} 
+          <TouchableOpacity
+            style={styles.navButton}
             onPress={() => navigateMonth('next')}
           >
             <Ionicons name="chevron-forward" size={20} color="#000" />
@@ -627,7 +627,7 @@ export default function ExploreScreen() {
               const dayEvents = calendarEvents[dateKey] || [];
               const isSelected = isSameDay(date, selectedDate);
               const isCurrentMonthDay = isCurrentMonth(date);
-              
+
               return (
                 <TouchableOpacity
                   key={index}
@@ -639,7 +639,7 @@ export default function ExploreScreen() {
                   onPress={() => {
                     const dateKey = formatDate(date);
                     const dayEvents = calendarEvents[dateKey] || [];
-                    
+
                     router.push({
                       pathname: '/day-events',
                       params: {
@@ -657,15 +657,15 @@ export default function ExploreScreen() {
                     {date.getDate()}
                   </Text>
                   {dayEvents.map((event, eventIndex) => (
-                    <View 
-                      key={eventIndex} 
+                    <View
+                      key={eventIndex}
                       style={[
-                        styles.eventIndicator, 
+                        styles.eventIndicator,
                         { backgroundColor: event.color }
                       ]}
                     >
-<Text style={styles.eventText} numberOfLines={2}>{event.title}</Text>     
-               </View>
+                      <Text style={styles.eventText} numberOfLines={2}>{event.title}</Text>
+                    </View>
                   ))}
                 </TouchableOpacity>
               );
@@ -673,25 +673,25 @@ export default function ExploreScreen() {
           </View>
         </View>
 
-       
+
       </ScrollView>
- {/* Floating Action Button for Vendors */}
- {user?.userType === 'vendor' && (
-          <TouchableOpacity 
-            style={styles.fab} 
-            onPress={() => {
-              router.push('/events/create');
-            }}
-          >
-            <Ionicons name="add" size={24} color="white" />
-          </TouchableOpacity>
-        )}
+      {/* Floating Action Button for Vendors */}
+      {user?.userType === 'vendor' && (
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => {
+            router.push('/events/create');
+          }}
+        >
+          <Ionicons name="add" size={24} color="white" />
+        </TouchableOpacity>
+      )}
       {/* Events Modal */}
       <Modal
         animationType="slide"
         transparent={true}
         visible={false}
-        onRequestClose={() => {}}
+        onRequestClose={() => { }}
       >
         <View style={styles.eventsModalOverlay}>
           <View style={styles.eventsModalContent}>
@@ -705,7 +705,7 @@ export default function ExploreScreen() {
             </Text>
             <TouchableOpacity
               style={styles.modalCloseButton}
-              onPress={() => {}}
+              onPress={() => { }}
             >
               <Ionicons name="close" size={24} color="#000" />
             </TouchableOpacity>
@@ -720,7 +720,7 @@ export default function ExploreScreen() {
                       <View key={event.id} style={styles.professionalEventCard}>
                         {/* Color accent bar on left */}
                         <View style={[styles.eventAccentBar, { backgroundColor: event.color }]} />
-                        
+
                         <View style={styles.eventCardContent}>
                           {/* Header with time and status */}
                           <View style={styles.eventCardHeader}>
@@ -764,7 +764,7 @@ export default function ExploreScreen() {
                                 </Text>
                               </View>
                             )}
-                            
+
                             <View style={styles.eventCardActions}>
                               {user?.userType === 'customer' && !isPastEvent && (
                                 <TouchableOpacity
@@ -784,13 +784,13 @@ export default function ExploreScreen() {
                               )}
                               {user?.userType === 'vendor' && (
                                 <View style={styles.vendorActions}>
-                                  <TouchableOpacity 
+                                  <TouchableOpacity
                                     style={styles.iconButton}
                                     onPress={() => openEditEventModal(event)}
                                   >
                                     <Ionicons name="create-outline" size={18} color="#3B82F6" />
                                   </TouchableOpacity>
-                                  <TouchableOpacity 
+                                  <TouchableOpacity
                                     style={styles.iconButton}
                                     onPress={() => deleteVendorEvent(String(event.id))}
                                     disabled={isLoading}
@@ -830,7 +830,7 @@ export default function ExploreScreen() {
               <Text style={styles.modalTitle}>
                 {isEditingEvent ? 'Edit Event' : 'Create Event'}
               </Text>
-              
+
               {/* Title Input */}
               <TextInput
                 placeholder="Event Title"
@@ -898,9 +898,9 @@ export default function ExploreScreen() {
               >
                 <Ionicons name="calendar-outline" size={20} color="#666" />
                 <Text style={styles.pickerButtonText}>
-                  {eventCreationDate.toLocaleDateString('en-US', { 
+                  {eventCreationDate.toLocaleDateString('en-US', {
                     weekday: 'short',
-                    month: 'short', 
+                    month: 'short',
                     day: 'numeric',
                     year: 'numeric'
                   })}
@@ -1015,15 +1015,15 @@ export default function ExploreScreen() {
 
               {/* Action Buttons */}
               <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 12 }}>
-                <TouchableOpacity 
-                  onPress={() => setIsCreateModalVisible(false)} 
+                <TouchableOpacity
+                  onPress={() => setIsCreateModalVisible(false)}
                   style={[styles.modalBtn, { backgroundColor: '#9ca3af' }]}
                 >
                   <Text style={styles.modalBtnText}>Cancel</Text>
                 </TouchableOpacity>
-                <TouchableOpacity 
-                  onPress={createEvent} 
-                  style={styles.modalBtn} 
+                <TouchableOpacity
+                  onPress={createEvent}
+                  style={styles.modalBtn}
                   disabled={isLoading}
                 >
                   {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalBtnText}>{isEditingEvent ? 'Update' : 'Create'}</Text>}
@@ -1078,10 +1078,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
   },
-  profileSection: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: 12 
+  profileSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12
   },
   profilePic: {
     width: 40,
@@ -1091,10 +1091,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  greetingText: { 
-    fontSize: 24, 
-    fontWeight: 'bold', 
-    color: '#000' 
+  greetingText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#000'
   },
   monthHeader: {
     flexDirection: 'row',
@@ -1138,17 +1138,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   dayCell: {
-    flex: 1,                  // 👈 PERFECT WIDTH (NO GAPS!)
+    width: (Dimensions.get('window').width / 7) - 4,
     minHeight: 120,
-    minWidth:80,
-    marginVertical: 5,        // 👈 TINY VERTICAL SPACE
-    marginHorizontal: 5,      // 👈 ZERO HORIZONTAL SPACE
+    marginHorizontal: 2,
+    marginVertical: 4,
     borderRadius: 6,
     borderWidth: 1,
     borderColor: '#E0E0E0',
     justifyContent: 'flex-start',
     alignItems: 'flex-start',
-    padding: 4,               // 👈 TIGHTER PADDING
+    padding: 4,
     overflow: 'hidden',
   },
   selectedDayCell: {
@@ -1184,9 +1183,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',     // 👈 CENTER HORIZONTALLY!
   },
   eventText: {
-   
+
     fontSize: 9.5,        // 👈 PERFECT SIZE
-  lineHeight: 11,       // 👈 TIGHT LINES
+    lineHeight: 11,       // 👈 TIGHT LINES
     color: 'white',
     fontWeight: '600',
     textAlign: 'center',
@@ -1470,18 +1469,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
   },
-  modalCard: { 
-    width: '100%', 
-    backgroundColor: 'white', 
-    borderRadius: 12, 
+  modalCard: {
+    width: '100%',
+    backgroundColor: 'white',
+    borderRadius: 12,
     padding: 16,
     maxHeight: '85%',
   },
-  modalTitle: { 
-    fontSize: 18, 
-    fontWeight: '700', 
-    marginBottom: 12, 
-    color: '#111827' 
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 12,
+    color: '#111827'
   },
   input: {
     borderWidth: 1,
@@ -1542,15 +1541,15 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     flex: 1,
   },
-  modalBtn: { 
-    backgroundColor: '#4CAF50', 
-    paddingHorizontal: 16, 
-    paddingVertical: 10, 
-    borderRadius: 8 
+  modalBtn: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8
   },
-  modalBtnText: { 
-    color: 'white', 
-    fontWeight: '600' 
+  modalBtnText: {
+    color: 'white',
+    fontWeight: '600'
   },
   confirmOverlay: {
     flex: 1,
@@ -1565,22 +1564,22 @@ const styles = StyleSheet.create({
     padding: 20,
     alignItems: 'center',
   },
-  confirmTitle: { 
-    fontSize: 18, 
-    fontWeight: '700', 
-    marginBottom: 8 
+  confirmTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 8
   },
-  confirmMessage: { 
-    fontSize: 15, 
-    color: '#333', 
-    textAlign: 'center', 
-    marginBottom: 16 
+  confirmMessage: {
+    fontSize: 15,
+    color: '#333',
+    textAlign: 'center',
+    marginBottom: 16
   },
-  confirmButton: { 
-    backgroundColor: '#22C55E', 
-    paddingHorizontal: 18, 
-    paddingVertical: 10, 
-    borderRadius: 8 
+  confirmButton: {
+    backgroundColor: '#22C55E',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 8
   },
   globalLoadingOverlay: {
     position: 'absolute',
