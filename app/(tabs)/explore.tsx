@@ -1135,15 +1135,11 @@ const styles = StyleSheet.create({
   calendarGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
   },
   dayCell: {
-    width: (Dimensions.get('window').width / 7) - 4,
+    width: Dimensions.get('window').width / 7,
     minHeight: 120,
-    marginHorizontal: 2,
-    marginVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1,
+    borderWidth: 0.5,
     borderColor: '#E0E0E0',
     justifyContent: 'flex-start',
     alignItems: 'flex-start',
