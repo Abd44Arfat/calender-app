@@ -4,7 +4,6 @@
     "slug": "quack-plan",
     "version": "1.0.0",
     "orientation": "portrait",
-
     "scheme": "quackplan",
     "icon": "./assets/images/quackplanicon.png",
     "userInterfaceStyle": "automatic",
@@ -19,14 +18,12 @@
     "ios": {
       "bundleIdentifier": "com.quackplan.quackplan",
       "supportsTablet": true,
-      "buildNumber": "11",
+      "buildNumber": "12",
       "icon": "./assets/images/quackplanicon.png",
       "infoPlist": {
         "NSCameraUsageDescription": "We use the camera for profile photos and scanning features.",
         "NSPhotoLibraryUsageDescription": "We need access to your photos to let you upload images.",
         "NSLocationWhenInUseUsageDescription": "We use your location to personalize your experience.",
-        "NSUserTrackingUsageDescription": "We use tracking to improve recommendations and app performance.",
-        "NSMicrophoneUsageDescription": "We need microphone access for optional voice features.",
         "ITSAppUsesNonExemptEncryption": false
       }
     },

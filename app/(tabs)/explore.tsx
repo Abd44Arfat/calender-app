@@ -1140,7 +1140,7 @@ const styles = StyleSheet.create({
     width: Dimensions.get('window').width / 7,
     minHeight: 120,
     borderWidth: 0.5,
-    borderColor: '#E0E0E0',
+    borderColor: '#f2f2f4',
     justifyContent: 'flex-start',
     alignItems: 'flex-start',
     padding: 4,

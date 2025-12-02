@@ -2,14 +2,14 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Snackbar } from '../components/Snackbar';
@@ -65,9 +65,7 @@ export default function RegisterScreen() {
       newErrors.phone = 'Phone number is required';
     }
 
-    if (!formData.profile.dob) {
-      newErrors.dob = 'Date of birth is required';
-    }
+    // Date of birth is optional - removed validation to comply with App Store guidelines
 
     if (!formData.profile.location) {
       newErrors.location = 'Location is required';
@@ -90,7 +88,7 @@ export default function RegisterScreen() {
 
     // Clean up data before sending
     const submitData = { ...formData };
-    
+
     // Process specializations from the text input
     if (submitData.userType === 'vendor' && specializationsText.trim()) {
       const specializations = specializationsText
@@ -99,7 +97,7 @@ export default function RegisterScreen() {
         .filter(s => s);
       submitData.profile.specializations = specializations;
     }
-    
+
     if (submitData.userType === 'customer') {
       delete submitData.profile.academyName;
       delete submitData.profile.specializations;
@@ -229,7 +227,7 @@ export default function RegisterScreen() {
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
-                  placeholderTextColor="#9ca3af"
+                placeholderTextColor="#9ca3af"
               />
               {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
             </View>
@@ -244,7 +242,7 @@ export default function RegisterScreen() {
                 onChangeText={(text) => updateFormData('password', text)}
                 secureTextEntry
                 autoCapitalize="none"
-                  placeholderTextColor="#9ca3af"
+                placeholderTextColor="#9ca3af"
               />
               {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
             </View>
@@ -258,7 +256,7 @@ export default function RegisterScreen() {
                 value={formData.profile.fullName}
                 onChangeText={(text) => updateFormData('profile.fullName', text)}
                 autoCapitalize="words"
-                  placeholderTextColor="#9ca3af"
+                placeholderTextColor="#9ca3af"
               />
               {errors.fullName && <Text style={styles.errorText}>{errors.fullName}</Text>}
             </View>
@@ -272,14 +270,14 @@ export default function RegisterScreen() {
                 value={formData.profile.phone}
                 onChangeText={(text) => updateFormData('profile.phone', text)}
                 keyboardType="phone-pad"
-                  placeholderTextColor="#9ca3af"
+                placeholderTextColor="#9ca3af"
               />
               {errors.phone && <Text style={styles.errorText}>{errors.phone}</Text>}
             </View>
 
             {/* Date of Birth */}
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Date of Birth</Text>
+              <Text style={styles.label}>Date of Birth (Optional)</Text>
               <TouchableOpacity
                 style={[styles.input, { justifyContent: 'center' }, errors.dob && styles.inputError]}
                 onPress={() => {
@@ -295,7 +293,7 @@ export default function RegisterScreen() {
               {errors.dob && <Text style={styles.errorText}>{errors.dob}</Text>}
             </View>
   // State for date picker
-  const [showDatePicker, setShowDatePicker] = useState(false);
+            const [showDatePicker, setShowDatePicker] = useState(false);
 
             {/* Location */}
             <View style={styles.inputContainer}>
@@ -306,7 +304,7 @@ export default function RegisterScreen() {
                 value={formData.profile.location}
                 onChangeText={(text) => updateFormData('profile.location', text)}
                 autoCapitalize="words"
-                  placeholderTextColor="#9ca3af"
+                placeholderTextColor="#9ca3af"
               />
               {errors.location && <Text style={styles.errorText}>{errors.location}</Text>}
             </View>
@@ -322,7 +320,7 @@ export default function RegisterScreen() {
                     value={formData.profile.academyName || ''}
                     onChangeText={(text) => updateFormData('profile.academyName', text)}
                     autoCapitalize="words"
-                      placeholderTextColor="#9ca3af"
+                    placeholderTextColor="#9ca3af"
                   />
                   {errors.academyName && <Text style={styles.errorText}>{errors.academyName}</Text>}
                 </View>
@@ -383,7 +381,7 @@ export default function RegisterScreen() {
       {/* Date Picker Modal - Outside ScrollView to cover entire screen */}
       {showDatePicker && (
         <View style={styles.datePickerModal}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.datePickerOverlay}
             activeOpacity={1}
             onPress={() => setShowDatePicker(false)}

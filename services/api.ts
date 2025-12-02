@@ -7,7 +7,7 @@ export interface RegisterRequest {
   profile: {
     fullName: string;
     phone: string;
-    dob: string;
+    dob?: string; // Optional - not required for core app functionality
     location: string;
     academyName?: string; // Only for vendors
     specializations?: string[]; // Only for vendors
@@ -224,7 +224,7 @@ class ApiService {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
-    
+
     const config: RequestInit = {
       headers: {
         'Content-Type': 'application/json',
@@ -242,10 +242,10 @@ class ApiService {
 
       const response = await fetch(url, config);
       console.log('📡 API Response Status:', response.status, response.statusText);
-      
+
       const data = await response.json();
       console.log('📦 API Response Data:', JSON.stringify(data, null, 2));
-      
+
       if (!response.ok) {
         console.error('❌ API Error:', {
           status: response.status,
@@ -262,7 +262,7 @@ class ApiService {
           },
         };
       }
-      
+
       console.log('✅ API Success:', data);
       return data;
     } catch (error: any) {
@@ -295,7 +295,7 @@ class ApiService {
       }),
     });
   }
-  
+
 
   // Resend verification OTP
   async resendOtp(body: { email: string }): Promise<any> {
@@ -340,53 +340,53 @@ class ApiService {
   }
 
   async uploadProfileImage(
-  token: string,
-  imageData: string | FormData
-): Promise<{ message: string; profilePicture: string }> {
-  const url = `${this.baseUrl}/api/auth/profile/picture`;
+    token: string,
+    imageData: string | FormData
+  ): Promise<{ message: string; profilePicture: string }> {
+    const url = `${this.baseUrl}/api/auth/profile/picture`;
 
-  let formData: FormData;
-  if (typeof imageData === 'string') {
-    formData = new FormData();
-    formData.append('picture', {
-      uri: imageData,
-      type: 'image/jpeg',
-      name: 'profile.jpg',
-    } as any);
-  } else {
-    formData = imageData;
-  }
+    let formData: FormData;
+    if (typeof imageData === 'string') {
+      formData = new FormData();
+      formData.append('picture', {
+        uri: imageData,
+        type: 'image/jpeg',
+        name: 'profile.jpg',
+      } as any);
+    } else {
+      formData = imageData;
+    }
 
-  try {
-    const response = await fetch(url, {
-      method: 'PUT',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        // DO NOT set Content-Type — fetch adds boundary
-      },
-      body: formData,
-    });
-
-    let data: any;
     try {
-      data = await response.json();
-    } catch {
-      data = { message: await response.text() };
-    }
+      const response = await fetch(url, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          // DO NOT set Content-Type — fetch adds boundary
+        },
+        body: formData,
+      });
 
-    if (!response.ok) {
-      throw new Error(data.message || `Upload failed: ${response.status}`);
-    }
+      let data: any;
+      try {
+        data = await response.json();
+      } catch {
+        data = { message: await response.text() };
+      }
 
-    return {
-      message: data.message || 'Success',
-      profilePicture: data.profilePicture || '',
-    };
-  } catch (error: any) {
-    console.error('API Upload Error:', error);
-    throw error;
+      if (!response.ok) {
+        throw new Error(data.message || `Upload failed: ${response.status}`);
+      }
+
+      return {
+        message: data.message || 'Success',
+        profilePicture: data.profilePicture || '',
+      };
+    } catch (error: any) {
+      console.error('API Upload Error:', error);
+      throw error;
+    }
   }
-}
   // ================= Events =================
   async listEvents(params?: {
     vendorId?: string;
@@ -515,7 +515,7 @@ class ApiService {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
-        
+
       },
       body: JSON.stringify(body),
     });
@@ -589,7 +589,7 @@ class ApiService {
   }
 
   // ================= Event Assignment APIs =================
-  
+
   // Get all users (for vendor to select users)
   async getAllUsers(token: string, params?: {
     userType?: 'customer' | 'vendor';
@@ -726,6 +726,6 @@ class ApiService {
       body: JSON.stringify({ pushToken }),
     });
   }
-}  
+}
 
 export const apiService = new ApiService();

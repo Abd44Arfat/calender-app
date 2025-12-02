@@ -55,8 +55,6 @@
     <string>We need microphone access for optional voice features.</string>
     <key>NSPhotoLibraryUsageDescription</key>
     <string>We need access to your photos to let you upload images.</string>
-    <key>NSUserTrackingUsageDescription</key>
-    <string>We use tracking to improve recommendations and app performance.</string>
     <key>UILaunchStoryboardName</key>
     <string>SplashScreen</string>
     <key>UIRequiredDeviceCapabilities</key>
