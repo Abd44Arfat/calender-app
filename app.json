@@ -22,8 +22,8 @@
       "icon": "./assets/images/quackplanicon.png",
       "infoPlist": {
         "NSCameraUsageDescription": "We use the camera for profile photos and scanning features.",
-        "NSPhotoLibraryUsageDescription": "We need access to your photos to let you upload images.",
-        "NSLocationWhenInUseUsageDescription": "We use your location to personalize your experience.",
+        "NSPhotoLibraryUsageDescription": "We need access to your photos to let you upload a profile picture ",
+        "NSLocationWhenInUseUsageDescription": "We use your location to show events near you. This is optional.",
         "ITSAppUsesNonExemptEncryption": false
       }
     },

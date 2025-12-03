@@ -61,15 +61,11 @@ export default function RegisterScreen() {
       newErrors.fullName = 'Full name is required';
     }
 
-    if (!formData.profile.phone) {
-      newErrors.phone = 'Phone number is required';
-    }
+    // Phone number is optional - removed validation to comply with App Store guidelines
 
     // Date of birth is optional - removed validation to comply with App Store guidelines
 
-    if (!formData.profile.location) {
-      newErrors.location = 'Location is required';
-    }
+    // Location is optional - removed validation to comply with App Store guidelines
 
     if (formData.userType === 'vendor') {
       if (!formData.profile.academyName) {
@@ -86,8 +82,11 @@ export default function RegisterScreen() {
       return;
     }
 
-    // Clean up data before sending
-    const submitData = { ...formData };
+    // Create a deep copy of profile to avoid mutating state
+    const submitData = {
+      ...formData,
+      profile: { ...formData.profile }
+    };
 
     // Process specializations from the text input
     if (submitData.userType === 'vendor' && specializationsText.trim()) {
@@ -101,6 +100,14 @@ export default function RegisterScreen() {
     if (submitData.userType === 'customer') {
       delete submitData.profile.academyName;
       delete submitData.profile.specializations;
+    }
+
+    // Remove empty optional fields so they are not sent as empty strings
+    if (!submitData.profile.phone || submitData.profile.phone.trim() === '') {
+      delete submitData.profile.phone;
+    }
+    if (!submitData.profile.location || submitData.profile.location.trim() === '') {
+      delete submitData.profile.location;
     }
 
     try {
@@ -263,7 +270,7 @@ export default function RegisterScreen() {
 
             {/* Phone */}
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Phone Number</Text>
+              <Text style={styles.label}>Phone Number (Optional)</Text>
               <TextInput
                 style={[styles.input, errors.phone && styles.inputError]}
                 placeholder="Enter your phone number"
@@ -297,7 +304,7 @@ export default function RegisterScreen() {
 
             {/* Location */}
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Location</Text>
+              <Text style={styles.label}>Location (Optional)</Text>
               <TextInput
                 style={[styles.input, errors.location && styles.inputError]}
                 placeholder="Enter your location"

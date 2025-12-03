@@ -4,19 +4,19 @@ import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    Linking,
-    Modal,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TextInputProps,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  Linking,
+  Modal,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TextInputProps,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { Snackbar } from '../../components/Snackbar';
 import { useAuth } from '../../contexts/AuthContext';
@@ -36,9 +36,9 @@ export default function ProfileScreen() {
     console.log('Auth context not available in ProfileScreen');
     user = null;
     token = null;
-    logout = () => {};
-    refreshProfile = async () => {};
-    uploadProfileImage = async () => {};
+    logout = () => { };
+    refreshProfile = async () => { };
+    uploadProfileImage = async () => { };
   }
 
   const { snackbar, showSuccess, showError, hideSnackbar } = useSnackbar();
@@ -69,7 +69,7 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     refreshProfile().catch(console.error);
-    
+
     // Calculate session expiry
     const checkSessionExpiry = async () => {
       try {
@@ -84,7 +84,7 @@ export default function ProfileScreen() {
         console.error('Error checking session expiry:', error);
       }
     };
-    
+
     checkSessionExpiry();
   }, []);
 
@@ -98,63 +98,63 @@ export default function ProfileScreen() {
   }, [user]);
 
   // FIXED: Image Picker for Real Devices
-const pickImage = async () => {
-  try {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert(
-        'Permission Required',
-        'Please allow photo access in Settings to update your profile picture.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Open Settings', onPress: () => Linking.openSettings() },
-        ]
-      );
-      return;
-    }
+  const pickImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission Required',
+          'Please allow photo access in Settings to update your profile picture.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => Linking.openSettings() },
+          ]
+        );
+        return;
+      }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images, // CORRECT
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-    });
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images, // CORRECT
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
 
-    if (!result.canceled && result.assets?.[0]) {
-      await uploadProfilePicture(result.assets[0].uri);
+      if (!result.canceled && result.assets?.[0]) {
+        await uploadProfilePicture(result.assets[0].uri);
+      }
+    } catch (error: any) {
+      console.error('Image picker error:', error);
+      showError('Failed to select image. Please try again.');
     }
-  } catch (error: any) {
-    console.error('Image picker error:', error);
-    showError('Failed to select image. Please try again.');
-  }
-};
+  };
   // FIXED: Upload with FormData + Timeout
   const uploadProfilePicture = async (imageUri: string) => {
-  if (!imageUri) return;
+    if (!imageUri) return;
 
-  try {
-    setIsUploadingImage(true);
-    console.log('Uploading image:', imageUri);
+    try {
+      setIsUploadingImage(true);
+      console.log('Uploading image:', imageUri);
 
-    const formData = new FormData();
-    formData.append('picture', {  // ← CHANGED FROM 'image' TO 'picture'
-      uri: imageUri,
-      type: 'image/jpeg',
-      name: 'profile.jpg',
-    } as any);
+      const formData = new FormData();
+      formData.append('picture', {  // ← CHANGED FROM 'image' TO 'picture'
+        uri: imageUri,
+        type: 'image/jpeg',
+        name: 'profile.jpg',
+      } as any);
 
-    const result = await uploadProfileImage(formData);
-    console.log('Upload successful:', result);
+      const result = await uploadProfileImage(formData);
+      console.log('Upload successful:', result);
 
-    await refreshProfile();
-    showSuccess('Profile picture updated successfully!');
-  } catch (error: any) {
-    console.error('Upload failed:', error);
-    showError('Upload failed. Please try again.');
-  } finally {
-    setIsUploadingImage(false);
-  }
-};
+      await refreshProfile();
+      showSuccess('Profile picture updated successfully!');
+    } catch (error: any) {
+      console.error('Upload failed:', error);
+      showError('Upload failed. Please try again.');
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
 
   const handleLogout = () => {
     Alert.alert('Logout', 'Are you sure you want to logout?', [
@@ -338,7 +338,7 @@ const pickImage = async () => {
               <Text style={styles.profilePhone}>{user.profile.phone}</Text>
             </View>
           )}
-         
+
           {user?.profile?.rating && user.profile.rating > 0 && (
             <View style={styles.ratingContainer}>
               <Ionicons name="star" size={16} color="#FFD700" />
@@ -447,14 +447,14 @@ const pickImage = async () => {
               placeholderTextColor="#9ca3af"
             />
             <TextInput
-              placeholder="Phone"
+              placeholder="Phone (Optional)"
               value={editPhone}
               onChangeText={setEditPhone}
               style={styles.input}
               placeholderTextColor="#9ca3af"
             />
             <TextInput
-              placeholder="Location"
+              placeholder="Location (Optional)"
               value={editLocation}
               onChangeText={setEditLocation}
               style={styles.input}
@@ -603,19 +603,19 @@ const styles = StyleSheet.create({
   },
   ratingContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
   ratingText: { marginLeft: 4, fontSize: 14, fontWeight: '600', color: '#FFD700' },
-  sessionExpiryContainer: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
+  sessionExpiryContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginTop: 8,
     paddingHorizontal: 12,
     paddingVertical: 6,
     backgroundColor: '#F3F4F6',
     borderRadius: 12,
   },
-  sessionExpiryText: { 
-    marginLeft: 6, 
-    fontSize: 12, 
-    color: '#666' 
+  sessionExpiryText: {
+    marginLeft: 6,
+    fontSize: 12,
+    color: '#666'
   },
   sessionExpiryWarning: {
     color: '#EF4444',
@@ -623,9 +623,9 @@ const styles = StyleSheet.create({
   },
   profileName: { fontSize: 24, fontWeight: 'bold', color: '#000', marginBottom: 4 },
   profileEmail: { fontSize: 16, color: '#666', marginBottom: 4 },
-  phoneContainer: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
+  phoneContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 8,
     gap: 6,
   },

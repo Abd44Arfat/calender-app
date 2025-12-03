@@ -6,9 +6,9 @@ export interface RegisterRequest {
   userType: 'vendor' | 'customer';
   profile: {
     fullName: string;
-    phone: string;
+    phone?: string;
     dob?: string; // Optional - not required for core app functionality
-    location: string;
+    location?: string;
     academyName?: string; // Only for vendors
     specializations?: string[]; // Only for vendors
   };

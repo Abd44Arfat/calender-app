@@ -50,11 +50,11 @@
     <key>NSCameraUsageDescription</key>
     <string>We use the camera for profile photos and scanning features.</string>
     <key>NSLocationWhenInUseUsageDescription</key>
-    <string>We use your location to personalize your experience.</string>
+    <string>We use your location to show events near you. This is optional.</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>We need microphone access for optional voice features.</string>
     <key>NSPhotoLibraryUsageDescription</key>
-    <string>We need access to your photos to let you upload images.</string>
+    <string>We need access to your photos to let you upload a profile picture or attach images to your events.</string>
     <key>UILaunchStoryboardName</key>
     <string>SplashScreen</string>
     <key>UIRequiredDeviceCapabilities</key>
