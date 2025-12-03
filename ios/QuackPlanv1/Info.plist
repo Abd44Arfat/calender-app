@@ -51,7 +51,6 @@
     <string>We use the camera for profile photos </string>
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>We use your location to show events near you. This is optional.</string>
-
     <key>NSPhotoLibraryUsageDescription</key>
     <string>We need access to your photos to let you upload a profile picture </string>
     <key>UILaunchStoryboardName</key>
