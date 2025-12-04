@@ -34,8 +34,7 @@ export default function CreateEventScreen() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
-  const [capacity, setCapacity] = useState('');
-  const [price, setPrice] = useState('');
+
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date(Date.now() + 3600000)); // 1 hour later
   const [showStartPicker, setShowStartPicker] = useState(false);
@@ -91,7 +90,7 @@ export default function CreateEventScreen() {
   };
 
   const handleSubmit = async () => {
-    if (!title || !description || !location || !capacity || !price) {
+    if (!title || !description || !location) {
       showError('Please fill all required fields');
       return;
     }
@@ -105,8 +104,8 @@ export default function CreateEventScreen() {
         location,
         startsAt: startDate.toISOString(),
         endsAt: endDate.toISOString(),
-        capacity: parseInt(capacity),
-        priceCents: Math.round(parseFloat(price) * 100),
+        capacity: 0,
+        priceCents: 0,
         visibility: 'public' as const,
         status: 'published' as const,
         tags: [],
@@ -267,31 +266,7 @@ export default function CreateEventScreen() {
             />
           </View>
 
-          <View style={styles.row}>
-            <View style={[styles.inputContainer, styles.halfWidth]}>
-              <Text style={styles.label}>Capacity *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="20"
-                value={capacity}
-                onChangeText={setCapacity}
-                keyboardType="number-pad"
-                placeholderTextColor="#999"
-              />
-            </View>
 
-            <View style={[styles.inputContainer, styles.halfWidth]}>
-              <Text style={styles.label}>Price ($) *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="50.00"
-                value={price}
-                onChangeText={setPrice}
-                keyboardType="decimal-pad"
-                placeholderTextColor="#999"
-              />
-            </View>
-          </View>
 
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Start Date & Time *</Text>

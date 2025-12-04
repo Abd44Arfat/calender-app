@@ -2,9 +2,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AuthWrapper } from '../../components/AuthWrapper';
+import { useNotifications } from '../../contexts/NotificationContext';
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
+  const { unreadCount } = useNotifications();
 
   return (
     <AuthWrapper>
@@ -59,6 +61,7 @@ export default function TabLayout() {
           name="notifications"
           options={{
             title: 'Notification',
+            tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
             tabBarIcon: ({ color, focused }) => (
               <Ionicons
                 name="notifications-outline"

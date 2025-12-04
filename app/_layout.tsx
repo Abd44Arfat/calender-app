@@ -3,6 +3,7 @@ import { Stack, router } from 'expo-router';
 import React, { useEffect, useRef } from 'react';
 import { useColorScheme } from 'react-native';
 import { AuthProvider } from '../contexts/AuthContext';
+import { NotificationProvider } from '../contexts/NotificationContext';
 import { SnackbarProvider } from '../contexts/SnackbarContext';
 
 // Set up notification handler for all states (foreground, background, terminated)
@@ -18,24 +19,24 @@ Notifications.setNotificationHandler({
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  const notificationListener = useRef<Notifications.Subscription>();
-  const responseListener = useRef<Notifications.Subscription>();
+  const notificationListener = useRef<Notifications.Subscription | undefined>(undefined);
+  const responseListener = useRef<Notifications.Subscription | undefined>(undefined);
 
   useEffect(() => {
     // Handle notification received while app is in FOREGROUND
     notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
       console.log('🔔 Notification received (FOREGROUND):', notification);
-      const data = notification.request.content.data;
+      const data = notification.request.content.data as any;
       console.log('📦 Notification data:', data);
     });
 
     // Handle notification tapped (works in all states: FOREGROUND, BACKGROUND, TERMINATED)
     responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
       console.log('👆 Notification tapped:', response);
-      
-      const data = response.notification.request.content.data;
+
+      const data = response.notification.request.content.data as any;
       console.log('📦 Tapped notification data:', data);
-      
+
       // Navigate based on notification type
       if (data.type === 'event_assignment') {
         // Customer tapped notification about new event assignment
@@ -58,8 +59,8 @@ export default function RootLayout() {
     Notifications.getLastNotificationResponseAsync().then(response => {
       if (response) {
         console.log('🚀 App opened from notification (TERMINATED):', response);
-        const data = response.notification.request.content.data;
-        
+        const data = response.notification.request.content.data as any;
+
         // Handle navigation after app is ready
         setTimeout(() => {
           if (data.type === 'event_assignment') {
@@ -89,22 +90,24 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-      <SnackbarProvider>
-        <Stack initialRouteName="login" screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="login" />
-          <Stack.Screen name="register" />
-          <Stack.Screen name="verify-email" />
-          <Stack.Screen name="forgot-password" />
-          <Stack.Screen name="reset-password" />
-          <Stack.Screen name="reset-password-new" />
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="privacy" />
-          <Stack.Screen name="help" />
-          <Stack.Screen name="about" />
-          <Stack.Screen name="event-details" />
-          <Stack.Screen name="day-events" />
-        </Stack>
-      </SnackbarProvider>
+      <NotificationProvider>
+        <SnackbarProvider>
+          <Stack initialRouteName="login" screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="login" />
+            <Stack.Screen name="register" />
+            <Stack.Screen name="verify-email" />
+            <Stack.Screen name="forgot-password" />
+            <Stack.Screen name="reset-password" />
+            <Stack.Screen name="reset-password-new" />
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="privacy" />
+            <Stack.Screen name="help" />
+            <Stack.Screen name="about" />
+            <Stack.Screen name="event-details" />
+            <Stack.Screen name="day-events" />
+          </Stack>
+        </SnackbarProvider>
+      </NotificationProvider>
     </AuthProvider>
   );
 }

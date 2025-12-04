@@ -6,6 +6,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, Image, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNotifications } from '../../contexts/NotificationContext';
 import { useSnackbar } from '../../contexts/SnackbarContext';
 import { apiService } from '../../services/api';
 import { scheduleEventNotification } from '../../services/notificationservice';
@@ -32,6 +33,7 @@ export default function ExploreScreen() {
   const { user, token } = useAuth();
   const insets = useSafeAreaInsets();
   const { snackbar, showError, showSuccess } = useSnackbar();
+  const { unreadCount } = useNotifications();
   const params = useLocalSearchParams<{ editEventId?: string; editMode?: string }>();
 
   // Date restrictions - current year only
@@ -592,6 +594,22 @@ export default function ExploreScreen() {
               Hi, {user?.profile?.fullName?.split(' ')[0] || 'User'}!
             </Text>
           </View>
+
+          {user?.userType === 'vendor' && (
+            <TouchableOpacity
+              onPress={() => router.push('/(tabs)/notifications')}
+              style={styles.notificationButton}
+            >
+              <Ionicons name="notifications-outline" size={24} color="#000" />
+              {unreadCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Month Header */}
@@ -749,21 +767,17 @@ export default function ExploreScreen() {
                               </View>
                             )}
                             {event.description && (
-                              <Text style={styles.eventDescription} numberOfLines={2}>
-                                {event.description}
-                              </Text>
-                            )}
-                          </View>
-
-                          {/* Footer with price and actions */}
-                          <View style={styles.eventCardFooter}>
-                            {event.priceCents != null && (
-                              <View style={styles.priceTag}>
-                                <Text style={styles.priceAmount}>
-                                  ${(event.priceCents / 100).toFixed(2)}
+                              <View style={styles.eventDetailRow}>
+                                <Ionicons name="information-circle-outline" size={16} color="#666" />
+                                <Text style={styles.eventDescription} numberOfLines={2}>
+                                  {event.description}
                                 </Text>
                               </View>
                             )}
+                          </View>
+
+                          {/* Footer with actions */}
+                          <View style={styles.eventCardFooter}>
 
                             <View style={styles.eventCardActions}>
                               {user?.userType === 'customer' && !isPastEvent && (
@@ -1077,6 +1091,30 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  notificationButton: {
+    padding: 8,
+    position: 'relative',
+  },
+  badge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: '#EF4444',
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   profileSection: {
     flexDirection: 'row',
@@ -1303,7 +1341,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     lineHeight: 20,
-    marginTop: 4,
+    flex: 1,
   },
   eventCardFooter: {
     flexDirection: 'row',

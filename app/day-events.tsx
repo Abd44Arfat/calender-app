@@ -2,17 +2,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React from 'react';
 import {
-    FlatList,
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  FlatList,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 export default function DayEventsScreen() {
   const { date, eventsData } = useLocalSearchParams<{ date: string; eventsData: string }>();
-  
+
   const events = eventsData ? JSON.parse(eventsData) : [];
   const selectedDate = date ? new Date(date) : new Date();
 
@@ -45,14 +45,14 @@ export default function DayEventsScreen() {
 
   const renderEvent = ({ item }: { item: any }) => {
     const isPersonal = item.isPersonal || item.type === 'personal';
-    
+
     return (
       <TouchableOpacity
         style={styles.eventCard}
         onPress={() => handleEventPress(item)}
       >
         <View style={[styles.eventAccent, { backgroundColor: isPersonal ? '#60A5FA' : '#EF4444' }]} />
-        
+
         <View style={styles.eventContent}>
           <View style={styles.eventHeader}>
             <Text style={styles.eventTitle}>{item.title}</Text>
@@ -76,11 +76,11 @@ export default function DayEventsScreen() {
               </View>
             )}
 
-            {item.priceCents != null && (
+            {item.description && (
               <View style={styles.eventDetailRow}>
-                <Ionicons name="cash-outline" size={16} color="#666" />
-                <Text style={styles.eventDetailText}>
-                  ${(item.priceCents / 100).toFixed(2)}
+                <Ionicons name="information-circle-outline" size={16} color="#666" />
+                <Text style={styles.eventDetailText} numberOfLines={2}>
+                  {item.description}
                 </Text>
               </View>
             )}

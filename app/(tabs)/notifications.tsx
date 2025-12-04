@@ -3,24 +3,26 @@ import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    FlatList,
-    Image,
-    RefreshControl,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  FlatList,
+  Image,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Snackbar } from '../../components/Snackbar';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNotifications } from '../../contexts/NotificationContext';
 import { useSnackbar } from '../../contexts/SnackbarContext';
 import { apiService, EventAssignment } from '../../services/api';
 
 export default function NotificationsScreen() {
   const { token, user } = useAuth();
   const { snackbar, showSuccess, showError, hideSnackbar } = useSnackbar();
+  const { markAsRead } = useNotifications();
 
   const [assignments, setAssignments] = useState<EventAssignment[]>([]);
   const [vendorNotifications, setVendorNotifications] = useState<any[]>([]);
@@ -47,6 +49,7 @@ export default function NotificationsScreen() {
           loadAssignments(true);
         } else if (user?.userType === 'vendor') {
           loadVendorNotifications(true);
+          markAsRead();
         }
       }
     }, [token, user])
@@ -181,22 +184,22 @@ export default function NotificationsScreen() {
     const payload = item.payload || {};
     const isAccepted = payload.type === 'event_assignment_accepted';
     const isRejected = payload.type === 'event_assignment_rejected';
-    
+
     // Extract user info from nested acceptedBy or rejectedBy object
     const userObject = payload.acceptedBy || payload.rejectedBy;
-    
-    const userName = userObject?.name || 
-                     payload.userName || 
-                     payload.userFullName || 
-                     'Unknown User';
-    
-    const userImage = userObject?.image || 
-                      payload.userProfilePicture || 
-                      payload.profilePicture;
-    
+
+    const userName = userObject?.name ||
+      payload.userName ||
+      payload.userFullName ||
+      'Unknown User';
+
+    const userImage = userObject?.image ||
+      payload.userProfilePicture ||
+      payload.profilePicture;
+
     const userEmail = userObject?.email || payload.userEmail;
-    
-   
+
+
 
     // Debug logging - only log once per notification
     if (!item._logged) {
@@ -228,7 +231,7 @@ export default function NotificationsScreen() {
               <Ionicons name="person" size={24} color="#666" />
             </View>
           )}
-          
+
           <View style={styles.headerInfo}>
             <View style={styles.titleRow}>
               <Text style={styles.userName}>{userName}</Text>
@@ -241,7 +244,7 @@ export default function NotificationsScreen() {
             {userEmail && (
               <Text style={styles.userEmail}>{userEmail}</Text>
             )}
-       
+
             <Text style={styles.actionText}>
               {isAccepted ? 'Accepted your event' : 'Rejected your event'}
             </Text>

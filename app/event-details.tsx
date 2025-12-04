@@ -17,6 +17,7 @@ import { Snackbar } from '../components/Snackbar';
 import { useAuth } from '../contexts/AuthContext';
 import { useSnackbar } from '../contexts/SnackbarContext';
 import { apiService } from '../services/api';
+import { scheduleEventNotification } from '../services/notificationservice';
 
 export default function EventDetailsScreen() {
   const { eventId, assignmentId } = useLocalSearchParams<{ eventId: string; assignmentId?: string }>();
@@ -45,7 +46,7 @@ export default function EventDetailsScreen() {
       console.log('👤 Vendor ID:', eventData.vendorId);
       console.log('👤 Vendor ID Type:', typeof eventData.vendorId);
       console.log('👤 Is Vendor Populated?:', eventData.vendorId && typeof eventData.vendorId === 'object');
-      
+
       // If vendorId is just a string (not populated), we need to fetch vendor details
       if (eventData.vendorId && typeof eventData.vendorId === 'string') {
         console.log('⚠️ Vendor not populated, fetching vendor details...');
@@ -57,7 +58,7 @@ export default function EventDetailsScreen() {
           console.warn('Could not fetch vendor details:', err);
         }
       }
-      
+
       setEvent(eventData);
     } catch (error: any) {
       showError('Failed to load event details');
@@ -68,7 +69,7 @@ export default function EventDetailsScreen() {
 
   const loadAssignment = async () => {
     if (!token || !assignmentId) return;
-    
+
     try {
       const response = await apiService.getMyAssignments(token, {
         limit: 100,
@@ -98,8 +99,25 @@ export default function EventDetailsScreen() {
             try {
               setIsProcessing(true);
               await apiService.acceptEventAssignment(token, assignmentId);
+
+              // Schedule notification
+              if (event && event.startsAt) {
+                try {
+                  const REMINDER_MINUTES = 10;
+                  await scheduleEventNotification({
+                    id: event._id,
+                    title: 'Event Reminder',
+                    body: `Your event "${event.title}" starts in ${REMINDER_MINUTES} minutes!`,
+                    eventDateISO: event.startsAt,
+                    type: 'event_assignment',
+                  });
+                } catch (e) {
+                  console.error('Failed to schedule notification', e);
+                }
+              }
+
               showSuccess('Event accepted! It will appear in your calendar.');
-              
+
               // Navigate back after showing success message
               // The screens will auto-refresh when they come into focus
               setTimeout(() => {
@@ -132,7 +150,7 @@ export default function EventDetailsScreen() {
               setIsProcessing(true);
               await apiService.rejectEventAssignment(token, assignmentId);
               showSuccess('Event rejected');
-              
+
               // Navigate back after showing success message
               // The screens will auto-refresh when they come into focus
               setTimeout(() => {
@@ -196,14 +214,14 @@ export default function EventDetailsScreen() {
   }
 
   const isPendingAssignment = assignment && assignment.status === 'pending';
-  
+
   // Get vendor data from assignment.assignedBy if available, otherwise from event.vendorId
   const vendorData = assignment?.assignedBy || event.vendorId;
-  
+
   // Check if vendor data is populated (object) or just an ID (string)
   const isVendorPopulated = vendorData && typeof vendorData === 'object';
   const vendor = isVendorPopulated ? vendorData : null;
-  
+
   const vendorName = vendor?.profile?.fullName || (isVendorPopulated ? 'Unknown Vendor' : 'Vendor');
   const academyName = vendor?.profile?.academyName;
   const vendorEmail = vendor?.email;
@@ -211,10 +229,10 @@ export default function EventDetailsScreen() {
   const vendorImage = vendor?.profile?.profilePicture;
 
   // Check if current user is the vendor who created this event
-  const isEventOwner = user?.userType === 'vendor' && 
-    (event.vendorId === user._id || 
-     (typeof event.vendorId === 'object' && event.vendorId?._id === user._id));
-  
+  const isEventOwner = user?.userType === 'vendor' &&
+    (event.vendorId === user._id ||
+      (typeof event.vendorId === 'object' && event.vendorId?._id === user._id));
+
   console.log('🔍 Using vendor from:', assignment?.assignedBy ? 'assignment.assignedBy' : 'event.vendorId');
   console.log('👤 Vendor Data Type:', typeof vendorData);
   console.log('👤 Is Vendor Populated?:', isVendorPopulated);
@@ -341,13 +359,6 @@ export default function EventDetailsScreen() {
               <Text style={styles.detailText}>Capacity: {event.capacity}</Text>
             </View>
           )}
-
-          {event.priceCents != null && (
-            <View style={styles.detailRow}>
-              <Ionicons name="cash-outline" size={20} color="#666" />
-              <Text style={styles.detailText}>${(event.priceCents / 100).toFixed(2)}</Text>
-            </View>
-          )}
         </View>
 
         {/* Description */}
@@ -362,7 +373,7 @@ export default function EventDetailsScreen() {
         {vendor && (
           <View style={styles.vendorCard}>
             <Text style={styles.vendorCardTitle}>Organized By</Text>
-            
+
             <View style={styles.vendorInfo}>
               {/* Vendor Avatar */}
               <View style={styles.vendorAvatar}>
@@ -396,7 +407,7 @@ export default function EventDetailsScreen() {
               </View>
             </View>
 
-        
+
 
             {/* Vendor Contact Info */}
             <View style={styles.vendorContactInfo}>
