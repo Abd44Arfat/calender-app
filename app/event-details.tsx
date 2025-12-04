@@ -352,13 +352,6 @@ export default function EventDetailsScreen() {
               <Text style={styles.detailText}>{event.location}</Text>
             </View>
           )}
-
-          {event.capacity && (
-            <View style={styles.detailRow}>
-              <Ionicons name="people-outline" size={20} color="#666" />
-              <Text style={styles.detailText}>Capacity: {event.capacity}</Text>
-            </View>
-          )}
         </View>
 
         {/* Description */}

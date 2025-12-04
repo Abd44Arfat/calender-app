@@ -2,14 +2,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    FlatList,
-    RefreshControl,
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  FlatList,
+  RefreshControl,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { Snackbar } from '../../components/Snackbar';
 import { useAuth } from '../../contexts/AuthContext';
@@ -104,14 +104,12 @@ export default function MyEventsScreen() {
             <Ionicons name="time-outline" size={16} color="#666" />
             <Text style={styles.detailText}>{formatDate(item.startsAt)}</Text>
           </View>
-          <View style={styles.detailRow}>
-            <Ionicons name="people-outline" size={16} color="#666" />
-            <Text style={styles.detailText}>Capacity: {item.capacity}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Ionicons name="cash-outline" size={16} color="#666" />
-            <Text style={styles.detailText}>${(item.priceCents / 100).toFixed(2)}</Text>
-          </View>
+          {item.description && (
+            <View style={styles.detailRow}>
+              <Ionicons name="information-circle-outline" size={16} color="#666" />
+              <Text style={styles.detailText} numberOfLines={2}>{item.description}</Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.eventFooter}>
