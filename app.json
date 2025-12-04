@@ -2,7 +2,7 @@
   "expo": {
     "name": "Quack Plan v1",
     "slug": "quack-plan",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "scheme": "quackplan",
     "icon": "./assets/images/quackplanicon.png",
