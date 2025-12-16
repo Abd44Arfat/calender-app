@@ -60,6 +60,53 @@ export default function ProfileScreen() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
+  // Trusted Vendors State
+  const [isTrustedVendorsModalVisible, setIsTrustedVendorsModalVisible] = useState(false);
+  const [vendorsList, setVendorsList] = useState<any[]>([]);
+  const [trustedVendorIds, setTrustedVendorIds] = useState<string[]>([]); // Mock storage
+
+  const fetchVendors = async () => {
+    try {
+      setIsLoading(true);
+      const res = await apiService.getAllUsers(token || '', { userType: 'vendor', limit: 50 });
+      setVendorsList(res.users || []);
+    } catch (err) {
+      console.warn('Failed to fetch vendors', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Initialize trusted vendors from user profile
+  useEffect(() => {
+    if (user?.profile?.allowedVendors) {
+      setTrustedVendorIds(user.profile.allowedVendors);
+    }
+  }, [user]);
+
+  const toggleVendorTrust = async (vendorId: string) => {
+    try {
+      // Optimistic update
+      const oldIds = [...trustedVendorIds];
+      const newIds = oldIds.includes(vendorId)
+        ? oldIds.filter(id => id !== vendorId)
+        : [...oldIds, vendorId];
+
+      setTrustedVendorIds(newIds);
+
+      // Call API
+      await apiService.updateProfile(token || '', {
+        profile: {
+          allowedVendors: newIds
+        }
+      });
+      await refreshProfile();
+    } catch (error) {
+      console.error('Failed to update trusted vendors', error);
+      showError('Failed to update trusted vendors');
+    }
+  };
+
   // Helper: Construct full image URL
   const getImageUrl = (imagePath: string | undefined) => {
     if (!imagePath) return null;
@@ -250,8 +297,13 @@ export default function ProfileScreen() {
       help: () => router.push('/help'),
       about: () => router.push('/about'),
       contact: () => Linking.openURL('mailto:contact.quackplan@gmail.com'),
+
       deleteAccount: handleDeleteAccount,
       logout: handleLogout,
+      trustedVendors: () => {
+        fetchVendors();
+        setIsTrustedVendorsModalVisible(true);
+      },
     };
     actions[action]?.();
   };
@@ -291,6 +343,8 @@ export default function ProfileScreen() {
     { title: 'Help & Support', icon: 'help-circle-outline', action: 'help' },
     { title: 'About', icon: 'information-circle-outline', action: 'about' },
     { title: 'Contact Us', icon: 'mail-outline', action: 'contact', subtitle: 'contact.quackplan@gmail.com' },
+
+    ...(user?.userType === 'customer' ? [{ title: 'Trusted Vendors', icon: 'shield-checkmark-outline', action: 'trustedVendors' }] : []),
     { title: 'Delete Account', icon: 'trash-outline', action: 'deleteAccount', color: '#EF4444' },
     { title: 'Logout', icon: 'log-out-outline', action: 'logout', color: '#EF4444' },
   ];
@@ -544,13 +598,81 @@ export default function ProfileScreen() {
         </View>
       </Modal>
 
+      {/* Trusted Vendors Modal */}
+      <Modal visible={isTrustedVendorsModalVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Select Trusted Vendors</Text>
+            <Text style={{ marginBottom: 12, color: '#666' }}>
+              Only selected vendors will be able to see your profile when creating events.
+            </Text>
+
+            <ScrollView style={{ maxHeight: 300 }} nestedScrollEnabled>
+              {isLoading && vendorsList.length === 0 ? (
+                <ActivityIndicator color="#EF4444" />
+              ) : (
+                vendorsList.map((vendor) => {
+                  const isTrusted = trustedVendorIds.includes(vendor._id);
+                  return (
+                    <TouchableOpacity
+                      key={vendor._id}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        padding: 12,
+                        borderBottomWidth: 1,
+                        borderBottomColor: '#f3f4f6',
+                        backgroundColor: isTrusted ? '#FEF2F2' : 'white',
+                      }}
+                      onPress={() => toggleVendorTrust(vendor._id)}
+                    >
+                      {getImageUrl(vendor.profile.profilePicture) ? (
+                        <Image
+                          source={{ uri: getImageUrl(vendor.profile.profilePicture)! }}
+                          style={{ width: 40, height: 40, borderRadius: 20 }}
+                        />
+                      ) : (
+                        <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#eee', alignItems: 'center', justifyContent: 'center' }}>
+                          <Ionicons name="business" size={20} color="#666" />
+                        </View>
+                      )}
+                      <View style={{ flex: 1, marginLeft: 12 }}>
+                        <Text style={{ fontWeight: '600', fontSize: 16 }}>
+                          {vendor.profile.academyName || vendor.profile.fullName}
+                        </Text>
+                        <Text style={{ fontSize: 12, color: '#666' }}>
+                          {vendor.email}
+                        </Text>
+                      </View>
+                      {isTrusted ? (
+                        <Ionicons name="checkbox" size={24} color="#EF4444" />
+                      ) : (
+                        <Ionicons name="square-outline" size={24} color="#ccc" />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })
+              )}
+            </ScrollView>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                onPress={() => setIsTrustedVendorsModalVisible(false)}
+                style={[styles.modalButton, styles.saveButton]}
+              >
+                <Text style={styles.saveButtonText}>Done ({trustedVendorIds.length})</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
       <Snackbar
         visible={snackbar.visible}
         message={snackbar.message}
         type={snackbar.type}
         onHide={hideSnackbar}
       />
-    </SafeAreaView>
+    </SafeAreaView >
   );
 }
 

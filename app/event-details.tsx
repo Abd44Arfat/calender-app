@@ -304,6 +304,32 @@ export default function EventDetailsScreen() {
     );
   };
 
+  const sendManualReminder = async () => {
+    if (!token || user?.userType !== 'vendor' || !isEventOwner) return;
+
+    Alert.alert(
+      'Send Event Reminder',
+      `Are you sure you want to send a reminder to all attendees for "${event.title}"?\n\nThis will notify everyone who has accepted this event.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Send Now',
+          onPress: async () => {
+            try {
+              setIsProcessing(true);
+              await apiService.sendEventReminder(token, eventId);
+              showSuccess('Reminder sent successfully to all attendees!');
+            } catch (err: any) {
+              showError(err.message || 'Failed to send reminder');
+            } finally {
+              setIsProcessing(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
   // Debug logging
   console.log('🖼️ Vendor Image Path:', vendorImage);
   console.log('🖼️ Full Image URL:', getImageUrl(vendorImage));
@@ -455,9 +481,24 @@ export default function EventDetailsScreen() {
           </View>
         )}
 
-        {/* Delete Button for Event Owner (Vendor) */}
+        {/* Actions for Event Owner (Vendor) */}
         {isEventOwner && !isPendingAssignment && (
           <View style={styles.actionButtonsSingle}>
+            <TouchableOpacity
+              style={[styles.remindButton, isProcessing && styles.buttonDisabled]}
+              onPress={sendManualReminder}
+              disabled={isProcessing}
+            >
+              {isProcessing ? (
+                <ActivityIndicator size="small" color="#F59E0B" />
+              ) : (
+                <>
+                  <Ionicons name="notifications-outline" size={20} color="#F59E0B" />
+                  <Text style={styles.remindButtonText}>Remind All</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
             <TouchableOpacity
               style={[styles.deleteButton, isProcessing && styles.buttonDisabled]}
               onPress={handleDeleteEvent}
@@ -759,5 +800,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginLeft: 8,
+  },
+  remindButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 16,
+    borderRadius: 12,
+    backgroundColor: '#FFFBEB', // Light amber background
+    borderWidth: 2,
+    borderColor: '#F59E0B',
+    marginBottom: 12, // Space between buttons
+  },
+  remindButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#F59E0B',
   },
 });

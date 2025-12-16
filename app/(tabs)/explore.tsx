@@ -63,13 +63,20 @@ export default function ExploreScreen() {
   const [newEventTags, setNewEventTags] = useState('');
   const [isEditingEvent, setIsEditingEvent] = useState(false);
   const [editingVendorEventId, setEditingVendorEventId] = useState<string | null>(null);
+  const [creationReminderOffset, setCreationReminderOffset] = useState(30); // Default 30 min for creator
+
+  // Booking Modal State
+  const [isBookingModalVisible, setIsBookingModalVisible] = useState(false);
+  const [selectedBookingEvent, setSelectedBookingEvent] = useState<Event | null>(null);
+  const [reminderOffset, setReminderOffset] = useState(30); // Default 30 min
 
   // Fetch events from API
   const fetchEvents = async () => {
     try {
       setIsLoading(true);
       const startOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
-      const endOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+      // Fetch 4 months to support scrolling (Current + 3 next)
+      const endOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 4, 0);
 
       let formattedEvents: Event[] = [];
 
@@ -267,7 +274,7 @@ export default function ExploreScreen() {
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
     const startDate = new Date(firstDay);
-    startDate.setDate(startDate.getDate() - firstDay.getDay() + 1);
+    startDate.setDate(startDate.getDate() - firstDay.getDay());
 
     const days = [];
     const currentDate = new Date(startDate);
@@ -310,7 +317,7 @@ export default function ExploreScreen() {
     return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   };
 
-  const daysInMonth = getDaysInMonth(currentMonth);
+
   const selectedDateKey = formatDate(selectedDate);
   const selectedDayEvents = calendarEvents[selectedDateKey] || [];
 
@@ -334,61 +341,14 @@ export default function ExploreScreen() {
     if (event.startsAt) {
       const eventDate = new Date(event.startsAt);
       if (eventDate.getTime() <= Date.now()) {
-        // setConfirmationMessage('Cannot book: Event time has passed or is ongoing.');
-        // setIsConfirmationVisible(true);
         showError('Cannot book: Event time has passed or is ongoing.');
         return;
       }
     }
 
-    Alert.alert(
-      'Book Event',
-      `Do you want to book "${event.title}" for $${event.priceCents ? (event.priceCents / 100).toFixed(2) : '0.00'}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Book',
-          onPress: async () => {
-            try {
-              setIsLoading(true);
-              const eventIdStr = event.id.toString();
-              const eventId = eventIdStr;
-              await apiService.createBooking(token, { eventId });
-              // setIsEventsModalVisible(false);
-              // setConfirmationMessage('Your booking is confirmed!');
-              // setIsConfirmationVisible(true);
-              showSuccess('Event booked successfully!');
-              // Refresh events to reflect the booking
-              await fetchEvents();
-              if (event.startsAt && event.type !== 'personal') {
-                try {
-                  const eventDate = new Date(event.startsAt);
-                  const REMINDER_MINUTES = 10;
-                  const triggerDate = new Date(eventDate.getTime() - REMINDER_MINUTES * 60 * 1000);
-                  if (triggerDate.getTime() > Date.now() + 5000) {
-                    await scheduleEventNotification({
-                      id: eventId,
-                      title: 'Booking Reminder',
-                      body: `Your booked event "${event.title}" starts in ${REMINDER_MINUTES} minutes!`,
-                      eventDateISO: event.startsAt,
-                      type: event.type,
-                    });
-                  } else {
-                    console.debug('Skipping immediate scheduling for event', eventId);
-                  }
-                } catch (sErr) {
-                  console.warn('Failed to ensure booking reminder', sErr);
-                }
-              }
-            } catch (err: any) {
-              showError(err.message || 'Failed to book event');
-            } finally {
-              setIsLoading(false);
-            }
-          }
-        }
-      ]
-    );
+    setSelectedBookingEvent(event);
+    setReminderOffset(30); // Reset to default
+    setIsBookingModalVisible(true);
   };
 
   const cancelBooking = async (bookingId: string) => {
@@ -488,6 +448,83 @@ export default function ExploreScreen() {
     );
   };
 
+  const sendManualReminder = async (event: Event) => {
+    if (!token || user?.userType !== 'vendor') return;
+
+    Alert.alert(
+      'Send Event Reminder',
+      `Are you sure you want to send a reminder to all attendees for "${event.title}"?\n\nThis will notify everyone who has accepted this event.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Send Now',
+          onPress: async () => {
+            try {
+              setIsLoading(true);
+              await apiService.sendEventReminder(token, String(event.id));
+              showSuccess('Reminder sent successfully to all attendees!');
+            } catch (err: any) {
+              showError(err.message || 'Failed to send reminder');
+            } finally {
+              setIsLoading(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const confirmBooking = async () => {
+    if (!selectedBookingEvent || !token) return;
+
+    const event = selectedBookingEvent;
+    try {
+      setIsLoading(true);
+      const eventIdStr = event.id.toString();
+      const eventId = eventIdStr;
+      await apiService.createBooking(token, { eventId });
+
+      showSuccess('Event booked successfully!');
+      setIsBookingModalVisible(false);
+      // Refresh events to reflect the booking
+      await fetchEvents();
+
+      if (event.startsAt && event.type !== 'personal') {
+        try {
+          const eventDate = new Date(event.startsAt);
+          const triggerDate = new Date(eventDate.getTime() - reminderOffset * 60 * 1000);
+
+          if (triggerDate.getTime() > Date.now() + 5000) {
+            let timeText = '';
+            if (reminderOffset === 30) timeText = '30 minutes';
+            else if (reminderOffset === 60) timeText = '1 hour';
+            else if (reminderOffset === 1440) timeText = '1 day';
+            else timeText = `${reminderOffset} minutes`;
+
+            const eventTime = new Date(event.startsAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const locationText = event.location ? ` at ${event.location}` : '';
+
+            await scheduleEventNotification({
+              id: eventId,
+              title: '📅 Upcoming Event Reminder',
+              body: `Your booked event "${event.title}"${locationText} is starting in ${timeText} (at ${eventTime}). Don't be late!`,
+              eventDateISO: event.startsAt,
+              type: event.type,
+            });
+          } else {
+            console.debug('Skipping immediate scheduling for event', eventId);
+          }
+        } catch (sErr) {
+          console.warn('Failed to ensure booking reminder', sErr);
+        }
+      }
+    } catch (err: any) {
+      showError(err.message || 'Failed to book event');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const createEvent = async () => {
     if (!token || user?.userType !== 'vendor') {
       showError('Only vendors can create events');
@@ -529,19 +566,54 @@ export default function ExploreScreen() {
         tags: newEventTags.split(',').map(tag => tag.trim()).filter(tag => tag),
       };
 
+
+      let createdEventId = editingVendorEventId;
+      let createdEventTitle = newEventTitle.trim();
+
       if (isEditingEvent && editingVendorEventId) {
         // Update existing event
         await apiService.updateEvent(token, editingVendorEventId, eventData);
         showSuccess('Event updated successfully!');
       } else {
         // Create new event
-        await apiService.createEvent(token, eventData);
+        const response = await apiService.createEvent(token, eventData);
+        // Assuming response contains the event object or ID
+        if (response && (response.id || response._id)) {
+          createdEventId = response.id || response._id;
+        } else {
+          // Fallback for immediate notification if ID missing
+          createdEventId = `temp-${Date.now()}`;
+        }
         showSuccess('Event created successfully!');
+      }
+
+      // Schedule Local Notification for the Vendor
+      try {
+        const triggerDate = new Date(startDate.getTime() - creationReminderOffset * 60 * 1000);
+        if (triggerDate.getTime() > Date.now()) {
+          let timeText = '';
+          if (creationReminderOffset === 30) timeText = '30 minutes';
+          else if (creationReminderOffset === 60) timeText = '1 hour';
+          else if (creationReminderOffset === 1440) timeText = '1 day';
+          else timeText = `${creationReminderOffset} minutes`;
+
+          await scheduleEventNotification({
+            id: createdEventId || 'unknown',
+            title: 'Event Reminder (Host)',
+            body: `Your event "${createdEventTitle}" starts in ${timeText}!`,
+            eventDateISO: startDate.toISOString(),
+            type: 'event', // or 'my-event'
+          });
+          console.log('Scheduled vendor reminder for:', triggerDate);
+        }
+      } catch (e) {
+        console.warn('Failed to schedule vendor reminder', e);
       }
 
       setIsCreateModalVisible(false);
       setIsEditingEvent(false);
       setEditingVendorEventId(null);
+      setCreationReminderOffset(30);
 
       // Reset form
       setNewEventTitle('');
@@ -612,84 +684,102 @@ export default function ExploreScreen() {
           )}
         </View>
 
-        {/* Month Header */}
-        <View style={styles.monthHeader}>
-          <TouchableOpacity
-            style={styles.navButton}
-            onPress={() => navigateMonth('prev')}
-          >
-            <Ionicons name="chevron-back" size={20} color="#000" />
-          </TouchableOpacity>
-          <Text style={styles.monthText}>{getMonthName(currentMonth)}</Text>
-          <TouchableOpacity
-            style={styles.navButton}
-            onPress={() => navigateMonth('next')}
-          >
-            <Ionicons name="chevron-forward" size={20} color="#000" />
-          </TouchableOpacity>
-        </View>
+        {/* Render 4 Months (Current + 3 Next) */}
+        {[0, 1, 2, 3].map((monthOffset) => {
+          const monthDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + monthOffset, 1);
+          const daysInThisMonth = getDaysInMonth(monthDate);
+          const isCurrentMonthBlock = monthOffset === 0;
 
-        {/* Calendar Grid */}
-        <View style={styles.calendarContainer}>
-          {/* Day Headers */}
-          <View style={styles.dayHeaders}>
-            {['MON', 'TUE', 'WED', 'THUR', 'FRI', 'SAT', 'SUN'].map((day, index) => (
-              <Text key={index} style={styles.dayHeader}>{day}</Text>
-            ))}
-          </View>
+          return (
+            <View key={`month-${monthOffset}`}>
+              {/* Month Header */}
+              <View style={[styles.monthHeader, !isCurrentMonthBlock && { marginTop: 20 }]}>
+                {isCurrentMonthBlock ? (
+                  <>
+                    <TouchableOpacity
+                      style={styles.navButton}
+                      onPress={() => navigateMonth('prev')}
+                    >
+                      <Ionicons name="chevron-back" size={20} color="#000" />
+                    </TouchableOpacity>
+                    <Text style={styles.monthText}>{getMonthName(monthDate)}</Text>
+                    <TouchableOpacity
+                      style={styles.navButton}
+                      onPress={() => navigateMonth('next')}
+                    >
+                      <Ionicons name="chevron-forward" size={20} color="#000" />
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <Text style={styles.monthText}>{getMonthName(monthDate)}</Text>
+                )}
+              </View>
 
-          {/* Calendar Days */}
-          <View style={styles.calendarGrid}>
-            {daysInMonth.map((date, index) => {
-              const dateKey = formatDate(date);
-              const dayEvents = calendarEvents[dateKey] || [];
-              const isSelected = isSameDay(date, selectedDate);
-              const isCurrentMonthDay = isCurrentMonth(date);
+              {/* Calendar Grid */}
+              <View style={styles.calendarContainer}>
+                {/* Day Headers (Show for all or just first? Usually nice to repeat if scrolling long lists, but user might prefer just top. Let's keep it for clarity) */}
+                <View style={styles.dayHeaders}>
+                  {['SUN', 'MON', 'TUE', 'WED', 'THUR', 'FRI', 'SAT'].map((day, index) => (
+                    <Text key={index} style={styles.dayHeader}>{day}</Text>
+                  ))}
+                </View>
 
-              return (
-                <TouchableOpacity
-                  key={index}
-                  style={[
-                    styles.dayCell,
-                    isSelected && styles.selectedDayCell,
-                    !isCurrentMonthDay && styles.otherMonthDay
-                  ]}
-                  onPress={() => {
+                <View style={styles.calendarGrid}>
+                  {daysInThisMonth.map((date, index) => {
                     const dateKey = formatDate(date);
                     const dayEvents = calendarEvents[dateKey] || [];
+                    const isSelected = isSameDay(date, selectedDate);
+                    // Check if date belongs to this specific month block's target month
+                    const isTargetMonth = date.getMonth() === monthDate.getMonth();
 
-                    router.push({
-                      pathname: '/day-events',
-                      params: {
-                        date: date.toISOString(),
-                        eventsData: JSON.stringify(dayEvents)
-                      }
-                    });
-                  }}
-                >
-                  <Text style={[
-                    styles.dayNumber,
-                    isSelected && styles.selectedDayNumber,
-                    !isCurrentMonthDay && styles.otherMonthDayNumber
-                  ]}>
-                    {date.getDate()}
-                  </Text>
-                  {dayEvents.map((event, eventIndex) => (
-                    <View
-                      key={eventIndex}
-                      style={[
-                        styles.eventIndicator,
-                        { backgroundColor: event.color }
-                      ]}
-                    >
-                      <Text style={styles.eventText} numberOfLines={2}>{event.title}</Text>
-                    </View>
-                  ))}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
+                    return (
+                      <TouchableOpacity
+                        key={`${monthOffset}-${index}`}
+                        style={[
+                          styles.dayCell,
+                          isSelected && styles.selectedDayCell,
+                          !isTargetMonth && styles.otherMonthDay
+                        ]}
+                        onPress={() => {
+                          setSelectedDate(date);
+                          const dateKey = formatDate(date);
+                          const dayEvents = calendarEvents[dateKey] || [];
+
+                          router.push({
+                            pathname: '/day-events',
+                            params: {
+                              date: date.toISOString(),
+                              eventsData: JSON.stringify(dayEvents)
+                            }
+                          });
+                        }}
+                      >
+                        <Text style={[
+                          styles.dayNumber,
+                          isSelected && styles.selectedDayNumber,
+                          !isTargetMonth && styles.otherMonthDayNumber
+                        ]}>
+                          {date.getDate()}
+                        </Text>
+                        {dayEvents.map((event, eventIndex) => (
+                          <View
+                            key={eventIndex}
+                            style={[
+                              styles.eventIndicator,
+                              { backgroundColor: event.color }
+                            ]}
+                          >
+                            <Text style={styles.eventText} numberOfLines={2}>{event.title}</Text>
+                          </View>
+                        ))}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            </View>
+          );
+        })}
 
 
       </ScrollView>
@@ -798,6 +888,12 @@ export default function ExploreScreen() {
                               )}
                               {user?.userType === 'vendor' && (
                                 <View style={styles.vendorActions}>
+                                  <TouchableOpacity
+                                    style={styles.iconButton}
+                                    onPress={() => sendManualReminder(event)}
+                                  >
+                                    <Ionicons name="notifications-outline" size={18} color="#F59E0B" />
+                                  </TouchableOpacity>
                                   <TouchableOpacity
                                     style={styles.iconButton}
                                     onPress={() => openEditEventModal(event)}
@@ -980,6 +1076,11 @@ export default function ExploreScreen() {
                     setShowStartTimePicker(false);
                     if (selectedTime) {
                       setStartTimeDate(selectedTime);
+
+                      // Always set End Time to Start Time + 1 hour
+                      const newEnd = new Date(selectedTime);
+                      newEnd.setHours(selectedTime.getHours() + 1);
+                      setEndTimeDate(newEnd);
                     }
                   }}
                 />
@@ -995,7 +1096,19 @@ export default function ExploreScreen() {
                   onChange={(event, selectedTime) => {
                     setShowEndTimePicker(false);
                     if (selectedTime) {
-                      setEndTimeDate(selectedTime);
+                      // Validate: Ensure End Time is after Start Time
+                      const startMinutes = startTimeDate.getHours() * 60 + startTimeDate.getMinutes();
+                      const endMinutes = selectedTime.getHours() * 60 + selectedTime.getMinutes();
+
+                      if (endMinutes <= startMinutes) {
+                        // If user tries to set end time earlier than start time, auto-reset to start + 1 hour
+                        const correctedEnd = new Date(startTimeDate);
+                        correctedEnd.setHours(startTimeDate.getHours() + 1);
+                        setEndTimeDate(correctedEnd);
+                        showError('End time adjusted to be after start time');
+                      } else {
+                        setEndTimeDate(selectedTime);
+                      }
                     }
                   }}
                 />
@@ -1027,6 +1140,29 @@ export default function ExploreScreen() {
                 style={styles.input}
               />
 
+              {/* Vendor Personal Reminder Options */}
+              <Text style={[styles.timeFormatLabel, { marginTop: 16, marginBottom: 8 }]}>Set My Reminder:</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+                {[30, 60, 1440].map((min) => (
+                  <TouchableOpacity
+                    key={min}
+                    style={[
+                      styles.timeFormatButton,
+                      creationReminderOffset === min && styles.timeFormatButtonActive,
+                      { borderWidth: 1, borderColor: '#ddd' }
+                    ]}
+                    onPress={() => setCreationReminderOffset(min)}
+                  >
+                    <Text style={[
+                      styles.timeFormatButtonText,
+                      creationReminderOffset === min && styles.timeFormatButtonTextActive
+                    ]}>
+                      {min === 30 ? '30 min' : min === 60 ? '1 hr' : '1 day'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
               {/* Action Buttons */}
               <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 12 }}>
                 <TouchableOpacity
@@ -1049,6 +1185,62 @@ export default function ExploreScreen() {
       </Modal>
 
 
+
+      {/* Booking Confirmation Modal */}
+      <Modal visible={isBookingModalVisible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Confirm Booking</Text>
+            {selectedBookingEvent && (
+              <View>
+                <Text style={{ fontSize: 16, marginBottom: 12 }}>
+                  Book <Text style={{ fontWeight: 'bold' }}>{selectedBookingEvent.title}</Text>?
+                </Text>
+                <Text style={{ fontSize: 14, color: '#666', marginBottom: 20 }}>
+                  Price: ${selectedBookingEvent.priceCents ? (selectedBookingEvent.priceCents / 100).toFixed(2) : '0.00'}
+                </Text>
+
+                <Text style={{ fontWeight: '600', marginBottom: 8 }}>Set Reminder:</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+                  {[30, 60, 1440].map((min) => (
+                    <TouchableOpacity
+                      key={min}
+                      style={[
+                        styles.timeFormatButton,
+                        reminderOffset === min && styles.timeFormatButtonActive,
+                        { borderWidth: 1, borderColor: '#ddd' }
+                      ]}
+                      onPress={() => setReminderOffset(min)}
+                    >
+                      <Text style={[
+                        styles.timeFormatButtonText,
+                        reminderOffset === min && styles.timeFormatButtonTextActive
+                      ]}>
+                        {min === 30 ? '30 min' : min === 60 ? '1 hr' : '1 day'}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.cancelButton]}
+                    onPress={() => setIsBookingModalVisible(false)}
+                  >
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.saveButton]}
+                    onPress={confirmBooking}
+                  >
+                    <Text style={styles.saveButtonText}>Confirm</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
 
       {/* Snackbar */}
       {snackbar.visible && (
@@ -1626,4 +1818,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 1000,
   },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginTop: 20
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  cancelButton: {
+    backgroundColor: '#f3f4f6',
+  },
+  saveButton: {
+    backgroundColor: '#22c55e',
+  },
+  cancelButtonText: {
+    color: '#374151',
+    fontWeight: '600'
+  },
+  saveButtonText: {
+    color: 'white',
+    fontWeight: '600'
+  }
 });

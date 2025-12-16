@@ -21,6 +21,7 @@ import { Snackbar } from '../../components/Snackbar';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSnackbar } from '../../contexts/SnackbarContext';
 import { apiService, User } from '../../services/api';
+import { scheduleEventNotification } from '../../services/notificationservice';
 
 export default function CreateEventScreen() {
   const { token, user } = useAuth();
@@ -40,6 +41,7 @@ export default function CreateEventScreen() {
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [creationReminderOffset, setCreationReminderOffset] = useState(30); // Default 30 min
 
   // User selection
   const [showUserSelection, setShowUserSelection] = useState(false);
@@ -112,8 +114,17 @@ export default function CreateEventScreen() {
         assignedUsers: Array.from(selectedUsers),
       };
 
-      await apiService.createEventWithAssignment(token || '', eventData);
+      const response = await apiService.createEventWithAssignment(token || '', eventData);
       showSuccess('Event created and users assigned successfully!');
+
+      // Schedule Local Notification for the Vendor (Host) - REMOVED per request
+      /*
+      try {
+        const triggerDate = new Date(startDate.getTime() - creationReminderOffset * 60 * 1000);
+        // ...
+      } catch (e) { ... }
+      */
+
       router.back();
     } catch (error: any) {
       showError(error.response?.data?.error || 'Failed to create event');
@@ -290,6 +301,8 @@ export default function CreateEventScreen() {
             </TouchableOpacity>
           </View>
 
+
+
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Assign Users</Text>
             <TouchableOpacity
@@ -339,7 +352,13 @@ export default function CreateEventScreen() {
                 maximumDate={maximumDate}
                 textColor="#2563EB"
                 onChange={(event, date) => {
-                  if (date) setStartDate(date);
+                  if (date) {
+                    setStartDate(date);
+                    // Always set End Time to Start Time + 1 hour when Start Time changes
+                    const newEnd = new Date(date);
+                    newEnd.setHours(date.getHours() + 1);
+                    setEndDate(newEnd);
+                  }
                 }}
               />
             </View>
@@ -356,7 +375,13 @@ export default function CreateEventScreen() {
           maximumDate={maximumDate}
           onChange={(event, date) => {
             setShowStartPicker(false);
-            if (date) setStartDate(date);
+            if (date) {
+              setStartDate(date);
+              // Always set End Time to Start Time + 1 hour
+              const newEnd = new Date(date);
+              newEnd.setHours(date.getHours() + 1);
+              setEndDate(newEnd);
+            }
           }}
         />
       )}
@@ -380,7 +405,17 @@ export default function CreateEventScreen() {
                 maximumDate={maximumDate}
                 textColor="#2563EB"
                 onChange={(event, date) => {
-                  if (date) setEndDate(date);
+                  if (date) {
+                    // Validate End Time
+                    if (date.getTime() <= startDate.getTime()) {
+                      const correctedEnd = new Date(startDate);
+                      correctedEnd.setHours(startDate.getHours() + 1);
+                      setEndDate(correctedEnd);
+                      showError('End time must be after start time');
+                    } else {
+                      setEndDate(date);
+                    }
+                  }
                 }}
               />
             </View>
@@ -397,7 +432,16 @@ export default function CreateEventScreen() {
           maximumDate={maximumDate}
           onChange={(event, date) => {
             setShowEndPicker(false);
-            if (date) setEndDate(date);
+            if (date) {
+              if (date.getTime() <= startDate.getTime()) {
+                const correctedEnd = new Date(startDate);
+                correctedEnd.setHours(startDate.getHours() + 1);
+                setEndDate(correctedEnd);
+                showError('End time must be after start time');
+              } else {
+                setEndDate(date);
+              }
+            }
           }}
         />
       )}
@@ -635,5 +679,25 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: '#000',
+  },
+  reminderOption: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#fff',
+  },
+  reminderOptionSelected: {
+    backgroundColor: '#EF4444',
+    borderColor: '#EF4444',
+  },
+  reminderOptionText: {
+    fontSize: 14,
+    color: '#374151',
+    fontWeight: '500',
+  },
+  reminderOptionTextSelected: {
+    color: 'white',
   },
 });

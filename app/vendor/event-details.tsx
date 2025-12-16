@@ -1,16 +1,18 @@
+
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Image,
-    RefreshControl,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  RefreshControl,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { Snackbar } from '../../components/Snackbar';
 import { useAuth } from '../../contexts/AuthContext';
@@ -64,6 +66,35 @@ export default function EventDetailsScreen() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
+  };
+
+  const sendManualReminder = async () => {
+    if (!eventId) {
+      showError('Error: Event ID is missing');
+      return;
+    }
+
+    Alert.alert(
+      'Send Reminders?',
+      'This will send a push notification to all users who accepted this event.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Send',
+          onPress: async () => {
+            try {
+              setIsLoading(true);
+              const res = await apiService.sendEventReminder(token || '', eventId);
+              showSuccess(`Sent reminders to ${res.count} users`);
+            } catch (error: any) {
+              showError('Failed to send reminders');
+            } finally {
+              setIsLoading(false);
+            }
+          }
+        }
+      ]
+    );
   };
 
   const getImageUrl = (imagePath?: string) => {
@@ -167,9 +198,14 @@ export default function EventDetailsScreen() {
           <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Event Assignments</Text>
-        <TouchableOpacity onPress={() => loadAssignments()}>
-          <Ionicons name="refresh" size={24} color="#EF4444" />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 16 }}>
+          <TouchableOpacity onPress={() => sendManualReminder()}>
+            <Ionicons name="notifications-outline" size={24} color="#EF4444" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => loadAssignments()}>
+            <Ionicons name="refresh" size={24} color="#EF4444" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {eventDetails && (

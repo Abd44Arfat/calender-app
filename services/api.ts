@@ -1,4 +1,5 @@
-const BASE_URL = 'https://quackplan2.ahmed-abd-elmohsen.tech';
+// const BASE_URL = 'https://quackplan2.ahmed-abd-elmohsen.tech';
+const BASE_URL = 'http://localhost:3000';
 
 export interface RegisterRequest {
   email: string;
@@ -64,6 +65,7 @@ export interface ProfileResponse {
       specializations: string[];
       verificationStatus: string;
       profilePicture?: string;
+      allowedVendors?: string[];
     };
     createdAt: string;
     updatedAt: string;
@@ -129,6 +131,7 @@ export interface UpdateProfileRequest {
     phone?: string;
     academyName?: string;
     specializations?: string[];
+    allowedVendors?: string[];
   };
 }
 
@@ -724,6 +727,15 @@ class ApiService {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ pushToken }),
+    });
+  }
+  // Send manual reminder to attendees (Vendor)
+  async sendEventReminder(token: string, eventId: string): Promise<any> {
+    return this.request<any>(`/api/events/${eventId}/remind`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
     });
   }
 }

@@ -507,6 +507,34 @@ const HomeScreen = () => {
     );
   };
 
+  const sendManualReminder = async (event: Event) => {
+    if (!token || user?.userType !== 'vendor') return;
+
+    Alert.alert(
+      'Send Event Reminder',
+      `Are you sure you want to send a reminder to all attendees for "${event.title}"?\n\nThis will notify everyone who has accepted this event.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Send Now',
+          onPress: async () => {
+            try {
+              setIsLoading(true);
+              // Ensure ID is string for API
+              const eventId = String(event.id || event._id);
+              await apiService.sendEventReminder(token, eventId);
+              showSuccess('Reminder sent successfully to all attendees!');
+            } catch (err: any) {
+              showError(err.message || 'Failed to send reminder');
+            } finally {
+              setIsLoading(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const formatTimeDisplay = (date: Date) => {
     if (use24HourFormat) {
       return date.toTimeString().slice(0, 5);
@@ -881,6 +909,11 @@ const HomeScreen = () => {
                     if (selectedTime) {
                       console.log('Start time changed to:', selectedTime);
                       setStartTime(new Date(selectedTime));
+
+                      // Auto-adjust end time to always be Start Time + 1 hour
+                      const newEnd = new Date(selectedTime);
+                      newEnd.setHours(selectedTime.getHours() + 1);
+                      setEndTime(newEnd);
                     }
                   }}
                 />
@@ -1124,6 +1157,26 @@ const HomeScreen = () => {
                     {(selectedEvent as any).isPersonal || (selectedEvent as any).type === 'personal' ? 'Personal Event' : 'Public Event'}
                   </Text>
                 </View>
+
+                {/* Vendor Actions for Professional Events */}
+                {user?.userType === 'vendor' && !((selectedEvent as any).isPersonal || (selectedEvent as any).type === 'personal') && (
+                  <View style={{ flexDirection: 'row', gap: 12, marginTop: 18, width: '100%' }}>
+                    <TouchableOpacity
+                      style={[styles.closeModalButton, { flex: 1, backgroundColor: '#F59E0B', borderWidth: 0 }]}
+                      onPress={() => sendManualReminder(selectedEvent as Event)}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? (
+                        <ActivityIndicator size="small" color="white" />
+                      ) : (
+                        <>
+                          <Ionicons name="notifications-outline" size={18} color="white" style={{ marginRight: 6 }} />
+                          <Text style={[styles.closeModalButtonText, { color: 'white' }]}>Remind All</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                )}
 
                 {/* Show Edit/Delete buttons ONLY for personal events */}
                 {((selectedEvent as any).isPersonal || (selectedEvent as any).type === 'personal') && (

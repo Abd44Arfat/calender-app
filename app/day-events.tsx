@@ -2,16 +2,24 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React from 'react';
 import {
+  ActivityIndicator,
+  Alert,
   FlatList,
-  SafeAreaView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '../contexts/AuthContext';
+import { useSnackbar } from '../contexts/SnackbarContext';
+import { apiService } from '../services/api';
 
 export default function DayEventsScreen() {
   const { date, eventsData } = useLocalSearchParams<{ date: string; eventsData: string }>();
+  const { user, token } = useAuth();
+  const { snackbar, showSuccess, showError } = useSnackbar();
+  const [loadingMap, setLoadingMap] = React.useState<{ [key: string]: boolean }>({});
 
   const events = eventsData ? JSON.parse(eventsData) : [];
   const selectedDate = date ? new Date(date) : new Date();
@@ -31,6 +39,33 @@ export default function DayEventsScreen() {
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+
+  const sendManualReminder = async (event: any) => {
+    if (!token || user?.userType !== 'vendor') return;
+
+    Alert.alert(
+      'Send Event Reminder',
+      `Are you sure you want to send a reminder to all attendees for "${event.title}"?\n\nThis will notify everyone who has accepted this event.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Send Now',
+          onPress: async () => {
+            try {
+              setLoadingMap(prev => ({ ...prev, [event._id || event.id]: true }));
+              const eventId = String(event._id || event.id);
+              await apiService.sendEventReminder(token, eventId);
+              showSuccess('Reminder sent successfully to all attendees!');
+            } catch (err: any) {
+              showError(err.message || 'Failed to send reminder');
+            } finally {
+              setLoadingMap(prev => ({ ...prev, [event._id || event.id]: false }));
+            }
+          }
+        }
+      ]
+    );
   };
 
   const handleEventPress = (event: any) => {
@@ -92,6 +127,21 @@ export default function DayEventsScreen() {
                 {isPersonal ? 'Personal' : 'Public'}
               </Text>
             </View>
+
+            {/* Vendor Manual Reminder Button */}
+            {!isPersonal && user?.userType === 'vendor' && (
+              <TouchableOpacity
+                style={styles.remindButton}
+                onPress={() => sendManualReminder(item)}
+                disabled={loadingMap[item._id || item.id]}
+              >
+                {loadingMap[item._id || item.id] ? (
+                  <ActivityIndicator size="small" color="#F59E0B" />
+                ) : (
+                  <Ionicons name="notifications-outline" size={20} color="#F59E0B" />
+                )}
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </TouchableOpacity>
@@ -126,6 +176,23 @@ export default function DayEventsScreen() {
           renderItem={renderEvent}
           contentContainerStyle={styles.listContainer}
         />
+      )}
+      {/* Snackbar */}
+      {snackbar.visible && (
+        <View
+          style={{
+            position: 'absolute',
+            top: 50,
+            left: 16,
+            right: 16,
+            backgroundColor: snackbar.type === 'error' ? '#EF4444' : '#10B981',
+            padding: 12,
+            borderRadius: 8,
+            zIndex: 100,
+          }}
+        >
+          <Text style={{ color: 'white', textAlign: 'center' }}>{snackbar.message}</Text>
+        </View>
       )}
     </SafeAreaView>
   );
@@ -241,5 +308,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#999',
     textAlign: 'center',
+  },
+  remindButton: {
+    padding: 8,
+    marginLeft: 12,
   },
 });

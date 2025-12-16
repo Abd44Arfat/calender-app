@@ -20,6 +20,7 @@ interface User {
     specializations: string[];
     verificationStatus: string;
     profilePicture?: string;
+    allowedVendors?: string[];
   };
   createdAt: string;
   updatedAt: string;
@@ -39,7 +40,7 @@ interface AuthContextType {
   resetPassword?: (payload: { email: string; otp: string; newPassword: string }) => Promise<any>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
-  
+
   // FIXED: Accept string | FormData, return response
   uploadProfileImage: (
     imageData: string | FormData
@@ -69,21 +70,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   useEffect(() => {
     loadStoredAuth();
-    
+
     // Check token expiry every minute
     const intervalId = setInterval(async () => {
       const tokenExpiry = await AsyncStorage.getItem('token_expiry');
       if (tokenExpiry) {
         const expiryTime = parseInt(tokenExpiry, 10);
         const currentTime = Date.now();
-        
+
         if (currentTime >= expiryTime) {
           console.log('🔒 Token expired, auto-logging out...');
           await logout();
         }
       }
     }, 60000); // Check every minute
-    
+
     // Check token expiry when app comes to foreground
     const handleAppStateChange = async (nextAppState: AppStateStatus) => {
       if (nextAppState === 'active') {
@@ -91,7 +92,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (tokenExpiry) {
           const expiryTime = parseInt(tokenExpiry, 10);
           const currentTime = Date.now();
-          
+
           if (currentTime >= expiryTime) {
             console.log('🔒 Token expired on app resume, auto-logging out...');
             await logout();
@@ -99,9 +100,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
       }
     };
-    
+
     const subscription = AppState.addEventListener('change', handleAppStateChange);
-    
+
     return () => {
       clearInterval(intervalId);
       subscription.remove();
@@ -113,11 +114,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const storedToken = await AsyncStorage.getItem('auth_token');
       const storedUser = await AsyncStorage.getItem('user_data');
       const tokenExpiry = await AsyncStorage.getItem('token_expiry');
-      
+
       if (storedToken && storedUser && tokenExpiry) {
         const expiryTime = parseInt(tokenExpiry, 10);
         const currentTime = Date.now();
-        
+
         // Check if token has expired
         if (currentTime >= expiryTime) {
           console.log('🔒 Token expired, logging out...');
@@ -139,18 +140,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       console.log('🔐 Starting login process...', data);
       setIsLoading(true);
-      
+
       const response = await apiService.login(data);
       console.log('🔐 Login response received:', response);
-      
+
       if (response.token && response.user) {
         console.log('✅ Login successful, storing data...');
         setToken(response.token);
         setUser(response.user);
-        
+
         // Calculate token expiry time (7 days from now)
         const expiryTime = Date.now() + (7 * 24 * 60 * 60 * 1000); // 7 days in milliseconds
-        
+
         // Store in AsyncStorage
         await AsyncStorage.setItem('auth_token', response.token);
         await AsyncStorage.setItem('user_data', JSON.stringify(response.user));
@@ -200,10 +201,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (response.token && response.user) {
         setToken(response.token);
         setUser(response.user);
-        
+
         // Calculate token expiry time (7 days from now)
         const expiryTime = Date.now() + (7 * 24 * 60 * 60 * 1000);
-        
+
         await AsyncStorage.setItem('auth_token', response.token);
         await AsyncStorage.setItem('user_data', JSON.stringify(response.user));
         await AsyncStorage.setItem('token_expiry', expiryTime.toString());
@@ -230,12 +231,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const refreshProfile = async () => {
     if (!token) return;
-    
+
     try {
       console.log('🔄 Refreshing profile...');
       const response = await apiService.getProfile(token);
       console.log('👤 Profile refreshed:', response);
-      
+
       setUser(response.user);
       await AsyncStorage.setItem('user_data', JSON.stringify(response.user));
     } catch (error: any) {
@@ -245,51 +246,51 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   // REPLACE the old uploadProfileImage with this:
-const uploadProfileImage = async (imageData: string | FormData) => {
-  if (!token) throw new Error('Authentication token missing');
+  const uploadProfileImage = async (imageData: string | FormData) => {
+    if (!token) throw new Error('Authentication token missing');
 
-  try {
-    console.log('Uploading profile image...', typeof imageData === 'string' ? imageData : '[FormData]');
+    try {
+      console.log('Uploading profile image...', typeof imageData === 'string' ? imageData : '[FormData]');
 
-    // Build FormData if input is URI string
-    let formData: FormData;
-    if (typeof imageData === 'string') {
-      formData = new FormData();
-      formData.append('image', {
-        uri: imageData,
-        type: 'image/jpeg',
-        name: 'profile.jpg',
-      } as any);
-    } else {
-      formData = imageData;
+      // Build FormData if input is URI string
+      let formData: FormData;
+      if (typeof imageData === 'string') {
+        formData = new FormData();
+        formData.append('image', {
+          uri: imageData,
+          type: 'image/jpeg',
+          name: 'profile.jpg',
+        } as any);
+      } else {
+        formData = imageData;
+      }
+
+      // Call API service (supports FormData)
+      const response = await apiService.uploadProfileImage(token, formData);
+
+      console.log('Upload success:', response);
+
+      // Update user state + AsyncStorage
+      if (user && response.profilePicture) {
+        const updatedUser = {
+          ...user,
+          profile: {
+            ...user.profile,
+            profilePicture: response.profilePicture,
+          },
+        };
+
+        setUser(updatedUser);
+        await AsyncStorage.setItem('user_data', JSON.stringify(updatedUser));
+        console.log('User updated with new profile picture');
+      }
+
+      return response;
+    } catch (error: any) {
+      console.error('Upload failed:', error);
+      throw new Error(error.message || 'Failed to upload image');
     }
-
-    // Call API service (supports FormData)
-    const response = await apiService.uploadProfileImage(token, formData);
-
-    console.log('Upload success:', response);
-
-    // Update user state + AsyncStorage
-    if (user && response.profilePicture) {
-      const updatedUser = {
-        ...user,
-        profile: {
-          ...user.profile,
-          profilePicture: response.profilePicture,
-        },
-      };
-
-      setUser(updatedUser);
-      await AsyncStorage.setItem('user_data', JSON.stringify(updatedUser));
-      console.log('User updated with new profile picture');
-    }
-
-    return response;
-  } catch (error: any) {
-    console.error('Upload failed:', error);
-    throw new Error(error.message || 'Failed to upload image');
-  }
-};
+  };
   const logout = async () => {
     try {
       setUser(null);
@@ -310,11 +311,11 @@ const uploadProfileImage = async (imageData: string | FormData) => {
     isAuthenticated,
     login,
     register,
-  // new methods
-  verifyEmail,
-  resendOtp,
-  forgotPassword,
-  resetPassword,
+    // new methods
+    verifyEmail,
+    resendOtp,
+    forgotPassword,
+    resetPassword,
     logout,
     refreshProfile,
     uploadProfileImage,
