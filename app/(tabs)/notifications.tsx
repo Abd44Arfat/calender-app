@@ -17,7 +17,7 @@ import { Snackbar } from '../../components/Snackbar';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { useSnackbar } from '../../contexts/SnackbarContext';
-import { apiService, EventAssignment } from '../../services/api';
+import { apiService, BASE_URL, EventAssignment } from '../../services/api';
 
 export default function NotificationsScreen() {
   const { token, user } = useAuth();
@@ -47,6 +47,7 @@ export default function NotificationsScreen() {
       if (token) {
         if (user?.userType === 'customer') {
           loadAssignments(true);
+          markAsRead();
         } else if (user?.userType === 'vendor') {
           loadVendorNotifications(true);
           markAsRead();
@@ -65,13 +66,27 @@ export default function NotificationsScreen() {
         setIsLoading(true);
       }
 
-      const response = await apiService.getMyAssignments(token, {
-        status: 'pending',
-        limit: 50,
-      });
+      // Fetch both assignments and notifications in parallel
+      const [assignmentsParams, notificationsParams] = await Promise.all([
+        apiService.getMyAssignments(token, {
+          status: 'pending',
+          limit: 50,
+        }),
+        apiService.getNotifications(token, {
+          limit: 100,
+        })
+      ]);
 
-      setAssignments(response.assignments || []);
+      setAssignments(assignmentsParams.assignments || []);
+
+      // Filter out assignments from general notifications to avoid duplicates if backend returns them
+      // and look for reminders/manual reminders
+      const notifications = notificationsParams.notifications || [];
+      console.log('Customer notifications:', notifications);
+      setVendorNotifications(notifications); // Using same state variable for simplicity
+
     } catch (error: any) {
+      console.error('Error loading data:', error);
       showError('Failed to load notifications');
     } finally {
       setIsLoading(false);
@@ -174,10 +189,64 @@ export default function NotificationsScreen() {
     );
   };
 
+  const renderCustomerNotification = ({ item }: { item: any }) => {
+    const payload = item.payload || {};
+    const isManual = payload.type === 'manual_reminder';
+    const isAuto = payload.type === 'event_reminder';
+
+    // If it's not a reminder we know, just return empty for now or generic view
+    if (!isManual && !isAuto) return null;
+
+    return (
+      <View style={styles.assignmentCard}>
+        <View style={styles.cardHeader}>
+          <View style={[styles.iconContainer, { backgroundColor: '#FEF2F2' }]}>
+            <Ionicons name="notifications" size={24} color="#EF4444" />
+          </View>
+
+          <View style={styles.headerInfo}>
+            <Text style={styles.eventTitle}>{payload.eventTitle}</Text>
+            <Text style={styles.actionText}>
+              {payload.message}
+            </Text>
+
+            <View style={styles.dateRow}>
+              <Ionicons name="time-outline" size={14} color="#999" />
+              <Text style={styles.dateText}>
+                {new Date(item.createdAt).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Optional Action Button */}
+        <TouchableOpacity
+          style={styles.viewDetailsButton}
+          onPress={() => {
+            if (payload.eventId) {
+              router.push({
+                pathname: '/event-details',
+                params: { eventId: payload.eventId }
+              });
+            }
+          }}
+        >
+          <Text style={styles.viewDetailsText}>View Event</Text>
+          <Ionicons name="arrow-forward" size={16} color="#EF4444" />
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   const getImageUrl = (imagePath?: string) => {
     if (!imagePath) return null;
     if (imagePath.startsWith('http')) return imagePath;
-    return `https://quackplan2.ahmed-abd-elmohsen.tech${imagePath}`;
+    return `${BASE_URL}${imagePath}`;
   };
 
   const renderVendorNotification = ({ item }: { item: any }) => {
@@ -329,12 +398,12 @@ export default function NotificationsScreen() {
     );
   }
 
-  // For customers, show event assignments
+  // For customers, show event assignments AND notifications
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Event Assignments</Text>
-        <TouchableOpacity onPress={() => loadAssignments()}>
+        <Text style={styles.headerTitle}>Notifications</Text>
+        <TouchableOpacity onPress={() => loadAssignments(true)}>
           <Ionicons name="refresh" size={24} color="#EF4444" />
         </TouchableOpacity>
       </View>
@@ -342,28 +411,48 @@ export default function NotificationsScreen() {
       {isLoading && !isRefreshing ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#EF4444" />
-          <Text style={styles.loadingText}>Loading assignments...</Text>
+          <Text style={styles.loadingText}>Loading...</Text>
         </View>
-      ) : assignments.length === 0 ? (
+      ) : (assignments.length === 0 && vendorNotifications.length === 0) ? (
         <View style={styles.emptyStateContainer}>
           <Ionicons name="notifications-off" size={80} color="#D1D5DB" />
-          <Text style={styles.emptyTitle}>No Pending Assignments</Text>
+          <Text style={styles.emptyTitle}>No Notifications</Text>
           <Text style={styles.emptyMessage}>You're all caught up!</Text>
         </View>
       ) : (
-        <FlatList
-          data={assignments}
-          keyExtractor={(item) => item._id}
-          renderItem={renderAssignment}
-          contentContainerStyle={styles.listContainer}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={() => loadAssignments(true)}
-              colors={['#EF4444']}
-            />
-          }
-        />
+        <View style={{ flex: 1 }}>
+          {assignments.length > 0 && (
+            <View>
+              <Text style={styles.sectionTitle}>Pending Invites</Text>
+              <FlatList
+                data={assignments}
+                keyExtractor={(item) => item._id}
+                renderItem={renderAssignment}
+                scrollEnabled={false}
+                contentContainerStyle={styles.listContainer}
+              />
+            </View>
+          )}
+
+          {vendorNotifications.length > 0 && (
+            <View style={{ flex: 1 }}>
+              <Text style={styles.sectionTitle}>Reminders & Alerts</Text>
+              <FlatList
+                data={vendorNotifications}
+                keyExtractor={(item) => item._id}
+                renderItem={renderCustomerNotification}
+                contentContainerStyle={styles.listContainer}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={isRefreshing}
+                    onRefresh={() => loadAssignments(true)}
+                    colors={['#EF4444']}
+                  />
+                }
+              />
+            </View>
+          )}
+        </View>
       )}
 
       <Snackbar
@@ -540,5 +629,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginTop: 2,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000',
+    marginTop: 16,
+    marginBottom: 8,
+    paddingHorizontal: 16,
   },
 });

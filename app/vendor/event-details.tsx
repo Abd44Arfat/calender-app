@@ -17,7 +17,7 @@ import {
 import { Snackbar } from '../../components/Snackbar';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSnackbar } from '../../contexts/SnackbarContext';
-import { apiService, EventAssignment } from '../../services/api';
+import { apiService, BASE_URL, EventAssignment } from '../../services/api';
 
 export default function EventDetailsScreen() {
   const { eventId } = useLocalSearchParams<{ eventId: string }>();
@@ -87,7 +87,8 @@ export default function EventDetailsScreen() {
               const res = await apiService.sendEventReminder(token || '', eventId);
               showSuccess(`Sent reminders to ${res.count} users`);
             } catch (error: any) {
-              showError('Failed to send reminders');
+              const msg = error.message || 'Failed to send reminders';
+              showError(msg);
             } finally {
               setIsLoading(false);
             }
@@ -100,7 +101,7 @@ export default function EventDetailsScreen() {
   const getImageUrl = (imagePath?: string) => {
     if (!imagePath) return null;
     if (imagePath.startsWith('http')) return imagePath;
-    return `https://quackplan2.ahmed-abd-elmohsen.tech${imagePath}`;
+    return `${BASE_URL}${imagePath}`;
   };
 
   const formatDate = (dateString: string) => {

@@ -21,7 +21,7 @@ import {
 import { Snackbar } from '../../components/Snackbar';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSnackbar } from '../../contexts/SnackbarContext';
-import { apiService } from '../../services/api';
+import { apiService, BASE_URL } from '../../services/api';
 
 export default function ProfileScreen() {
   let user, token, logout, refreshProfile, uploadProfileImage;
@@ -60,15 +60,15 @@ export default function ProfileScreen() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  // Trusted Vendors State
-  const [isTrustedVendorsModalVisible, setIsTrustedVendorsModalVisible] = useState(false);
+  // Blocked Vendors State
+  const [isBlockedVendorsModalVisible, setIsBlockedVendorsModalVisible] = useState(false);
   const [vendorsList, setVendorsList] = useState<any[]>([]);
-  const [trustedVendorIds, setTrustedVendorIds] = useState<string[]>([]); // Mock storage
+  const [blockedVendorIds, setBlockedVendorIds] = useState<string[]>([]);
 
   const fetchVendors = async () => {
     try {
       setIsLoading(true);
-      const res = await apiService.getAllUsers(token || '', { userType: 'vendor', limit: 50 });
+      const res = await apiService.getAllUsers(token || '', { userType: 'vendor', limit: 50, includeBlocked: true });
       setVendorsList(res.users || []);
     } catch (err) {
       console.warn('Failed to fetch vendors', err);
@@ -77,33 +77,52 @@ export default function ProfileScreen() {
     }
   };
 
-  // Initialize trusted vendors from user profile
+  // Initialize blocked vendors from user profile
   useEffect(() => {
-    if (user?.profile?.allowedVendors) {
-      setTrustedVendorIds(user.profile.allowedVendors);
+    if (user?.profile?.blockedVendors && Array.isArray(user.profile.blockedVendors)) {
+      console.log('📋 Initializing blocked vendors:', user.profile.blockedVendors);
+      setBlockedVendorIds(user.profile.blockedVendors);
+    } else {
+      console.log('📋 No blocked vendors, resetting to empty array');
+      setBlockedVendorIds([]);
     }
   }, [user]);
 
-  const toggleVendorTrust = async (vendorId: string) => {
+  const toggleVendorBlock = async (vendorId: string) => {
     try {
+      console.log('🔄 Toggling vendor block for:', vendorId);
+      console.log('📋 Current blocked IDs:', blockedVendorIds);
+
       // Optimistic update
-      const oldIds = [...trustedVendorIds];
+      const oldIds = [...blockedVendorIds];
       const newIds = oldIds.includes(vendorId)
         ? oldIds.filter(id => id !== vendorId)
         : [...oldIds, vendorId];
 
-      setTrustedVendorIds(newIds);
+      console.log('📋 New blocked IDs:', newIds);
+      setBlockedVendorIds(newIds);
 
       // Call API
-      await apiService.updateProfile(token || '', {
+      const response = await apiService.updateProfile(token || '', {
         profile: {
-          allowedVendors: newIds
+          blockedVendors: newIds
         }
       });
+
+      console.log('✅ Backend saved blocked vendors:', response?.user?.profile?.blockedVendors);
+
+      console.log('✅ Profile updated successfully');
       await refreshProfile();
+
+      showSuccess(oldIds.includes(vendorId) ? 'Vendor unblocked' : 'Vendor blocked');
     } catch (error) {
-      console.error('Failed to update trusted vendors', error);
-      showError('Failed to update trusted vendors');
+      console.error('❌ Failed to update blocked vendors', error);
+      showError('Failed to update blocked vendors');
+
+      // Rollback on error
+      if (user?.profile?.blockedVendors) {
+        setBlockedVendorIds(user.profile.blockedVendors);
+      }
     }
   };
 
@@ -111,7 +130,7 @@ export default function ProfileScreen() {
   const getImageUrl = (imagePath: string | undefined) => {
     if (!imagePath) return null;
     if (imagePath.startsWith('http')) return imagePath;
-    return `https://quackplan2.ahmed-abd-elmohsen.tech${imagePath}`;
+    return `${BASE_URL}${imagePath}`;
   };
 
   useEffect(() => {
@@ -300,9 +319,9 @@ export default function ProfileScreen() {
 
       deleteAccount: handleDeleteAccount,
       logout: handleLogout,
-      trustedVendors: () => {
+      blockedVendors: () => {
         fetchVendors();
-        setIsTrustedVendorsModalVisible(true);
+        setIsBlockedVendorsModalVisible(true);
       },
     };
     actions[action]?.();
@@ -344,7 +363,7 @@ export default function ProfileScreen() {
     { title: 'About', icon: 'information-circle-outline', action: 'about' },
     { title: 'Contact Us', icon: 'mail-outline', action: 'contact', subtitle: 'contact.quackplan@gmail.com' },
 
-    ...(user?.userType === 'customer' ? [{ title: 'Trusted Vendors', icon: 'shield-checkmark-outline', action: 'trustedVendors' }] : []),
+    ...(user?.userType === 'customer' ? [{ title: 'Blocked Vendors', icon: 'ban-outline', action: 'blockedVendors' }] : []),
     { title: 'Delete Account', icon: 'trash-outline', action: 'deleteAccount', color: '#EF4444' },
     { title: 'Logout', icon: 'log-out-outline', action: 'logout', color: '#EF4444' },
   ];
@@ -598,69 +617,82 @@ export default function ProfileScreen() {
         </View>
       </Modal>
 
-      {/* Trusted Vendors Modal */}
-      <Modal visible={isTrustedVendorsModalVisible} transparent animationType="slide">
+      {/* Blocked Vendors Modal */}
+      <Modal visible={isBlockedVendorsModalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Select Trusted Vendors</Text>
+            <Text style={styles.modalTitle}>Block Vendors</Text>
             <Text style={{ marginBottom: 12, color: '#666' }}>
-              Only selected vendors will be able to see your profile when creating events.
+              All vendors can see your profile by default. Select vendors you want to block from seeing your profile.
             </Text>
 
             <ScrollView style={{ maxHeight: 300 }} nestedScrollEnabled>
               {isLoading && vendorsList.length === 0 ? (
                 <ActivityIndicator color="#EF4444" />
               ) : (
-                vendorsList.map((vendor) => {
-                  const isTrusted = trustedVendorIds.includes(vendor._id);
-                  return (
-                    <TouchableOpacity
-                      key={vendor._id}
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        padding: 12,
-                        borderBottomWidth: 1,
-                        borderBottomColor: '#f3f4f6',
-                        backgroundColor: isTrusted ? '#FEF2F2' : 'white',
-                      }}
-                      onPress={() => toggleVendorTrust(vendor._id)}
-                    >
-                      {getImageUrl(vendor.profile.profilePicture) ? (
-                        <Image
-                          source={{ uri: getImageUrl(vendor.profile.profilePicture)! }}
-                          style={{ width: 40, height: 40, borderRadius: 20 }}
-                        />
-                      ) : (
-                        <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#eee', alignItems: 'center', justifyContent: 'center' }}>
-                          <Ionicons name="business" size={20} color="#666" />
+                vendorsList
+                  .sort((a, b) => {
+                    const isABlocked = blockedVendorIds.includes(a._id);
+                    const isBBlocked = blockedVendorIds.includes(b._id);
+                    // If both blocked or both unblocked, sort alphabetically
+                    if (isABlocked === isBBlocked) {
+                      const nameA = a.profile.academyName || a.profile.fullName || '';
+                      const nameB = b.profile.academyName || b.profile.fullName || '';
+                      return nameA.localeCompare(nameB);
+                    }
+                    // Show blocked first
+                    return isABlocked ? -1 : 1;
+                  })
+                  .map((vendor) => {
+                    const isBlocked = blockedVendorIds.includes(vendor._id);
+                    return (
+                      <TouchableOpacity
+                        key={vendor._id}
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          padding: 12,
+                          borderBottomWidth: 1,
+                          borderBottomColor: '#f3f4f6',
+                          backgroundColor: isBlocked ? '#FEE2E2' : 'white',
+                        }}
+                        onPress={() => toggleVendorBlock(vendor._id)}
+                      >
+                        {getImageUrl(vendor.profile.profilePicture) ? (
+                          <Image
+                            source={{ uri: getImageUrl(vendor.profile.profilePicture)! }}
+                            style={{ width: 40, height: 40, borderRadius: 20 }}
+                          />
+                        ) : (
+                          <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#eee', alignItems: 'center', justifyContent: 'center' }}>
+                            <Ionicons name="business" size={20} color="#666" />
+                          </View>
+                        )}
+                        <View style={{ flex: 1, marginLeft: 12 }}>
+                          <Text style={{ fontWeight: '600', fontSize: 16 }}>
+                            {vendor.profile.academyName || vendor.profile.fullName}
+                          </Text>
+                          <Text style={{ fontSize: 12, color: '#666' }}>
+                            {vendor.email}
+                          </Text>
                         </View>
-                      )}
-                      <View style={{ flex: 1, marginLeft: 12 }}>
-                        <Text style={{ fontWeight: '600', fontSize: 16 }}>
-                          {vendor.profile.academyName || vendor.profile.fullName}
-                        </Text>
-                        <Text style={{ fontSize: 12, color: '#666' }}>
-                          {vendor.email}
-                        </Text>
-                      </View>
-                      {isTrusted ? (
-                        <Ionicons name="checkbox" size={24} color="#EF4444" />
-                      ) : (
-                        <Ionicons name="square-outline" size={24} color="#ccc" />
-                      )}
-                    </TouchableOpacity>
-                  );
-                })
+                        {isBlocked ? (
+                          <Ionicons name="close-circle" size={24} color="#EF4444" />
+                        ) : (
+                          <Ionicons name="checkmark-circle-outline" size={24} color="#10B981" />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })
               )}
             </ScrollView>
 
             <View style={styles.modalButtons}>
               <TouchableOpacity
-                onPress={() => setIsTrustedVendorsModalVisible(false)}
+                onPress={() => setIsBlockedVendorsModalVisible(false)}
                 style={[styles.modalButton, styles.saveButton]}
               >
-                <Text style={styles.saveButtonText}>Done ({trustedVendorIds.length})</Text>
+                <Text style={styles.saveButtonText}>Done ({blockedVendorIds.length} blocked)</Text>
               </TouchableOpacity>
             </View>
           </View>

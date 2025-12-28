@@ -16,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Snackbar } from '../components/Snackbar';
 import { useAuth } from '../contexts/AuthContext';
 import { useSnackbar } from '../contexts/SnackbarContext';
-import { apiService } from '../services/api';
+import { apiService, BASE_URL } from '../services/api';
 import { scheduleEventNotification } from '../services/notificationservice';
 
 export default function EventDetailsScreen() {
@@ -245,7 +245,7 @@ export default function EventDetailsScreen() {
     // If it already starts with http, return as is
     if (imagePath.startsWith('http')) return imagePath;
     // Otherwise, prepend the base URL
-    return `https://quackplan2.ahmed-abd-elmohsen.tech${imagePath}`;
+    return `${BASE_URL}${imagePath}`;
   };
 
   const handleCallVendor = () => {

@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { useSnackbar } from '../../contexts/SnackbarContext';
-import { apiService } from '../../services/api';
+import { apiService, BASE_URL } from '../../services/api';
 import { scheduleEventNotification } from '../../services/notificationservice';
 
 interface Event {
@@ -655,7 +655,7 @@ export default function ExploreScreen() {
             <View style={styles.profilePic}>
               {user?.profile?.profilePicture ? (
                 <Image
-                  source={{ uri: `https://quackplan2.ahmed-abd-elmohsen.tech${user.profile.profilePicture}` }}
+                  source={{ uri: `${BASE_URL}${user.profile.profilePicture}` }}
                   style={{ width: 40, height: 40, borderRadius: 20 }}
                 />
               ) : (

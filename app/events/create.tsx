@@ -20,7 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Snackbar } from '../../components/Snackbar';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSnackbar } from '../../contexts/SnackbarContext';
-import { apiService, User } from '../../services/api';
+import { apiService, BASE_URL, User } from '../../services/api';
 import { scheduleEventNotification } from '../../services/notificationservice';
 
 export default function CreateEventScreen() {
@@ -136,7 +136,7 @@ export default function CreateEventScreen() {
   const getImageUrl = (imagePath?: string) => {
     if (!imagePath) return null;
     if (imagePath.startsWith('http')) return imagePath;
-    return `https://quackplan2.ahmed-abd-elmohsen.tech${imagePath}`;
+    return `${BASE_URL}${imagePath}`;
   };
 
   if (showUserSelection) {

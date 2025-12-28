@@ -64,12 +64,26 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
         try {
             if (user.userType === 'customer') {
-                // For customers, we can show pending assignments as "unread"
-                const response = await apiService.getMyAssignments(token, {
+                const assignmentsPromise = apiService.getMyAssignments(token, {
                     status: 'pending',
                     limit: 100,
                 });
-                setUnreadCount(response.assignments.length);
+                const notificationsPromise = apiService.getNotifications(token, { limit: 100 });
+
+                const [assignmentsRes, notificationsRes] = await Promise.all([assignmentsPromise, notificationsPromise]);
+
+                const pendingCount = (assignmentsRes.assignments || []).length;
+
+                // For regular notifications, check lastReadTime
+                const unreadNotifsCount = (notificationsRes.notifications || []).filter((n: any) => {
+                    const created = new Date(n.createdAt).getTime();
+                    // We only care about reminders here since assignments are counted separately
+                    const type = n.payload?.type || n.type;
+                    const isReminder = type === 'manual_reminder' || type === 'event_reminder';
+                    return isReminder && created > lastReadTime;
+                }).length;
+
+                setUnreadCount(pendingCount + unreadNotifsCount);
 
             } else if (user.userType === 'vendor') {
                 // For vendors, count new accepted/rejected notifications since last read

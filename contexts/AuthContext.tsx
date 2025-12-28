@@ -20,7 +20,7 @@ interface User {
     specializations: string[];
     verificationStatus: string;
     profilePicture?: string;
-    allowedVendors?: string[];
+    blockedVendors?: string[];
   };
   createdAt: string;
   updatedAt: string;

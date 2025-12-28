@@ -128,20 +128,7 @@ export default function DayEventsScreen() {
               </Text>
             </View>
 
-            {/* Vendor Manual Reminder Button */}
-            {!isPersonal && user?.userType === 'vendor' && (
-              <TouchableOpacity
-                style={styles.remindButton}
-                onPress={() => sendManualReminder(item)}
-                disabled={loadingMap[item._id || item.id]}
-              >
-                {loadingMap[item._id || item.id] ? (
-                  <ActivityIndicator size="small" color="#F59E0B" />
-                ) : (
-                  <Ionicons name="notifications-outline" size={20} color="#F59E0B" />
-                )}
-              </TouchableOpacity>
-            )}
+
           </View>
         </View>
       </TouchableOpacity>

@@ -22,7 +22,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import EventCard from '../../components/EventCard';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSnackbar } from '../../contexts/SnackbarContext';
-import { apiService } from '../../services/api';
+import { apiService, BASE_URL } from '../../services/api';
 import { scheduleEventNotification } from '../../services/notificationservice';
 
 // Change this value to adjust reminder offset
@@ -133,7 +133,7 @@ const HomeScreen = () => {
   const getImageUrl = (imagePath: string | undefined) => {
     if (!imagePath) return null;
     if (imagePath.startsWith('http')) return imagePath;
-    return `https://quackplan2.ahmed-abd-elmohsen.tech${imagePath}`;
+    return `${BASE_URL}${imagePath}`;
   };
 
   const getRandomColor = (seed: string) => {

@@ -1,5 +1,6 @@
 // const BASE_URL = 'https://quackplan2.ahmed-abd-elmohsen.tech';
-const BASE_URL = 'http://localhost:3000';
+// IMPORTANT: If testing on a real device, replace 'localhost' with your computer's IP address
+export const BASE_URL = 'http://localhost:3000';
 
 export interface RegisterRequest {
   email: string;
@@ -65,7 +66,7 @@ export interface ProfileResponse {
       specializations: string[];
       verificationStatus: string;
       profilePicture?: string;
-      allowedVendors?: string[];
+      blockedVendors?: string[];
     };
     createdAt: string;
     updatedAt: string;
@@ -131,7 +132,7 @@ export interface UpdateProfileRequest {
     phone?: string;
     academyName?: string;
     specializations?: string[];
-    allowedVendors?: string[];
+    blockedVendors?: string[];
   };
 }
 
@@ -599,6 +600,7 @@ class ApiService {
     search?: string;
     page?: number;
     limit?: number;
+    includeBlocked?: boolean;
   }): Promise<UsersResponse> {
     const query = new URLSearchParams();
     Object.entries(params || {}).forEach(([key, value]) => {
